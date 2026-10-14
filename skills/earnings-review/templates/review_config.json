@@ -1,0 +1,123 @@
+{
+ "primary_kpi": "kpi_1",
+ "primary_kpi_reason": "",
+ "product": "Earnings Review",
+ "scorecard": {
+  "bands": [
+   {
+    "label": "Key Financial Metrics (units as stated per row)",
+    "rows": [
+     "revenue",
+     "ebit",
+     "eps",
+     "etr"
+    ]
+   },
+   {
+    "label": "Top Operating KPIs (units as stated per row)",
+    "rows": [
+     "kpi_1",
+     "kpi_2",
+     "margin_1",
+     "ocf"
+    ]
+   }
+  ],
+  "guide_date_label": "(<prior guide date>)"
+ },
+ "evolution": {
+  "bands": [
+   {
+    "label": "A. TOP LINE (reported)",
+    "rows": [
+     {
+      "id": "revenue",
+      "yoy": "native"
+     },
+     {
+      "id": "ebit",
+      "yoy": true
+     },
+     {
+      "id": "eps",
+      "yoy": true
+     }
+    ]
+   },
+   {
+    "label": "B. OPERATING KPIs (reported)",
+    "rows": [
+     {
+      "id": "kpi_1",
+      "yoy": true
+     },
+     {
+      "id": "kpi_2",
+      "yoy": true
+     },
+     {
+      "id": "margin_1",
+      "yoy": true,
+      "yoy_label": "Y/Y Change"
+     }
+    ]
+   },
+   {
+    "label": "C. CASH AND CAPITAL (reported)",
+    "rows": [
+     {
+      "id": "cash"
+     },
+     {
+      "id": "debt"
+     },
+     {
+      "id": "buyback"
+     },
+     {
+      "id": "shares"
+     }
+    ]
+   }
+  ]
+ },
+ "guidance": {
+  "rows": [
+   "kpi_1",
+   "kpi_2",
+   "margin_1"
+  ],
+  "eps_row": "eps",
+  "eps_actual_text": null,
+  "revenue_row": {
+   "id": "revenue",
+   "implied": null,
+   "implied_label": "implied*"
+  },
+  "band_label": "<nQyy> print against the <date> guide and the frozen consensus  |  <next> new guide (<date>) against the consensus it faces",
+  "col_prior": "Guide <nQyy>",
+  "col_prior_sub": "(<prior guide date>)",
+  "col_new": "New guide <next>",
+  "col_new_sub": "(<new guide date>)",
+  "frozen_tag": "frozen <date>",
+  "post_tag": "post-print"
+ },
+ "guide_vs_frozen": {
+  "metric": "eps",
+  "forward": "eps_next_q"
+ },
+ "implied": [],
+ "derived": [
+  {
+   "id": "margin_1_yoy",
+   "expr": "bp(vp('margin_1', cur), vp('margin_1', prior_year(cur)))",
+   "fmt": "bps"
+  },
+  {
+   "id": "kpi_1_new_mid_seq",
+   "expr": "pct(mid(M['kpi_1']['guide_new']), vp('kpi_1', cur))",
+   "fmt": "pcn0"
+  }
+ ],
+ "footer": null
+}

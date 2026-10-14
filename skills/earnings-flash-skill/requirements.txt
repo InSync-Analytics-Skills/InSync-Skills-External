@@ -1,0 +1,3 @@
+# earnings-flash-skill: Python standard library only - nothing to install.
+# Optional: pdfplumber, used only by references/check_masthead.py on a rendered PDF.
+# pdfplumber

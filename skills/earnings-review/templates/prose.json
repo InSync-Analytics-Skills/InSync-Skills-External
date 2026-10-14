@@ -1,0 +1,88 @@
+{
+ "_doc": "Every number is a {token} from computed.json (see references/pipeline-contracts.md). {token|c} colours by sign. Verbatim quotes live in data.json quotes and are cited as {q.key}. Write per references/writing-standard.md: factual lead-ins, two sentences (what changed; why it matters), no monitoring clauses outside 'monitor', no inline labels, no typed figures anywhere.",
+ "the_print": [
+  "EPS {eps.actual} vs {eps.consensus} consensus: {eps.surprise|c}; {eps.vs_guide|c} vs the {eps.guide_prior} guide midpoint.",
+  "Revenue {revenue.actual} vs {revenue.consensus} consensus: {revenue.surprise|c}. <Driver KPI> {kpi_1.actual} vs {kpi_1.guide_prior} guided ({kpi_1.yoy|c} Y/Y).",
+  "<Margin line> {margin_1.actual} ({margin_1.seq|c} {period.seq_label}, {margin_1.yoy|c} Y/Y); <cost line>.",
+  "{period.next} EPS guided {eps.guide_new}, midpoint {guide.mid_vs_frozen|c} vs the frozen {period.next} consensus of {guide.frozen}; <full-year change>.",
+  "Post-print: {period.next} EPS consensus {fwd.eps_next_q.chg|c}, next fiscal year {fwd.eps_fy1.chg|c}."
+ ],
+ "summary": [
+  {
+   "lead": "<Metric and direction; reference>.",
+   "text": "<What changed, with one or two tokens>. <Why it matters, in judgment verbs>."
+  },
+  {
+   "lead": "<Metric and direction; reference>.",
+   "text": "<What changed>. <Why it matters>."
+  },
+  {
+   "lead": "<Metric and direction; reference>.",
+   "text": "<What changed>. <Why it matters>."
+  }
+ ],
+ "scorecard_comments": {
+  "revenue": "<MISS|BEAT|IN LINE>; …",
+  "ebit": "…",
+  "eps": "…",
+  "etr": "…",
+  "kpi_1": "…",
+  "kpi_2": "…",
+  "margin_1": "…",
+  "ocf": "Not comparable: …"
+ },
+ "scorecard_note": "Consensus = {consensus.source} pre-print snapshot dated on or before {consensus.frozen_date} (contributors in brackets); † = two or fewer contributors, graded and flagged. Beat/(Miss) and vs Guide in % for $ lines, bps for rates; colour marks sign only.",
+ "what_changed": [
+  {
+   "change": "<same change 1 as summary>",
+   "facts": "<reported figures with tokens>",
+   "mgmt": "{q.q1}",
+   "view": "<nature and significance>"
+  },
+  {
+   "change": "<same change 2>",
+   "facts": "…",
+   "mgmt": "{q.q2}",
+   "view": "…"
+  },
+  {
+   "change": "<same change 3>",
+   "facts": "…",
+   "mgmt": "{q.q3}",
+   "view": "…"
+  }
+ ],
+ "guidance_read": "The {period.next} EPS guide sits {guide.mid_vs_frozen|c} below/above the frozen consensus at the midpoint and {guide.high_vs_frozen|c} at the top of the range; <what the guide implies>. <Full-year implication>.",
+ "revisions_tail": "<one closing sentence on where consensus now sits vs the guide>.",
+ "tone": {
+  "prior_label": "<prior quarter> call (<date>)",
+  "this_label": "<this quarter> call (<date>)",
+  "rows": [
+   {
+    "dim": "<dimension>",
+    "prior": "{q.<prior call quote key>}",
+    "this": "{q.<this call quote key>}"
+   }
+  ],
+  "note": "<one sentence>"
+ },
+ "monitor": [
+  {
+   "lead": "<Topic>:",
+   "text": "<metric vs threshold; date>."
+  },
+  {
+   "lead": "<Topic>:",
+   "text": "…"
+  },
+  {
+   "lead": "<Topic>:",
+   "text": "…"
+  },
+  {
+   "lead": "<Topic>:",
+   "text": "…"
+  }
+ ],
+ "source": "<Company> {period} earnings release (<date, timing>) and call transcript (<date>) via the InSync document store; prior periods from InSync actuals (fiscal basis). Consensus: one pre-print vintage, {consensus.source} snapshot dated on or before {consensus.frozen_date}. Post-print revisions ({consensus.post_date}) shown separately. Prices: InSync adjusted closes; market cap, EV and NTM multiples: InSync, {consensus.post_date}, on adjusted earnings. Guidance: InSync guidance database, each range verified against the release and both transcripts. Gaps: <list>. All arithmetic recalculated in code. Prepared <date>. Not investment advice: no house view, no rating, no price target."
+}

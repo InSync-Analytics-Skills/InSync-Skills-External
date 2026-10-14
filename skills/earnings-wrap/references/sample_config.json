@@ -1,0 +1,591 @@
+{
+ "ticker": "EXSC",
+ "company": "Example Semiconductor Corp",
+ "quarter": "1Q27",
+ "prepared": "Jul 24, 2026",
+ "reported": "May 20, 2026",
+ "primaryKpi": "Data Center Revenue",
+ "spineProbe": {
+  "revenue": {
+   "ltcode": "IS_P_101",
+   "lineitem": "Total Revenue",
+   "yoyNonNull": true
+  },
+  "eps": {
+   "ltcode": "IS_P_128",
+   "lineitem": "EPS (Ex-1x Items)",
+   "yoyNonNull": true
+  }
+ },
+ "sectorProfile": {
+  "subindustry": "Semiconductors and Semiconductor Equipment",
+  "row": "semiconductors",
+  "resolution": "table",
+  "marginLtcode": "IS_P_106-M",
+  "marginProved": true,
+  "guidanceLive": true,
+  "guidanceSource": "get_guidance",
+  "guidanceVariable": "next-quarter revenue and gross margin",
+  "coreDebate": "AI and data-center demand structural versus cyclical, and inventory",
+  "substitutions": []
+ },
+ "result": "Revenue and EPS beat and DC rose 68%, but shares fell 2.4% on a high bar.",
+ "resultColor": "DARK",
+ "summary": [
+  [
+   "What happened",
+   [
+    "Revenue of $32.40B beat consensus by 3.8%.",
+    "Adjusted EPS of $2.14 beat the $2.02 Street by 5.9%.",
+    "Data Center revenue of $24.30B rose 67.6% Y/Y."
+   ]
+  ],
+  [
+   "What changed",
+   [
+    "Adjusted gross margin held at 64.2%, roughly flat sequentially.",
+    "Management guided 2Q27 revenue to $35.0B (±2%)."
+   ]
+  ],
+  [
+   "Market reaction",
+   [
+    "Positive: adjusted EPS of $2.14 topped the $2.02 consensus.",
+    "Negative: Data Center growth slowed to 15.2% Q/Q as the base scaled.",
+    "Net: shares fell 2.4% to $142.30 as the beat cleared a very high bar."
+   ]
+  ],
+  [
+   "Key debate",
+   [
+    "Whether Data Center growth sustains as quarterly revenue nears $35B."
+   ]
+  ]
+ ],
+ "variant": [
+  [
+   "Street view (before earnings)",
+   [
+    "Consensus modeled $31.20B revenue and $2.02 adjusted EPS.",
+    "Data Center had no clean published quarterly consensus."
+   ]
+  ],
+  [
+   "What changed",
+   [
+    "The 5.9% EPS beat came on volume and operating leverage.",
+    "Networking scaled to $5.60B, up 93.1% Y/Y."
+   ]
+  ],
+  [
+   "Potential variant",
+   [
+    "Dollar additions stay the largest ever even as percentage growth normalizes."
+   ]
+  ],
+  [
+   "Variant Assessment",
+   [
+    "Partially Supported. Revenue beat 3.8% and margin held firm.",
+    "Growth-rate decel is real: Data Center rose 15.2% Q/Q versus a faster prior quarter."
+   ]
+  ]
+ ],
+ "snapshot": {
+  "head": [
+   "Metric",
+   "Actual",
+   "Change"
+  ],
+  "w": [
+   4400,
+   2500,
+   2500
+  ],
+  "rows": [
+   [
+    "Data Center revenue (Primary KPI)",
+    "$24.30B",
+    "+67.6%",
+    "Data Center Revenue"
+   ],
+   [
+    "Networking - DC (Key KPI)",
+    "$5.60B",
+    "+93.1%",
+    "Networking - DC Revenue"
+   ],
+   [
+    "Adj gross margin (Key Margin)",
+    "64.2%",
+    "+6.1pp",
+    "Adj Gross Margin (%)"
+   ],
+   [
+    "Total revenue",
+    "$32.40B",
+    "+60.0%",
+    "Total Revenue"
+   ],
+   [
+    "Adj EPS",
+    "$2.14",
+    "+50.7%",
+    "Adj EPS (Ex-1x Items)"
+   ],
+   [
+    "Stock reaction",
+    "-2.4%",
+    "May 21 print"
+   ],
+   [
+    "Current price",
+    "$136.50",
+    "Jul 23 close"
+   ]
+  ]
+ },
+ "snapshotCap": "[A] reported actual; [E] pre-print consensus (as of May 20, 2026). Data Center and margin have no clean quarterly consensus. Source: InSync MCP. FYE January.",
+ "results": [
+  {
+   "band": "Key Financial Metrics",
+   "rows": [
+    {
+     "name": "Total Revenue",
+     "a": 32.4,
+     "c": 31.2046,
+     "py": 20.25,
+     "pq": 28.8,
+     "u": "$B"
+    },
+    {
+     "name": "Adj EPS (Ex-1x Items)",
+     "a": 2.14,
+     "c": 2.0213,
+     "py": 1.42,
+     "pq": 1.96,
+     "u": "$"
+    },
+    {
+     "name": "Adj Gross Margin (%)",
+     "a": 64.2,
+     "c": null,
+     "py": 58.1,
+     "pq": 63.8,
+     "u": "%"
+    },
+    {
+     "name": "Adj EBIT Margin (%)",
+     "a": 41.5,
+     "c": null,
+     "py": 35.2,
+     "pq": 40.6,
+     "u": "%"
+    }
+   ]
+  },
+  {
+   "band": "Top Operating KPIs",
+   "rows": [
+    {
+     "name": "Data Center Revenue",
+     "a": 24.3,
+     "c": null,
+     "py": 14.5,
+     "pq": 21.1,
+     "u": "$B"
+    },
+    {
+     "name": "Networking - DC Revenue",
+     "a": 5.6,
+     "c": null,
+     "py": 2.9,
+     "pq": 4.7,
+     "u": "$B"
+    }
+   ]
+  }
+ ],
+ "resultsCap": "Consensus is the latest pre-print InSync mean (May 20, 2026). Data Center, networking and margin have no clean quarterly consensus. Non-GAAP (ex-1x) where applicable.",
+ "takeaway": "Revenue beat 3.8% and EPS 5.9% with Data Center up 68% Y/Y. Shares fell 2.4% as the print cleared a high bar.",
+ "drove": [
+  "**Data Center.** Revenue reached $24.30B, up 15.2% Q/Q on AI accelerator demand.",
+  "**Networking.** Networking revenue rose 93.1% Y/Y to $5.60B as systems attach grew.",
+  "**Margin.** Adjusted EBIT margin reached 41.5%, up 6.3pp Y/Y on scale.",
+  "**Mix.** Rack-scale systems drove the sequential revenue step-up."
+ ],
+ "kpiHier": [
+  [
+   "Primary KPI",
+   [
+    "Data Center revenue of $24.30B is the core driver at three quarters of revenue."
+   ]
+  ],
+  [
+   "Secondary KPIs",
+   [
+    "Networking DC revenue is the fastest-growing sub-segment.",
+    "Adjusted EBIT margin of 41.5% reflects operating scale."
+   ]
+  ],
+  [
+   "Supporting",
+   [
+    "Adjusted gross margin anchors profitability."
+   ]
+  ]
+ ],
+ "kpiTable": {
+  "quarters": [
+   "1Q26",
+   "2Q26",
+   "3Q26",
+   "4Q26",
+   "1Q27"
+  ],
+  "rows": [
+   {
+    "name": "Data Center revenue",
+    "u": "$B",
+    "kind": "level",
+    "vals": [
+     14.5,
+     15.9,
+     17.6,
+     21.1,
+     24.3
+    ]
+   },
+   {
+    "name": "Networking - DC revenue",
+    "u": "$B",
+    "kind": "level",
+    "vals": [
+     2.9,
+     3.6,
+     4.1,
+     4.7,
+     5.6
+    ]
+   },
+   {
+    "name": "Adj gross margin",
+    "u": "%",
+    "kind": "rate",
+    "vals": [
+     58.1,
+     61.4,
+     62.9,
+     63.8,
+     64.2
+    ]
+   },
+   {
+    "name": "Adj EBIT margin",
+    "u": "%",
+    "kind": "rate",
+    "vals": [
+     35.2,
+     37.6,
+     39.1,
+     40.6,
+     41.5
+    ]
+   }
+  ],
+  "note": "Values by quarter with the printed-quarter Y/Y (level = % change, rate = pp change). Source: InSync MCP."
+ },
+ "kpiCap": "[A] reported actuals. Segment revenue in $B; margins in %. Source: InSync MCP.",
+ "guidanceTone": "Guidance - tone: Strong (2Q27 revenue guided to $35.0B)",
+ "guidance": [
+  "**Revenue.** 2Q27 revenue guided to $35.0B (±2%), above the current quarter.",
+  "**Margin.** 2Q27 adjusted gross margin guided to 64.5% (±0.5%).",
+  "**Implication.** The new guide sits above the $34.20B Street mean and extends the AI build cycle."
+ ],
+ "guidanceTable": {
+  "head": [
+   "Guide Metric",
+   "Prior [G]",
+   "New [G]",
+   "Pre-print [E]",
+   "Post-print [E]"
+  ],
+  "rows": [
+   [
+    "Revenue",
+    {
+     "v": 31.0,
+     "u": "$B",
+     "note": "(±2%)"
+    },
+    {
+     "v": 35.0,
+     "u": "$B",
+     "note": "(±2%)"
+    },
+    "n/a",
+    {
+     "v": 34.2,
+     "u": "$B"
+    }
+   ],
+   [
+    "Adj gross margin",
+    {
+     "v": 63.5,
+     "u": "%",
+     "note": "(±0.5%)"
+    },
+    {
+     "v": 64.5,
+     "u": "%",
+     "note": "(±0.5%)"
+    },
+    "n/a",
+    {
+     "v": 64.2,
+     "u": "%"
+    }
+   ],
+   [
+    "Adj opex",
+    {
+     "v": 4.1,
+     "u": "$B"
+    },
+    {
+     "v": 4.4,
+     "u": "$B"
+    },
+    "n/a",
+    {
+     "v": 4.3,
+     "u": "$B"
+    }
+   ]
+  ],
+  "w": [
+   3000,
+   2000,
+   2000,
+   1420,
+   1420
+  ]
+ },
+ "guidanceTableCap": "Prior is the 1Q27 bar. New is the 2Q27 guide issued on the call. Consensus is the post-print Street mean for 2Q27. Source: InSync MCP.",
+ "mgmt": [
+  "**Guidance.** Management guided 2Q27 revenue to $35.0B (±2%).",
+  "**Margin.** Management guided 2Q27 gross margin to 64.5% (±0.5%).",
+  "**Demand.** Management cited broad-based AI compute and networking demand.",
+  "**Capital.** Management reaffirmed the $0.10 quarterly dividend."
+ ],
+ "monitor": [
+  {
+   "metric": "Data Center growth",
+   "fact": "rose about 15% Q/Q.",
+   "monitor": "whether the sequential rate holds as the base scales."
+  },
+  {
+   "metric": "Gross margin",
+   "fact": "held near 64%.",
+   "monitor": "whether it stays near 64% as mix shifts to systems."
+  },
+  {
+   "metric": "Networking",
+   "fact": "grew 93.1% Y/Y.",
+   "monitor": "attach rate as rack-scale systems ship."
+  },
+  {
+   "metric": "Guidance execution",
+   "fact": "the 2Q27 guide sits above the $34.20B Street mean.",
+   "monitor": "whether the company beats the guide as usual."
+  },
+  {
+   "metric": "Valuation",
+   "fact": "trades at 22.4x NTM P/E.",
+   "monitor": "whether sustained growth holds the multiple."
+  }
+ ],
+ "valNote": [
+  "Metric basis: NTM P/E, EV/Sales and FCF yield for semiconductors."
+ ],
+ "valTable": {
+  "head": [
+   "Metric",
+   "Current",
+   "3Y Avg",
+   "Peer Median",
+   "Basis"
+  ],
+  "rows": [
+   [
+    "NTM P/E",
+    {
+     "v": 22.4,
+     "u": "x"
+    },
+    {
+     "v": 27.1,
+     "u": "x"
+    },
+    {
+     "v": 23.8,
+     "u": "x"
+    },
+    "InSync NTM"
+   ],
+   [
+    "EV/Sales (NTM)",
+    {
+     "v": 8.3,
+     "u": "x"
+    },
+    {
+     "v": 11.0,
+     "u": "x"
+    },
+    {
+     "v": 6.1,
+     "u": "x"
+    },
+    "InSync NTM"
+   ],
+   [
+    "FCF Yield (NTM)",
+    {
+     "v": 3.8,
+     "u": "%"
+    },
+    {
+     "v": 3.1,
+     "u": "%"
+    },
+    {
+     "v": 4.0,
+     "u": "%"
+    },
+    "InSync NTM"
+   ],
+   [
+    "Price",
+    {
+     "v": 136.5,
+     "u": "$"
+    },
+    "",
+    "",
+    "Jul 23, 2026 close"
+   ],
+   [
+    "52-week range",
+    {
+     "lo": 104.2,
+     "hi": 158.9,
+     "u": "$"
+    },
+    "",
+    "",
+    "adjusted close"
+   ]
+  ],
+  "w": [
+   2600,
+   2100,
+   1600,
+   1700,
+   1440
+  ]
+ },
+ "sources": "Sources: InSync MCP (actuals, estimates, guidance, valuation, market data). [A] actual; [E] InSync consensus; [G] guidance. For information purposes only; not investment advice.",
+ "kpiUniverse": [
+  "Accelerator - Revenue",
+  "Client - Revenue By Segment",
+  "Compute - Data Center Revenue",
+  "Data Center - Revenue By Segment",
+  "Networking - Data Center Revenue"
+ ],
+ "kpiProvenance": "mcp_top_kpi",
+ "consensusProbe": {
+  "asOf": "2026-05-20",
+  "window": "Bundled FIXTURE for install verification, not a live pull: the company and every figure are made up. Segment ltcodes are marked SD_FIXTURE_* so they cannot be mistaken for real InSync codes. Shape is authoritative; values are not.",
+  "probed": [
+   {
+    "name": "Total Revenue",
+    "ltcode": "IS_P_101",
+    "found": 31.2046,
+    "brokers": 28
+   },
+   {
+    "name": "Adj EPS (Ex-1x Items)",
+    "ltcode": "IS_P_128",
+    "found": 2.0213,
+    "brokers": 28
+   },
+   {
+    "name": "Adj Gross Margin (%)",
+    "ltcode": "IS_P_106-M",
+    "found": null,
+    "evidence": "get_estimates as-of Apr 1 to May 19, 2026 returned zero rows; re-probed alone over the full quarter and with latest enabled, still empty."
+   },
+   {
+    "name": "Adj EBIT Margin (%)",
+    "ltcode": "IS_P_110-M",
+    "found": null,
+    "evidence": "get_estimates as-of Apr 1 to May 19, 2026 returned zero rows; re-probed alone over the full quarter and with latest enabled, still empty."
+   },
+   {
+    "name": "Data Center Revenue",
+    "ltcode": "SD_FIXTURE_DC",
+    "found": null,
+    "evidence": "no quarterly segment estimate series in the fixture; wide-window and latest probes both empty."
+   },
+   {
+    "name": "Networking - DC Revenue",
+    "ltcode": "SD_FIXTURE_NET",
+    "found": null,
+    "evidence": "no quarterly segment estimate series in the fixture; wide-window and latest probes both empty."
+   }
+  ]
+ },
+ "priceBasis": {
+  "currency": "USD",
+  "asOf": "2026-07-23",
+  "reactionSession": "2026-05-21",
+  "currencyConsistent": true,
+  "note": "every session in the window returned CURRENCY USD"
+ },
+ "secondaryKpi": "Networking - Data Center Revenue",
+ "guidanceBasis": "quarter-bar",
+ "revisionsScope": "Revenue, adjusted EPS and Data Center were checked for a post-print mean; consensus had not revised since the print, so no revision grid is shown.",
+ "identityProbe": {
+  "ticker": "EXSC",
+  "company": "Example Semiconductor Corp",
+  "tickerId": null,
+  "matchType": "exact_ticker",
+  "latestFiscalQuarter": "1Q27",
+  "_fixture": "Bundled FIXTURE for install verification, not a live search_tickerid pull: the company is made up. The SHAPE is authoritative; tickerId is null because no live resolution stands behind it."
+ },
+ "guidanceFreshness": {
+  "callDate": "2026-05-20",
+  "newestGuideDate": "2026-05-20",
+  "rowsReturned": null,
+  "releaseFile": null,
+  "guidanceSource": "get_guidance",
+  "_backfilled": "v7.11.0: this worked example predates v7.10.0 and carried none of the guidance-freshness contract, so `preflight.py` failed on the shipped sample with 'no guidanceFreshness block'. callDate is this file's own `reported` date. newestGuideDate is set equal to it because the captured build passed under v7.9.0, which implies the guides were current at the print; it was not separately observed."
+ },
+ "guidanceConsensusProbe": {
+  "asOf": "2026-05-20",
+  "postAsOf": "2026-05-20",
+  "window": "not re-probed",
+  "probed": [
+   {
+    "name": "(fixture migration)",
+    "ltcode": "n/a",
+    "found": null,
+    "brokers": 0,
+    "evidence": "captured before the pre-print forward probe existed. NOT re-probed: the snapshot that stood when management guided was never pulled for this worked example, and inventing one would put a fabricated figure in the sample every build is checked against. Every Pre-print [E] cell therefore prints 'n/a' - genuinely unavailable, not suppressed."
+   }
+  ]
+ },
+ "documentAttempts": null
+}

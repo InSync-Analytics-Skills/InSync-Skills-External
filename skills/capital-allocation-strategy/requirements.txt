@@ -1,0 +1,5 @@
+# capital-allocation-strategy runtime deps (compute is stdlib-only; renderer needs python-docx)
+python-docx>=1.1,<2
+
+# Optional, for the test suites only (pytest tests/). Not needed to produce a report.
+# pytest>=7

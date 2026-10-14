@@ -1,0 +1,489 @@
+{
+ "version": "7.13.1",
+ "note": "The sector spine, as data. Decisions 2 to 4 of Step 0 - primary margin metric, guidance variable, core debate - keyed on the insync_subindustry returned by search_tickerid. `match` holds the substrings the classification is tested against, longest-specific first; the first row that matches wins and `default` is the fallback. This file is the single source for every skill in the library, the same way common/brand.json is the single source for the masthead: a row added here reaches all of them. It is a FALLBACK, not the authority - get_guidance and get_actuals win where they answer.",
+ "rows": [
+  {
+   "id": "banking",
+   "match": [
+    "banking"
+   ],
+   "margin": "NIM (FTE) `IS_P_204`",
+   "guidance": "Net Interest Income (FTE)",
+   "debate": "NII durability vs credit normalization / capital return"
+  },
+  {
+   "id": "institutional financial",
+   "match": [
+    "institutional financial"
+   ],
+   "margin": "pre-tax margin `IS_P_118-M`",
+   "guidance": "markets & fee revenue",
+   "debate": "markets/fees structural vs cyclical"
+  },
+  {
+   "id": "asset management",
+   "match": [
+    "asset management"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "AUM & net flows",
+   "debate": "flows & fee-rate pressure"
+  },
+  {
+   "id": "specialty finance",
+   "match": [
+    "specialty finance"
+   ],
+   "margin": "pre-tax margin (pre-provision for a lender) `IS_P_118-M`",
+   "guidance": "net interest income, purchase volume, net charge-off rate",
+   "debate": "credit normalization vs spend growth"
+  },
+  {
+   "id": "insurance (underwriter)",
+   "match": [
+    "insurance"
+   ],
+   "margin": "combined ratio `SD_P_103`",
+   "guidance": "premium growth & combined ratio",
+   "debate": "underwriting discipline vs pricing cycle"
+  },
+  {
+   "id": "insurance (broker, no `IS_P_403`)",
+   "match": [
+    "insurance"
+   ],
+   "margin": "adjusted operating margin `IS_P_110-M`",
+   "guidance": "organic revenue growth + margin",
+   "debate": "organic growth durability vs fiduciary-income roll-off"
+  },
+  {
+   "id": "health care facilities / managed care (payor)",
+   "match": [
+    "health care facilities"
+   ],
+   "margin": "**MLR** `IS_P_903`",
+   "guidance": "MLR / medical cost trend + FY EPS",
+   "debate": "medical cost trend vs pricing"
+  },
+  {
+   "id": "health care facilities (hospital / distributor / CRO, no `IS_P_903`)",
+   "match": [
+    "health care facilities"
+   ],
+   "margin": "adjusted operating margin (gross margin for a distributor) `IS_P_110-M`",
+   "guidance": "segment revenue + FY EPS",
+   "debate": "volume and mix vs cost, or generic deflation for a distributor"
+  },
+  {
+   "id": "medical equipment",
+   "match": [
+    "medical equipment"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "organic growth & margin",
+   "debate": "procedure volumes / new-product cycle"
+  },
+  {
+   "id": "biotech and pharma",
+   "match": [
+    "biotech",
+    "pharma"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "key-product revenue + FY EPS",
+   "debate": "key-drug ramp vs pipeline/patent risk"
+  },
+  {
+   "id": "semiconductors",
+   "match": [
+    "semiconductor"
+   ],
+   "margin": "**gross margin** `IS_P_106-M`",
+   "guidance": "next-Q revenue + gross margin",
+   "debate": "AI/data-center structural vs cyclical; inventory"
+  },
+  {
+   "id": "technology hardware",
+   "match": [
+    "technology hardware"
+   ],
+   "margin": "gross margin `IS_P_106-M`",
+   "guidance": "next-Q revenue + gross margin",
+   "debate": "unit demand / mix / cycle"
+  },
+  {
+   "id": "software / technology services",
+   "match": [
+    "software",
+    "technology services"
+   ],
+   "margin": "**FCF margin** `CF_P_110-M`",
+   "guidance": "revenue + recurring (ARR/bookings) growth",
+   "debate": "growth durability vs valuation / AI disruption"
+  },
+  {
+   "id": "internet media",
+   "match": [
+    "internet media"
+   ],
+   "margin": "EBITDA margin `IS_P_114-M`",
+   "guidance": "revenue growth & engagement",
+   "debate": "monetization compounding vs decel"
+  },
+  {
+   "id": "entertainment content",
+   "match": [
+    "entertainment content"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "subscriber & revenue growth",
+   "debate": "subs vs content spend"
+  },
+  {
+   "id": "machinery / electrical equip / diversified industrial / aerospace / E&C",
+   "match": [
+    "machinery",
+    "electrical equip",
+    "diversified industrial",
+    "aerospace",
+    "engineering and construction"
+   ],
+   "margin": "**operating margin (ex-1x)** `IS_P_110-M`",
+   "guidance": "FY revenue, segment margin, backlog/orders",
+   "debate": "backlog structural vs late-cycle"
+  },
+  {
+   "id": "transportation & logistics",
+   "match": [
+    "transportation and logistics"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "volume & yield",
+   "debate": "freight cycle / pricing"
+  },
+  {
+   "id": "transportation equipment",
+   "match": [
+    "transportation equipment"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "segment revenue growth and segment EBITDA",
+   "debate": "the truck and off-highway cycle versus power-systems and data-centre demand"
+  },
+  {
+   "id": "commercial support services",
+   "match": [
+    "commercial support services"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "revenue, adjusted EBITDA margin and free cash flow",
+   "debate": "organic yield versus volume, and the cost of fleet and disposal capex"
+  },
+  {
+   "id": "industrial support services",
+   "match": [
+    "industrial support services"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "revenue, adjusted EBITDA and net rental capex",
+   "debate": "fleet productivity and used-equipment values versus the construction cycle"
+  },
+  {
+   "id": "automotive",
+   "match": [
+    "automotive"
+   ],
+   "margin": "adjusted automotive EBIT margin `IS_P_148-M`",
+   "guidance": "deliveries or wholesale units + segment EBIT",
+   "debate": "volume/pricing vs cost"
+  },
+  {
+   "id": "REIT",
+   "match": [
+    "reit"
+   ],
+   "margin": "FFO margin / same-store NOI `IS_P_177`",
+   "guidance": "FFO/share + same-store NOI",
+   "debate": "occupancy/rate vs rate-sensitivity"
+  },
+  {
+   "id": "real estate services (not REIT)",
+   "match": [
+    "real estate services"
+   ],
+   "margin": "adjusted EBITDA margin `IS_P_114-M`",
+   "guidance": "segment fee revenue + margin",
+   "debate": "transaction cycle vs recurring services mix"
+  },
+  {
+   "id": "real estate owners and developers (not REIT)",
+   "match": [
+    "real estate owners"
+   ],
+   "margin": "**EBIT margin** `IS_P_109-M` (reported; mark with an asterisk)",
+   "guidance": "segment operating profit, vacancy rate, condominium units and DPS",
+   "debate": "NAV and capital recycling versus vacancy and rate sensitivity"
+  },
+  {
+   "id": "oil & gas producers / integrated / midstream",
+   "match": [
+    "oil and gas producers",
+    "midstream",
+    "integrated"
+   ],
+   "margin": "EBITDA margin `IS_P_114-M`",
+   "guidance": "production & capex",
+   "debate": "capital discipline vs commodity leverage"
+  },
+  {
+   "id": "oil & gas services and equipment",
+   "match": [
+    "oil and gas services"
+   ],
+   "margin": "adjusted EBITDA margin by segment `IS_P_114-M`",
+   "guidance": "revenue + segment margin, backlog / bookings",
+   "debate": "activity and pricing cycle vs cost absorption"
+  },
+  {
+   "id": "telecommunications",
+   "match": [
+    "telecommunications"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "service revenue growth, free cash flow, and the subscriber guide the issuer actually publishes",
+   "debate": "subscriber growth versus price and cost discipline; convergence and fixed wireless"
+  },
+  {
+   "id": "electric utilities",
+   "match": [
+    "electric utilities"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "rate-base & EPS growth",
+   "debate": "rate-base vs regulatory/rate risk"
+  },
+  {
+   "id": "renewable energy",
+   "match": [
+    "renewable energy"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "MW or GW sold, revenue and gross profit",
+   "debate": "bookings and ASP versus cost per watt, and policy or tax-credit dependence"
+  },
+  {
+   "id": "chemicals / containers",
+   "match": [
+    "chemicals",
+    "containers"
+   ],
+   "margin": "EBITDA margin `IS_P_114-M`",
+   "guidance": "volume & margin",
+   "debate": "cycle trough / input costs"
+  },
+  {
+   "id": "metals and mining",
+   "match": [
+    "metals and mining"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "mined and sold production volumes by metal, plus capex",
+   "debate": "volume and grade versus realised price, and capital discipline"
+  },
+  {
+   "id": "steel",
+   "match": [
+    "steel"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "next-quarter earnings direction by segment, plus total shipments",
+   "debate": "realised price and the metal spread versus shipment volume"
+  },
+  {
+   "id": "construction materials",
+   "match": [
+    "construction materials"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "adjusted EBITDA, plus aggregates volume and freight-adjusted price",
+   "debate": "the price and cost spread versus the volume cycle"
+  },
+  {
+   "id": "home construction",
+   "match": [
+    "home construction"
+   ],
+   "margin": "gross margin `IS_P_106-M`",
+   "guidance": "orders/closings & margin",
+   "debate": "rates & affordability vs demand"
+  },
+  {
+   "id": "retail (staples/discretionary), e-commerce, wholesale",
+   "match": [
+    "retail",
+    "e-commerce",
+    "wholesale"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "comparable sales (SSS) + margin",
+   "debate": "comps durability, traffic vs ticket, margin"
+  },
+  {
+   "id": "leisure facilities / consumer services",
+   "match": [
+    "leisure facilities"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "comps/RevPAR + unit growth",
+   "debate": "demand resilience / unit economics",
+   "note": "`consumer services` deliberately NOT matched here: see the consumer-services row."
+  },
+  {
+   "id": "food / beverages / household products",
+   "match": [
+    "food",
+    "beverages",
+    "household products"
+   ],
+   "margin": "operating margin `IS_P_110-M`",
+   "guidance": "organic sales + margin",
+   "debate": "volume vs price, input costs"
+  },
+  {
+   "id": "apparel / leisure products",
+   "match": [
+    "apparel",
+    "leisure products"
+   ],
+   "margin": "gross margin `IS_P_106-M`",
+   "guidance": "revenue + gross margin",
+   "debate": "brand demand / inventory"
+  },
+  {
+   "id": "default",
+   "match": [
+    "default"
+   ],
+   "margin": "operating margin (ex-1x) `IS_P_110-M`",
+   "guidance": "revenue + EPS",
+   "debate": "growth vs valuation"
+  },
+  {
+   "id": "oil and gas supply chain",
+   "match": [
+    "oil and gas supply chain"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "production volumes, unit operating cost and capex",
+   "debate": "production and unit cost versus the commodity price",
+   "verifiedOn": "Proved on a gas producer: IS_P_114-M returns. Guides liquids production, LOE per Mcfe, D&C and land capex, gas mix. No revenue guide and no EPS guide."
+  },
+  {
+   "id": "industrial intermediate products",
+   "match": [
+    "industrial intermediate"
+   ],
+   "margin": "**gross margin** `IS_P_106-M`",
+   "guidance": "revenue and gross margin",
+   "debate": "volume and price versus input cost, and acquisition contribution",
+   "verifiedOn": "Proved on a bearings maker: IS_P_106-M returns and the company GUIDES it. top_kpi empty, so KPIs come from Tier 3."
+  },
+  {
+   "id": "home and office products",
+   "match": [
+    "home and office products"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "segment revenue growth and adjusted EPS, often as a direction rather than a number",
+   "debate": "volume and price versus input cost across workplace and residential end markets",
+   "verifiedOn": "Proved on an office-furniture maker: IS_P_114-M returns. Guides Y/Y adjusted EPS and Y/Y segment revenue qualitatively (\"double-digit\", \"low single-digit\")."
+  },
+  {
+   "id": "gas and water utilities",
+   "match": [
+    "gas and water utilities"
+   ],
+   "margin": "**EBIT margin** `IS_P_109-M` (reported; mark with an asterisk)",
+   "guidance": "adjusted EPS, capex and DPS",
+   "debate": "rate-base growth and regulatory recovery versus capex funding",
+   "verifiedOn": "Proved on a gas utility: the whole adjusted ladder is EMPTY. IS_P_109-M and IS_P_113-M are the only margins that return."
+  },
+  {
+   "id": "advertising and marketing",
+   "match": [
+    "advertising and marketing"
+   ],
+   "margin": "**adjusted EBIT margin** `IS_P_110-M`",
+   "guidance": "organic revenue growth",
+   "debate": "organic growth durability versus client concentration and AI disruption",
+   "verifiedOn": "Proved on an advertising holding company: IS_P_110-M returns. Guides % organic total revenue, ETR, D&A, amortization, buyback. No headline revenue or EPS guide."
+  },
+  {
+   "id": "publishing and broadcasting",
+   "match": [
+    "publishing and broadcasting"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "digital subscription revenue growth and digital advertising growth",
+   "debate": "subscriber growth and ARPU versus content and cost inflation",
+   "verifiedOn": "Proved on a news publisher: IS_P_114-M returns. Guides Y/Y subscription revenue, Y/Y digital subscription revenue and Y/Y digital advertising, plus costs and capex."
+  },
+  {
+   "id": "forestry, paper and wood products",
+   "match": [
+    "forestry",
+    "paper and wood"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "segment EBITDA and segment revenue",
+   "debate": "product price and volume versus mill cost, and housing demand",
+   "verifiedOn": "Proved on a building-products maker: IS_P_114-M returns. Guides consolidated EBITDA, segment revenue, segment EBITDA and segment EBITDA margin, capex."
+  },
+  {
+   "id": "tobacco and cannabis",
+   "match": [
+    "tobacco"
+   ],
+   "margin": "**adjusted EBIT margin** `IS_P_110-M`",
+   "guidance": "organic revenue growth and adjusted EPS",
+   "debate": "the smoke-free transition versus combustible volume decline and pricing",
+   "verifiedOn": "Proved on a tobacco company: IS_P_110-M returns. Guides adjusted EPS, % organic revenue, ETR and the FX impact on EPS."
+  },
+  {
+   "id": "cable and satellite",
+   "match": [
+    "cable and satellite"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "the subscriber and net-add lines the issuer publishes; MANY GUIDE NOTHING, in which case say so and frame off the KPIs",
+   "debate": "broadband and video subscriber losses versus ARPU and cost discipline",
+   "verifiedOn": "Proved on a cable operator: IS_P_114-M returns. get_guidance can return NOTHING - an issuer in this row may publish no guidance at all."
+  },
+  {
+   "id": "consumer services (education, funeral, market research)",
+   "match": [
+    "consumer services"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "revenue, adjusted EBITDA and the volume driver the issuer publishes (enrollments, interments)",
+   "debate": "enrollment or volume growth versus pricing and cost",
+   "verifiedOn": "Proved on an education company: IS_P_114-M returns. Guides revenue, adjusted EBITDA, constant-currency growth and Total Enrollments. This row EXISTS because the label is education and services, not leisure - routing it to the leisure row gave it a RevPAR and unit-growth guide it does not report."
+  },
+  {
+   "id": "electric and gas marketing and trading",
+   "match": [
+    "marketing and trading"
+   ],
+   "margin": "**adjusted EBITDA margin** `IS_P_114-M`",
+   "guidance": "segment adjusted EBITDA and capex",
+   "debate": "supply margin normalisation versus infrastructure and optimisation earnings",
+   "verifiedOn": "Proved on an energy supplier: IS_P_114-M returns. Guides segment EBITDA, an opex reduction target and capex. Half-yearly filer."
+  }
+ ],
+ "default": {
+  "id": "default",
+  "margin": "operating margin (ex-1x) IS_P_110-M `IS_P_110-M`",
+  "guidance": "revenue + EPS",
+  "debate": "growth vs valuation"
+ }
+}

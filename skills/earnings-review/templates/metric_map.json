@@ -1,0 +1,125 @@
+{
+ "_note": "Pattern only. One line item per metric is graded (basis lock): list adjusted first, reported fallback. 'better' is required for every graded line whose code is not in assets/polarity_registry.json (here: ETR, and the KPI placeholders). guide_ltcode only when the guide is stored on the same line item under another code; omit it otherwise.",
+ "revenue": {
+  "label": "Total Revenue",
+  "fmt": "bn",
+  "kind": "level",
+  "ltcode": [
+   "IS_P_101"
+  ],
+  "unit": "m",
+  "forward": true,
+  "native_yoy_ltcode": "IS_P_101-Y"
+ },
+ "ebit": {
+  "label": "Operating Income (adj.)",
+  "fmt": "bn",
+  "kind": "level",
+  "ltcode": [
+   "IS_P_110",
+   "IS_P_109"
+  ],
+  "unit": "m"
+ },
+ "eps": {
+  "label": "EPS (diluted)",
+  "fmt": "usd2",
+  "kind": "level",
+  "ltcode": [
+   "IS_P_128",
+   "IS_P_127"
+  ],
+  "unit": "num",
+  "forward": true
+ },
+ "etr": {
+  "label": "Effective Tax Rate",
+  "fmt": "pct1",
+  "kind": "rate",
+  "ltcode": [
+   "IS_P_122",
+   "IS_P_121"
+  ],
+  "unit": "pct",
+  "better": "lower"
+ },
+ "shares": {
+  "label": "Diluted Shares (M)",
+  "fmt": "num1",
+  "kind": "level",
+  "ltcode": [
+   "IS_P_126",
+   "IS_P_125"
+  ],
+  "unit": "m"
+ },
+ "cash": {
+  "label": "Cash",
+  "fmt": "bn",
+  "kind": "level",
+  "ltcode": [
+   "BS_P_141"
+  ],
+  "unit": "m"
+ },
+ "debt": {
+  "label": "Total Debt",
+  "fmt": "bn",
+  "kind": "level",
+  "ltcode": [
+   "BS_P_114"
+  ],
+  "unit": "m"
+ },
+ "buyback": {
+  "label": "Shares Repurchased",
+  "fmt": "bn",
+  "kind": "level",
+  "ltcode": [
+   "CF_P_101"
+  ],
+  "unit": "m"
+ },
+ "ocf": {
+  "label": "Operating Cash Flow",
+  "fmt": "bn",
+  "kind": "level",
+  "ltcode": [
+   "CF_P_108"
+  ],
+  "unit": "m"
+ },
+ "kpi_1": {
+  "label": "<driver KPI 1, e.g. Deliveries (homes)>",
+  "fmt": "int",
+  "kind": "level",
+  "ltcode": [
+   "<KM_P_…>"
+  ],
+  "unit": "count",
+  "guide_ltcode": "<KM_P_…>",
+  "better": "higher"
+ },
+ "kpi_2": {
+  "label": "<driver KPI 2, e.g. Average Sales Price ($k)>",
+  "fmt": "knum",
+  "kind": "level",
+  "ltcode": [
+   "<KM_P_…>"
+  ],
+  "unit": "k",
+  "guide_ltcode": "<KM_P_…>",
+  "better": "higher"
+ },
+ "margin_1": {
+  "label": "<primary margin, e.g. Gross Margin on Home Sales>",
+  "fmt": "pct1",
+  "kind": "rate",
+  "ltcode": [
+   "<SD_S_…>"
+  ],
+  "unit": "pct",
+  "guide_ltcode": "<SD_S_…>",
+  "better": "higher"
+ }
+}

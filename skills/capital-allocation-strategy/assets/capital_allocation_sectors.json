@@ -1,0 +1,423 @@
+{
+ "_doc": "Sector adaptation registry for the capital-allocation-strategy skill. Match order: (1) company industry (broad bucket from the master/search_tickerid) against match_industries; (2) fall back to classification (granular) against match_classifications; (3) else _default. Each profile tunes priority_levers (section emphasis), scorecard_weights (weighted Overall score), leverage_metric + roic_framework (valid balance-sheet/return lenses), suppress (analyses not meaningful for the sector), and classification_hint. Vocabulary verified against a 620-company master (not bundled) on 2026-07-22. This file only sets emphasis, labels, and weights; it never fabricates data.",
+ "_default": {
+  "label": "Generic",
+  "priority_levers": [
+   "Buybacks",
+   "Dividends",
+   "Capex",
+   "M&A",
+   "Balance Sheet"
+  ],
+  "leverage_metric": "Net Debt / EBITDA",
+  "roic_framework": "ROIC",
+  "suppress": [],
+  "narrative_lens": "Assess whether cash generated is returned, reinvested, or retained, and whether the mix earns a return above the cost of capital.",
+  "scorecard_weights": {
+   "buybacks": 1,
+   "dividends": 1,
+   "m_and_a": 1,
+   "capex": 1,
+   "balance_sheet": 1,
+   "capital_discipline": 1,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "FCF conversion",
+   "Total payout ratio",
+   "ROIC vs WACC",
+   "Leverage",
+   "Share count trend"
+  ]
+ },
+ "Software": {
+  "label": "Software & Technology",
+  "match_industries": [
+   "Software and Tech Services",
+   "Tech Hardware and Semiconductors",
+   "Media",
+   "Technology"
+  ],
+  "match_classifications": [
+   "Software",
+   "Technology Services",
+   "Technology Hardware",
+   "Semiconductors",
+   "Internet Media and Services",
+   "Entertainment Content",
+   "Publishing and Broadcasting",
+   "Advertising and Marketing",
+   "Cable and Satellite"
+  ],
+  "priority_levers": [
+   "Buybacks",
+   "Growth & AI Capex",
+   "M&A",
+   "FCF Conversion"
+  ],
+  "leverage_metric": "Net Debt / EBITDA",
+  "roic_framework": "ROIC",
+  "suppress": [],
+  "narrative_lens": "Software/TMT: cash is largely discretionary. The debate is buybacks vs AI/data-center capex vs M&A. Watch FCF conversion (FCF / Net Income), SBC-adjusted buyback (are repurchases merely offsetting dilution?), and whether escalating AI capex earns an incremental return above cost of capital.",
+  "scorecard_weights": {
+   "buybacks": 2,
+   "dividends": 0.5,
+   "m_and_a": 1.5,
+   "capex": 1.5,
+   "balance_sheet": 1,
+   "capital_discipline": 1.5,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "FCF Conversion (FCF/NI)",
+   "SBC as % of Revenue",
+   "Buyback net of dilution",
+   "AI/Growth capex intensity",
+   "Incremental ROIC"
+  ]
+ },
+ "Banks": {
+  "label": "Banks & Financials",
+  "match_industries": [
+   "Financials",
+   "Financial Services",
+   "Banking"
+  ],
+  "match_classifications": [
+   "Banking",
+   "Specialty Finance"
+  ],
+  "priority_levers": [
+   "Buybacks",
+   "Dividends",
+   "CET1 Ratio",
+   "Tangible Book Value Growth"
+  ],
+  "leverage_metric": "CET1 Ratio",
+  "roic_framework": "ROTCE",
+  "suppress": [
+   "capex",
+   "m_and_a_multiple"
+  ],
+  "narrative_lens": "Banks: capital return is governed by regulatory capital (CET1) and stress-test capacity, not FCF. Judge total payout ratio (buyback + dividend / net income), CET1 headroom vs requirement, tangible book value per share growth, and ROTCE vs cost of equity. Capex is immaterial; do not score it.",
+  "scorecard_weights": {
+   "buybacks": 2,
+   "dividends": 2,
+   "m_and_a": 0.5,
+   "capex": 0,
+   "balance_sheet": 2,
+   "capital_discipline": 1.5,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "CET1 ratio vs requirement",
+   "Total payout ratio",
+   "Tangible book value/share growth",
+   "ROTCE vs cost of equity"
+  ],
+  "exclude_classifications": [
+   "Asset Management",
+   "Institutional Financial Services"
+  ],
+  "_classification_note": "Institutional Financial Services is EXCLUDED, not matched. It is the feed's label for advisory and capital-markets firms, which have no loan book, no CET1 and no risk-weighted assets - an advisory firm was templated as a bank and resolved CET1 as its leverage metric while returning no results for CET1, RWA or total debt. Asset Management was excluded after the same failure with a large asset manager. The routing precondition in sector_router.py is the backstop for the general case; this list handles the two labels known to mis-sweep."
+ },
+ "Industrials": {
+  "label": "Industrials & Materials",
+  "match_industries": [
+   "Industrial Products",
+   "Industrial Services",
+   "Industrials",
+   "Materials"
+  ],
+  "match_classifications": [
+   "Electrical Equipment",
+   "Machinery",
+   "Aerospace and Defense",
+   "Transportation and Logistics",
+   "Diversified Industrials",
+   "Engineering and Construction",
+   "Commercial Support Services",
+   "Chemicals",
+   "Containers and Packaging",
+   "Construction Materials",
+   "Metals and Mining",
+   "Steel",
+   "Industrial Support Services",
+   "Transportation Equipment",
+   "Industrial Intermediate Prod"
+  ],
+  "priority_levers": [
+   "Capex",
+   "Acquisitions",
+   "Backlog Investment",
+   "Shareholder Returns"
+  ],
+  "leverage_metric": "Net Debt / EBITDA",
+  "roic_framework": "ROIC",
+  "suppress": [],
+  "narrative_lens": "Industrials: reinvestment economics dominate. Judge maintenance vs growth capex, whether capex is expanding capacity/backlog, acquisition multiples and integration, and whether ROIC exceeds WACC through the cycle. Balance returns against cyclical balance-sheet resilience.",
+  "scorecard_weights": {
+   "buybacks": 1,
+   "dividends": 1,
+   "m_and_a": 1.5,
+   "capex": 2,
+   "balance_sheet": 1.5,
+   "capital_discipline": 1.5,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "Capex intensity (capex/revenue)",
+   "Maintenance vs growth capex",
+   "Acquisition multiples & integration",
+   "Backlog/order growth",
+   "Through-cycle ROIC vs WACC"
+  ]
+ },
+ "Energy": {
+  "label": "Energy & Utilities",
+  "match_industries": [
+   "Oil and Gas",
+   "Energy",
+   "Utilities",
+   "Renewable Energy"
+  ],
+  "match_classifications": [
+   "Oil and Gas Producers",
+   "Oil and Gas Services and Equipment",
+   "Electric Utilities",
+   "Renewable Energy",
+   "Gas and Water Utilities",
+   "Oil and Gas Supply Chain"
+  ],
+  "priority_levers": [
+   "FCF Allocation",
+   "Buybacks",
+   "Dividends",
+   "Production Growth"
+  ],
+  "leverage_metric": "Net Debt / EBITDA",
+  "roic_framework": "ROCE",
+  "suppress": [],
+  "narrative_lens": "Energy: the framework is the FCF waterfall and the shareholder-return framework (base + variable dividend, buyback). Judge breakeven discipline, reinvestment rate (capex/CFO), production/reserve growth, and whether returns are sustainable across the commodity cycle rather than only at peak prices. Utilities: rate-base growth capex is the value driver, funded by a mix of retained earnings, debt, and equity.",
+  "scorecard_weights": {
+   "buybacks": 1.5,
+   "dividends": 1.5,
+   "m_and_a": 1,
+   "capex": 1.5,
+   "balance_sheet": 1.5,
+   "capital_discipline": 2,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "Reinvestment rate (capex/CFO)",
+   "Breakeven / rate-base growth",
+   "Production/reserve growth",
+   "Variable vs base dividend",
+   "Through-cycle FCF"
+  ]
+ },
+ "Healthcare": {
+  "label": "Health Care",
+  "match_industries": [
+   "Health Care"
+  ],
+  "match_classifications": [
+   "Medical Equipment and Devices",
+   "Health Care Facilities and Services",
+   "Biotech and Pharma"
+  ],
+  "priority_levers": [
+   "Buybacks",
+   "Acquisitions",
+   "Growth Investments (R&D/BD)"
+  ],
+  "leverage_metric": "Net Debt / EBITDA",
+  "roic_framework": "ROIC",
+  "suppress": [],
+  "narrative_lens": "Healthcare/Pharma: pipeline reinvestment (R&D + business development) competes with buybacks and dividends. Judge whether M&A is replacing patent-cliff revenue at a defensible multiple, R&D productivity, and whether returns fund innovation without impairing the balance sheet.",
+  "scorecard_weights": {
+   "buybacks": 1.5,
+   "dividends": 1,
+   "m_and_a": 2,
+   "capex": 1,
+   "balance_sheet": 1.5,
+   "capital_discipline": 1.5,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "R&D + BD intensity",
+   "M&A to offset patent cliffs",
+   "Acquisition multiples & pipeline fit",
+   "Dividend/buyback balance",
+   "ROIC on deals"
+  ]
+ },
+ "Consumer": {
+  "label": "Consumer & Retail",
+  "match_industries": [
+   "Consumer Discretionary Services",
+   "Retail and Wholesale - Discretionary",
+   "Consumer Discretionary Products",
+   "Consumer Discretionary",
+   "Consumer Staple Products",
+   "Retail and Wholesale - Staples",
+   "Consumer Staples"
+  ],
+  "match_classifications": [
+   "Leisure Facilities and Services",
+   "Retail - Discretionary",
+   "Automotive",
+   "Home Construction",
+   "Apparel and Textile Products",
+   "Retail - Consumer Staples",
+   "Food",
+   "Consumer Services",
+   "Leisure Products",
+   "Household Products",
+   "E-Commerce Discretionary",
+   "Beverages",
+   "Home and Office Products",
+   "Wholesale - Discretionary",
+   "Wholesale - Consumer Staples",
+   "Tobacco and Cannabis"
+  ],
+  "priority_levers": [
+   "Store/Capacity Expansion",
+   "Capex",
+   "Shareholder Returns"
+  ],
+  "leverage_metric": "Net Debt / EBITDA",
+  "roic_framework": "ROIC",
+  "suppress": [],
+  "narrative_lens": "Consumer/Retail: unit economics drive the reinvestment case. Judge new-unit/store returns and capex productivity (sales per square foot, ROIIC), whether expansion is self-funding, and how much residual FCF is returned. Watch lease-adjusted leverage.",
+  "scorecard_weights": {
+   "buybacks": 1.5,
+   "dividends": 1,
+   "m_and_a": 1,
+   "capex": 2,
+   "balance_sheet": 1.5,
+   "capital_discipline": 1.5,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "New-unit/store ROI",
+   "Capex productivity",
+   "Self-funding expansion",
+   "Lease-adjusted leverage",
+   "Return of residual FCF"
+  ]
+ },
+ "Insurance": {
+  "label": "Insurance",
+  "match_industries": [
+   "Insurance"
+  ],
+  "match_classifications": [
+   "Insurance"
+  ],
+  "priority_levers": [
+   "Buybacks",
+   "Dividends",
+   "Book Value Growth",
+   "Reserve Adequacy"
+  ],
+  "leverage_metric": "Debt / Total Capital",
+  "roic_framework": "ROE",
+  "suppress": [
+   "capex",
+   "m_and_a_multiple"
+  ],
+  "narrative_lens": "Insurance: judge total capital return against statutory capital adequacy, book-value-per-share growth, combined ratio discipline, and ROE vs cost of equity. Capex is immaterial.",
+  "scorecard_weights": {
+   "buybacks": 2,
+   "dividends": 2,
+   "m_and_a": 0.5,
+   "capex": 0,
+   "balance_sheet": 2,
+   "capital_discipline": 1.5,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "Total payout ratio",
+   "Book value/share growth",
+   "Combined ratio",
+   "ROE vs cost of equity"
+  ]
+ },
+ "REIT": {
+  "label": "Real Estate (REIT)",
+  "match_industries": [
+   "Real Estate"
+  ],
+  "match_classifications": [
+   "REIT"
+  ],
+  "priority_levers": [
+   "Dividends",
+   "Development/Acquisition Capex",
+   "Equity Issuance Discipline",
+   "Buybacks"
+  ],
+  "leverage_metric": "Net Debt / EBITDA",
+  "roic_framework": "Cash ROIC (development yield)",
+  "suppress": [],
+  "narrative_lens": "REITs: the dividend is quasi-mandatory (90% taxable-income distribution), so judge AFFO payout ratio and coverage, development/acquisition yields vs cost of capital, and whether growth is funded with accretive equity (issue above NAV) or dilutive equity. Watch leverage and the debt maturity ladder.",
+  "scorecard_weights": {
+   "buybacks": 1,
+   "dividends": 2,
+   "m_and_a": 1,
+   "capex": 1.5,
+   "balance_sheet": 2,
+   "capital_discipline": 1.5,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "AFFO payout ratio",
+   "Development/acquisition yield vs WACC",
+   "Accretive vs dilutive equity issuance",
+   "Leverage & maturity ladder",
+   "NAV per share growth"
+  ],
+  "exclude_classifications": [
+   "Real Estate Services",
+   "Real Estate Owners and Developers"
+  ],
+  "_classification_note": "v2.73.0. Real Estate Services and Real Estate Owners and Developers report no FFO or AFFO. Under this profile they got the REIT module, whose AFFO rows the router's REAL_ESTATE_SERVICES / REAL_ESTATE_OPERATING templates forbid, so gate G8 blocked every such report. Excluded here, they take the default lens the router templates expect."
+ },
+ "Telecom": {
+  "label": "Telecommunications",
+  "match_industries": [
+   "Telecommunications"
+  ],
+  "match_classifications": [
+   "Telecommunications"
+  ],
+  "priority_levers": [
+   "Network Capex",
+   "Dividends",
+   "Balance Sheet",
+   "Spectrum & M&A"
+  ],
+  "leverage_metric": "Net Debt / EBITDA",
+  "roic_framework": "ROIC",
+  "suppress": [],
+  "narrative_lens": "Telecom: capital allocation is dominated by network and spectrum capex against a leveraged balance sheet and a large, closely-watched dividend. Judge capex intensity and its trend, free cash flow after capex and dividends, leverage against the stated target, and whether spectrum or fibre spending is earning a return above cost of capital.",
+  "scorecard_weights": {
+   "buybacks": 1,
+   "dividends": 2,
+   "m_and_a": 1,
+   "capex": 2,
+   "balance_sheet": 2,
+   "capital_discipline": 1.5,
+   "value_creation": 4
+  },
+  "focus_metrics": [
+   "Capex intensity",
+   "FCF after dividends",
+   "Net debt / EBITDA vs target",
+   "Dividend cover",
+   "ROIC vs WACC"
+  ]
+ },
+ "_dead_key_note": "classification_hint was removed in v2.68.0: it was declared on the sector profiles and read by no script. A config key nothing consumes reads as a tuning surface and is not one."
+}

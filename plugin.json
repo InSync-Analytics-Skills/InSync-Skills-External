@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "insync-external-skills",
+  "version": "1.0.0",
+  "description": "Buy-side research and earnings skills built on InSync MCP data.",
+  "author": { "name": "InSync Analytics" },
+  "license": "Apache-2.0",
+  "keywords": ["finance", "earnings", "equity research", "insync"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "InSync Analytics",
+        "shortDescription": "Earnings flashes, previews, wraps and tear sheets from InSync data.",
+        "category": "Finance"
+      }
+    }
+  }
+}

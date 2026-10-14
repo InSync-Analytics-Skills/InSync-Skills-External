@@ -1,0 +1,201 @@
+{
+ "_doc": "Polarity registry keyed by LTCODE. Generated from references/metric-basis.md's per-sector ladder tables plus the four headline-spine codes SKILL.md Step 2/3 names. Used to decide whether polarity was ever DECLARED for a metric, so the run can emit the codes it could not resolve. It is NOT a guess: a code absent here is reported, never inferred from its label. Every entry must be sourceable to the package's own spec.",
+ "_schema_version": "1.0",
+ "metrics": {
+  "BS_P_250": {
+   "label": "Total Gross Loans",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "BS_P_261": {
+   "label": "NCO",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "BS_P_287": {
+   "label": "CET 1 Capital Ratio - Standardized",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "BS_S_528": {
+   "label": "Book Value Per Share - Month 3",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_101": {
+   "label": "Total Revenue",
+   "lower_is_better": false,
+   "src": "SKILL.md Step 2/3 headline spine"
+  },
+  "IS_P_102": {
+   "label": "Revenue (Adjusted)",
+   "lower_is_better": false,
+   "src": "SKILL.md Step 2/3 headline spine"
+  },
+  "IS_P_103": {
+   "label": "COGS",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_107": {
+   "label": "Total Opex",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_121": {
+   "label": "ETR",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_127": {
+   "label": "EPS (GAAP diluted)",
+   "lower_is_better": false,
+   "src": "SKILL.md Step 2/3 headline spine"
+  },
+  "IS_P_128": {
+   "label": "EPS (Adjusted / Ex-1x Items)",
+   "lower_is_better": false,
+   "src": "SKILL.md Step 2/3 headline spine"
+  },
+  "IS_P_141": {
+   "label": "Net Interest Expense",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_202": {
+   "label": "Net Interest Income (FTE)",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_204": {
+   "label": "NIM (FTE)",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_205": {
+   "label": "Efficiency Ratio",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_211": {
+   "label": "Non Interest Income",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_213": {
+   "label": "Non Interest Expense",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_402": {
+   "label": "Net Premiums Written",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_403": {
+   "label": "Net Premium Earned",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_406": {
+   "label": "Underwriting Income (Loss)",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_410": {
+   "label": "Net Investment Income",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_449": {
+   "label": "Medical Costs",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "IS_P_903": {
+   "label": "Consolidated Medical Loss Ratio (MLR)",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "KM_P_1251": {
+   "label": "Total Electric Sales (GWh)",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "KM_P_1730": {
+   "label": "Total Membership",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "RT_P_102": {
+   "label": "Return on Equity (ROE)",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "RT_P_107": {
+   "label": "ROTCE",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_101": {
+   "label": "Loss Ratio (%)",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_102": {
+   "label": "Expense Ratio (%)",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_103": {
+   "label": "Combined Ratio (%)",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_104": {
+   "label": "Catastrophe Losses",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_105": {
+   "label": "Catastrophe Losses Ratio (%)",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_106": {
+   "label": "Prior Period Development",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_108": {
+   "label": "Accident Year Combined Ratio (AYCR) (%)",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_109": {
+   "label": "Accident Year Loss Ratio (AYLR) (%)",
+   "lower_is_better": true,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_P_1761": {
+   "label": "Premium - Revenue",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_S_144": {
+   "label": "Regulated Electric - Revenue",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_S_177": {
+   "label": "Total Investment Banking Fees",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  },
+  "SD_S_564": {
+   "label": "Policies in Force - Consolidated",
+   "lower_is_better": false,
+   "src": "metric-basis.md ladder"
+  }
+ }
+}

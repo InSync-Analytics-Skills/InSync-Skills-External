@@ -1,0 +1,456 @@
+{
+  "_doc": "Sector adaptation registry. Keyed by the MCP `industry` field from search_tickerid (the MCP's industry level, e.g. 'Health Care'), NOT `insync_subindustry` ('Biotech and Pharma'). financial_rows overrides the default income-statement template. kpi_code_whitelist and kpi_keywords are ADVISORY: they guide the model's KPI selection and are not read by compute_tearsheet.py. suppress_valuation removes analytically inappropriate multiples. A profile is only required where the default template (Revenue/Gross Profit/EBIT/EBITDA/EPS) does not fit the P&L; most operating sectors need no entry and fall back cleanly.",
+  "Banking": {
+    "financial_rows": [
+      [
+        "IS_P_101",
+        "Revenue"
+      ],
+      [
+        "IS_P_202",
+        "Net Interest Income (FTE)"
+      ],
+      [
+        "IS_P_211",
+        "Non-Interest Income"
+      ],
+      [
+        "IS_P_213",
+        "Non-Interest Expense"
+      ],
+      [
+        "IS_P_124",
+        "Net Income (Adj)"
+      ],
+      [
+        "IS_P_127",
+        "EPS (GAAP)"
+      ]
+    ],
+    "kpi_code_whitelist": [
+      "BS_P_254",
+      "BS_P_261",
+      "BS_P_287",
+      "IS_P_204",
+      "IS_P_205",
+      "IS_P_206",
+      "RT_P_102",
+      "RT_P_107"
+    ],
+    "kpi_keywords": [
+      "NIM",
+      "ROTCE",
+      "ROE",
+      "CET",
+      "Efficiency",
+      "Deposits",
+      "AUM",
+      "Charge-Off",
+      "BVPS"
+    ],
+    "suppress_valuation": [
+      "EV/EBITDA",
+      "EV/Sales"
+    ],
+    "suppress_gross_margin": true,
+    "lower_is_better_rows": [
+      "IS_P_213"
+    ],
+    "lower_is_better_codes": [
+      "BS_P_261",
+      "IS_P_205"
+    ]
+  },
+  "Financial Services": {
+    "_note": "Brokers, exchanges, asset managers, specialty finance. No gross profit, EBIT or EBITDA is reported; EV is not meaningful when debt is an operating input.",
+    "financial_rows": [
+      [
+        "IS_P_101",
+        "Revenue"
+      ],
+      [
+        "IS_P_124",
+        "Net Income (Adj)"
+      ],
+      [
+        "IS_P_128",
+        "EPS (Adj)"
+      ],
+      [
+        "IS_P_127",
+        "EPS (GAAP)"
+      ]
+    ],
+    "kpi_code_whitelist": [
+      "IS_P_239",
+      "RT_P_107",
+      "RT_P_102",
+      "BS_P_287",
+      "BS_P_254"
+    ],
+    "kpi_keywords": [
+      "ROTCE",
+      "ROE",
+      "AUM",
+      "Net New Assets",
+      "Compensation",
+      "Efficiency",
+      "Fee Revenue",
+      "Trading",
+      "Investment Banking",
+      "Book Value"
+    ],
+    "suppress_valuation": [
+      "EV/EBITDA",
+      "EV/Sales"
+    ],
+    "suppress_gross_margin": true,
+    "prefer_valuation": [
+      "P/B_Ratio"
+    ],
+    "min_fin_rows": 4,
+    "lower_is_better_codes": [
+      "IS_P_205",
+      "IS_P_239"
+    ]
+  },
+  "Insurance": {
+    "kpi_code_whitelist": [
+      "BS_P_254"
+    ],
+    "kpi_keywords": [
+      "Combined Ratio",
+      "Premium",
+      "Book Value",
+      "Float"
+    ],
+    "suppress_valuation": [
+      "EV/EBITDA",
+      "EV/Sales"
+    ],
+    "suppress_gross_margin": true,
+    "_note": "Underwriters. Revenue is premiums plus investment income; no gross profit, EBIT or EBITDA. Book value and combined ratio carry the analysis.",
+    "financial_rows": [
+      [
+        "IS_P_101",
+        "Revenue"
+      ],
+      [
+        "IS_P_124",
+        "Net Income (Adj)"
+      ],
+      [
+        "IS_P_128",
+        "EPS (Adj)"
+      ],
+      [
+        "IS_P_127",
+        "EPS (GAAP)"
+      ]
+    ],
+    "prefer_valuation": [
+      "P/B_Ratio"
+    ],
+    "min_fin_rows": 4,
+    "lower_is_better_codes": [
+      "IS_P_215"
+    ]
+  },
+  "Real Estate": {
+    "_note": "REITs and property owners. No gross profit line. v7.2.16: the P&L rows are FFO/AFFO based, not EBIT/EPS based, and P/E and PEG are SUPPRESSED rather than merely discouraged in prose - a REIT's P/E is depreciation noise and the old note asking the model to caveat it depended on the model remembering. EV/EBITDA is retained: it is standard for property. FFO and AFFO per share are tagged top_kpi by the MCP, so the KPI block already reaches them. P/FFO is not a get_valuation metric, so it is COMPUTED from the price and the FY1 consensus FFO/share via computed_valuation, and leads the strip.",
+    "financial_rows": [
+      [
+        "IS_P_101",
+        "Revenue"
+      ],
+      [
+        "IS_P_161",
+        "Net Operating Income"
+      ],
+      [
+        "CF_P_113",
+        "FFO"
+      ],
+      [
+        "CF_P_114",
+        "AFFO"
+      ],
+      [
+        "CF_P_202",
+        "FFO/Share"
+      ],
+      [
+        "CF_P_203",
+        "AFFO/Share"
+      ],
+      [
+        "RT_P_406",
+        "Net Debt/EBITDA"
+      ]
+    ],
+    "lower_is_better_codes": [
+      "RT_P_406"
+    ],
+    "kpi_keywords": [
+      "FFO",
+      "AFFO",
+      "Same Store NOI",
+      "Occupancy",
+      "Leasing Spread",
+      "Net Effective Rent",
+      "Development Pipeline"
+    ],
+    "suppress_gross_margin": true,
+    "prefer_valuation": [
+      "P/B_Ratio"
+    ],
+    "suppress_valuation": [
+      "P/E",
+      "PEG"
+    ],
+    "computed_valuation": [
+      {
+        "label": "P/FFO",
+        "per_share_code": "CF_P_202"
+      }
+    ]
+  },
+  "Health Care": {
+    "kpi_code_whitelist": [
+      "IS_P_903"
+    ],
+    "kpi_keywords": [
+      "Medical Loss",
+      "MLR",
+      "Membership",
+      "Scripts",
+      "Consumers Served",
+      "Contract Backlog"
+    ],
+    "financial_rows": [
+      [
+        "IS_P_101",
+        "Revenue"
+      ],
+      [
+        "IS_P_110",
+        "EBIT (Adj)"
+      ],
+      [
+        "IS_P_109",
+        "EBIT (GAAP)"
+      ],
+      [
+        "IS_P_114",
+        "EBITDA (Adj)"
+      ],
+      [
+        "IS_P_128",
+        "EPS (Adj)"
+      ],
+      [
+        "IS_P_127",
+        "EPS (GAAP)"
+      ]
+    ],
+    "suppress_gross_margin": true,
+    "lower_is_better_codes": [
+      "IS_P_903"
+    ]
+  },
+  "Software and Tech Services": {
+    "kpi_keywords": [
+      "Azure",
+      "Cloud",
+      "Bookings",
+      "ARR",
+      "Commercial"
+    ]
+  },
+  "Tech Hardware and Semiconductors": {
+    "financial_rows": [
+      [
+        "IS_P_101",
+        "Revenue"
+      ],
+      [
+        "IS_P_106",
+        "Gross Profit (Adj)"
+      ],
+      [
+        "IS_P_110",
+        "EBIT (Adj)"
+      ],
+      [
+        "IS_S_643",
+        "EPS (Adj, ex-SBC)"
+      ],
+      [
+        "IS_P_127",
+        "EPS (GAAP)"
+      ]
+    ],
+    "kpi_keywords": [
+      "Data Center",
+      "Compute",
+      "Networking",
+      "Foundry",
+      "Wafer"
+    ]
+  },
+  "Media": {
+    "kpi_keywords": [
+      "DAP",
+      "DAU",
+      "MAU",
+      "ARPU",
+      "Advertising",
+      "Family of Apps"
+    ]
+  },
+  "Industrial Products": {
+    "kpi_keywords": [
+      "Organic",
+      "Price",
+      "Volume",
+      "Backlog",
+      "Orders",
+      "Construction",
+      "Energy & Transportation"
+    ],
+    "kpi_code_whitelist": [
+      "IS_P_267"
+    ],
+    "_note": "Industrial and aerospace manufacturers. v7.2.17: IS_P_267 (Cost & Expenses) added to the whitelist - the MCP tags it top_kpi for pre-commercial names such as an early-stage aircraft maker, where cost growth IS the story because revenue has barely started, and the v7.2.16 thin-profile warning flagged its absence on a real run."
+  },
+  "Retail and Wholesale - Staples": {
+    "kpi_keywords": [
+      "SSS",
+      "Comp",
+      "Membership",
+      "Traffic",
+      "Warehouse"
+    ]
+  },
+  "Oil and Gas": {
+    "kpi_keywords": [
+      "Production Per Day",
+      "Total Oil Equivalent",
+      "Realised Price",
+      "EBITDAX",
+      "Total Production Expense",
+      "Reserve Replacement",
+      "Drilling and Completion Capex"
+    ],
+    "_note": "E&P and integrated oil. v7.2.17: the profile had kpi_keywords only, so the default template applied and asked for Gross Profit / EBIT / EBITDA. A large E&P issuer returns NOTHING for IS_P_113 (EBITDA) - the E&P earnings line is EBITDAX, IS_P_172, which the MCP tags top_kpi|industry_kpi. That is why every E&P sheet carried 'THIN FINANCIALS: only 4 of the prescribed rows populated'. Verified on a large E&P issuer: revenue, EBITDAX, total production expense and adjusted EPS all populate. No gross profit line.",
+    "financial_rows": [
+      [
+        "IS_P_101",
+        "Revenue"
+      ],
+      [
+        "IS_P_172",
+        "EBITDAX (Adj)"
+      ],
+      [
+        "IS_P_193",
+        "Total Production Expense"
+      ],
+      [
+        "IS_P_110",
+        "EBIT (Adj)"
+      ],
+      [
+        "IS_P_128",
+        "EPS (Adj)"
+      ],
+      [
+        "IS_P_127",
+        "EPS (GAAP)"
+      ]
+    ],
+    "suppress_gross_margin": true,
+    "lower_is_better_rows": [
+      "IS_P_193"
+    ],
+    "kpi_code_whitelist": [
+      "IS_P_172",
+      "IS_P_193",
+      "KM_S_215",
+      "CF_P_104"
+    ],
+    "min_fin_rows": 5
+  },
+  "_lower_is_better_note": "v7.2.0. lower_is_better_rows lists financial_rows LTCODEs that are COSTS, so a rise in them is coloured as bad news rather than good. lower_is_better_codes lists KPI LTCODEs whose polarity is inverted (efficiency ratio, combined ratio, medical loss ratio, churn, any cost line): a LOWER value beats the estimate. Without them, polarity would have to be re-supplied by the model in raw_data.json on every run with nothing checking it — the Banking, Financial Services and Insurance kpi_keywords steer straight at these metrics. A code listed here is treated as inverted even when raw_data.json omits the flag.",
+  "Utilities": {
+    "_note": "Regulated electric, gas and water utilities. v7.2.17: NEW. Deliberately does NOT suppress P/E or PEG - unlike a REIT, a utility's earnings are real regulated earnings and P/E is the metric the sector trades on. What the default template misses is INTEREST EXPENSE, which for a rate-base-funded balance sheet is a first-order line. Verified on a large US electric utility (2Q26): every row in this template populated, Interest Expenses included. Note the top_kpi set for a utility is company-specific segment revenue (a named subsidiary's revenue, and so on), so there is no useful kpi_code_whitelist here - keywords are the right lever.",
+    "financial_rows": [
+      [
+        "IS_P_101",
+        "Revenue"
+      ],
+      [
+        "IS_P_114",
+        "EBITDA (Adj)"
+      ],
+      [
+        "IS_P_110",
+        "EBIT (Adj)"
+      ],
+      [
+        "IS_P_141",
+        "Interest Expenses"
+      ],
+      [
+        "IS_P_128",
+        "EPS (Adj)"
+      ],
+      [
+        "IS_P_127",
+        "EPS (GAAP)"
+      ]
+    ],
+    "suppress_gross_margin": true,
+    "lower_is_better_rows": [
+      "IS_P_141"
+    ],
+    "prefer_valuation": [
+      "Dividend_Yield"
+    ],
+    "kpi_keywords": [
+      "Rate Base",
+      "Allowed ROE",
+      "Total Retail - Sales",
+      "Total Average Price",
+      "Capex",
+      "Load Growth",
+      "Capacity"
+    ]
+  },
+  "Industrial Services": {
+    "_note": "Transportation, logistics and shipping. v7.2.17: NEW, and deliberately KEYWORDS ONLY. One carrier's entire top_kpi set is company-specific segment and volume lines (route volumes, segment EBIT, and so on), so a kpi_code_whitelist would be wrong here - it would encode one company's segments as the sector's metrics. The default income-statement template fits the P&L; what the model needs is steering toward volumes and rates, which is what these keywords do.",
+    "kpi_keywords": [
+      "Volume",
+      "Containers",
+      "Freight Rate",
+      "Segment EBIT",
+      "Utilisation",
+      "Average Rate",
+      "TEU"
+    ]
+  },
+  "_by_subindustry": {
+    "Real Estate Services": "Real Estate (non-REIT)",
+    "Real Estate Owners and Developers": "Real Estate (non-REIT)"
+  },
+  "Real Estate (non-REIT)": {
+    "_note": "v8.1.0. Real estate services firms and developers (measured 2026-10-13) report no FFO, AFFO or NOI, so the REIT rows came back empty and P/E was suppressed on a company valued on P/E. Reached only through _by_subindustry. No financial_rows: the default adjusted-first template applies (a large services firm fills all six rows). P/E is not suppressed.",
+    "kpi_keywords": [
+      "Backlog",
+      "Assets Under Management",
+      "Leasing Revenue",
+      "Development Pipeline",
+      "Occupancy"
+    ]
+  }
+}

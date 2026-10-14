@@ -1,0 +1,790 @@
+{
+ "_doc": "Polarity registry: is a HIGHER or LOWER actual good for this line? Keyed by LTCODE. Standardised codes (_P_) apply to every issuer; company-specific codes (_S_) mean a DIFFERENT line item at each company (SD_S_141 is a homebuilder's gross margin at one issuer and an FX percentage at another), so an _S_ entry applies ONLY to the ticker_ids it lists; any other issuer must declare 'better' in metric_map. A '-M' (margin) or '-Y' (growth) variant inherits its base code. better=null means the package does not state a direction: the line can be shown but cannot be graded until metric_map declares 'better'. scripts/polarity.py --lint checks every code named in SKILL.md, references/ and templates/ is declared here.",
+ "codes": {
+  "BS_P_114": {
+   "better": null,
+   "label": "Total debt",
+   "source": "data-collection.md §2 financial spine",
+   "reason": "a balance: direction depends on context; declare in metric_map if graded"
+  },
+  "BS_P_141": {
+   "better": null,
+   "label": "Cash",
+   "source": "data-collection.md §2 financial spine",
+   "reason": "a balance: direction depends on context; declare in metric_map if graded"
+  },
+  "BS_P_256": {
+   "better": "higher",
+   "label": "Tangible book value per share",
+   "source": "kpi-spines.md"
+  },
+  "BS_P_261": {
+   "better": "lower",
+   "label": "Net charge-offs",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "BS_P_287": {
+   "better": "higher",
+   "label": "CET1 ratio",
+   "source": "kpi-spines.md"
+  },
+  "BS_P_290": {
+   "better": "higher",
+   "label": "Average loans",
+   "source": "kpi-spines.md"
+  },
+  "BS_P_308": {
+   "better": "higher",
+   "label": "Average deposits",
+   "source": "kpi-spines.md"
+  },
+  "CF_P_101": {
+   "better": null,
+   "label": "Shares repurchased",
+   "source": "data-collection.md §2 financial spine",
+   "reason": "direction depends on capital policy; declare in metric_map if graded"
+  },
+  "CF_P_108": {
+   "better": "higher",
+   "label": "Operating cash flow",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "CF_P_109": {
+   "better": "lower",
+   "label": "Capex (shown as spend)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "CF_P_110": {
+   "better": "higher",
+   "label": "Free cash flow",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "CF_P_114": {
+   "better": "higher",
+   "label": "AFFO",
+   "source": "kpi-spines.md"
+  },
+  "CF_P_203": {
+   "better": "higher",
+   "label": "AFFO per share",
+   "source": "kpi-spines.md"
+  },
+  "CF_S_126": {
+   "better": null,
+   "label": "Cash-flow line flagged corrupt in traps.md",
+   "source": "traps.md",
+   "reason": "excluded series; do not grade",
+   "ticker_ids": []
+  },
+  "CF_S_223": {
+   "better": "lower",
+   "label": "Growth capex (shown as spend)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "IS_P_101": {
+   "better": "higher",
+   "label": "Total Revenue (reported / adjusted)",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_101-Y": {
+   "better": "higher",
+   "label": "Revenue growth Y/Y",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_102": {
+   "better": "higher",
+   "label": "Total Revenue (reported / adjusted)",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_105": {
+   "better": "higher",
+   "label": "Gross Profit",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_106": {
+   "better": "higher",
+   "label": "Gross Profit",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_109": {
+   "better": "higher",
+   "label": "EBIT / operating profit",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_110": {
+   "better": "higher",
+   "label": "EBIT / operating profit",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_113": {
+   "better": "higher",
+   "label": "EBITDA",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_114": {
+   "better": "higher",
+   "label": "EBITDA",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_121": {
+   "better": null,
+   "label": "Effective tax rate",
+   "source": "data-collection.md §2 financial spine",
+   "reason": "direction not stated in the package; declare 'better' in metric_map if graded"
+  },
+  "IS_P_122": {
+   "better": null,
+   "label": "Effective tax rate",
+   "source": "data-collection.md §2 financial spine",
+   "reason": "direction not stated in the package; declare 'better' in metric_map if graded"
+  },
+  "IS_P_123": {
+   "better": "higher",
+   "label": "Net Income",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_124": {
+   "better": "higher",
+   "label": "Net Income",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_125": {
+   "better": null,
+   "label": "Diluted shares",
+   "source": "data-collection.md §2 financial spine",
+   "reason": "direction not stated in the package; declare 'better' in metric_map if graded"
+  },
+  "IS_P_126": {
+   "better": null,
+   "label": "Diluted shares",
+   "source": "data-collection.md §2 financial spine",
+   "reason": "direction not stated in the package; declare 'better' in metric_map if graded"
+  },
+  "IS_P_127": {
+   "better": "higher",
+   "label": "Diluted EPS (reported / adjusted)",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_128": {
+   "better": "higher",
+   "label": "Diluted EPS (reported / adjusted)",
+   "source": "data-collection.md §2 financial spine"
+  },
+  "IS_P_133": {
+   "better": "lower",
+   "label": "SG&A (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "IS_P_134": {
+   "better": "lower",
+   "label": "SG&A (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "IS_P_135": {
+   "better": "lower",
+   "label": "R&D (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "IS_P_136": {
+   "better": "lower",
+   "label": "R&D (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "IS_P_200": {
+   "better": "higher",
+   "label": "Managed revenue",
+   "source": "kpi-spines.md"
+  },
+  "IS_P_202": {
+   "better": "higher",
+   "label": "Net interest income",
+   "source": "kpi-spines.md"
+  },
+  "IS_P_204": {
+   "better": "higher",
+   "label": "Net interest margin",
+   "source": "kpi-spines.md"
+  },
+  "IS_P_206": {
+   "better": "lower",
+   "label": "Overhead ratio",
+   "source": "kpi-spines.md: overhead ratio (lower is better)"
+  },
+  "IS_P_207": {
+   "better": "lower",
+   "label": "Provision for credit losses (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "IS_P_213": {
+   "better": "lower",
+   "label": "Non-interest expense (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "IS_S_121": {
+   "better": "lower",
+   "label": "Adjusted expense (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend",
+   "ticker_ids": [
+    35
+   ]
+  },
+  "IS_S_1432": {
+   "better": "higher",
+   "label": "Segment adj. EBITDA (midstream)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "IS_S_1433": {
+   "better": "higher",
+   "label": "Segment adj. EBITDA (midstream)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "IS_S_1434": {
+   "better": "higher",
+   "label": "Segment adj. EBITDA (midstream)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "IS_S_1435": {
+   "better": "higher",
+   "label": "Segment adj. EBITDA (midstream)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "IS_S_1437": {
+   "better": "higher",
+   "label": "Segment adj. EBITDA (midstream)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "IS_S_809": {
+   "better": "higher",
+   "label": "NII ex-Markets",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    35
+   ]
+  },
+  "KM_P_1001": {
+   "better": "higher",
+   "label": "Billings",
+   "source": "kpi-spines.md"
+  },
+  "KM_P_1003": {
+   "better": "higher",
+   "label": "RPO",
+   "source": "kpi-spines.md"
+  },
+  "KM_P_1004": {
+   "better": "higher",
+   "label": "cRPO",
+   "source": "kpi-spines.md"
+  },
+  "KM_P_1009": {
+   "better": "higher",
+   "label": "Net revenue retention",
+   "source": "kpi-spines.md"
+  },
+  "KM_P_1015": {
+   "better": "higher",
+   "label": "Backlog value",
+   "source": "kpi-spines.md"
+  },
+  "KM_P_1205": {
+   "better": "higher",
+   "label": "Production (daily rate)",
+   "source": "kpi-spines.md"
+  },
+  "KM_P_1400": {
+   "better": "higher",
+   "label": "Deliveries",
+   "source": "kpi-spines.md"
+  },
+  "KM_P_1401": {
+   "better": "higher",
+   "label": "Average sales price",
+   "source": "kpi-spines.md"
+  },
+  "KM_P_1404": {
+   "better": "lower",
+   "label": "Cancellation rate",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "KM_P_840": {
+   "better": "lower",
+   "label": "Cruise unit cost (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "KM_P_847": {
+   "better": "lower",
+   "label": "Cruise unit cost (cost)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "KM_S_145": {
+   "better": "higher",
+   "label": "Gathering volumes",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "KM_S_146": {
+   "better": "higher",
+   "label": "Gathering volumes",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "KM_S_160": {
+   "better": "higher",
+   "label": "Segment adj. EBITDA consensus series (midstream)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "KM_S_161": {
+   "better": "higher",
+   "label": "Gathering volumes",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "KM_S_166": {
+   "better": "higher",
+   "label": "Backlog units",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "KM_S_176": {
+   "better": "higher",
+   "label": "Transmission capacity",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "KM_S_185": {
+   "better": "higher",
+   "label": "Segment adj. EBITDA consensus series (midstream)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "KM_S_186": {
+   "better": "higher",
+   "label": "Gathering volumes",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "KM_S_192": {
+   "better": "higher",
+   "label": "Net new orders",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "KM_S_199": {
+   "better": "higher",
+   "label": "Refinery throughput",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1148
+   ]
+  },
+  "KM_S_200": {
+   "better": "higher",
+   "label": "Realised crude price",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1148
+   ]
+  },
+  "KM_S_206": {
+   "better": "higher",
+   "label": "Segment adj. EBITDA consensus series (midstream)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "KM_S_213": {
+   "better": "higher",
+   "label": "Chemical sales volume",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1148
+   ]
+  },
+  "KM_S_221": {
+   "better": "higher",
+   "label": "Active communities",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "KM_S_373": {
+   "better": null,
+   "label": "Production (lagged series)",
+   "source": "kpi-spines.md",
+   "reason": "kpi-spines.md: do not use",
+   "ticker_ids": [
+    1148
+   ]
+  },
+  "KM_S_434": {
+   "better": "lower",
+   "label": "Debt to capital (ratio)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "KM_S_590": {
+   "better": "higher",
+   "label": "Permian production",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1148
+   ]
+  },
+  "KM_S_833": {
+   "better": "lower",
+   "label": "Net charge-off rate",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend",
+   "ticker_ids": [
+    35
+   ]
+  },
+  "RT_P_107": {
+   "better": "higher",
+   "label": "ROTCE",
+   "source": "kpi-spines.md"
+  },
+  "RT_P_301": {
+   "better": "lower",
+   "label": "Days inventory outstanding (ratio)",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend"
+  },
+  "RT_P_406": {
+   "better": "lower",
+   "label": "Debt / EBITDA",
+   "source": "kpi-spines.md: debt/EBITDA (better lower)"
+  },
+  "RT_S_218": {
+   "better": "higher",
+   "label": "Distribution coverage",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    1433
+   ]
+  },
+  "SD_P_1002": {
+   "better": "higher",
+   "label": "Subscription revenue",
+   "source": "kpi-spines.md"
+  },
+  "SD_P_301": {
+   "better": "higher",
+   "label": "Price / mix",
+   "source": "kpi-spines.md"
+  },
+  "SD_P_302": {
+   "better": "higher",
+   "label": "Volume",
+   "source": "kpi-spines.md"
+  },
+  "SD_P_303": {
+   "better": "higher",
+   "label": "Organic growth",
+   "source": "kpi-spines.md"
+  },
+  "SD_P_305": {
+   "better": null,
+   "label": "FX impact",
+   "source": "kpi-spines.md",
+   "reason": "a translation effect, not a performance line; do not grade"
+  },
+  "SD_P_503": {
+   "better": "higher",
+   "label": "Comparable sales",
+   "source": "kpi-spines.md"
+  },
+  "SD_P_505": {
+   "better": "higher",
+   "label": "Comparable sales",
+   "source": "kpi-spines.md"
+  },
+  "SD_S_141": {
+   "better": "higher",
+   "label": "Homebuilding gross margin",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "SD_S_143": {
+   "better": "higher",
+   "label": "Homebuilding gross margin",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "SD_S_144": {
+   "better": "lower",
+   "label": "SG&A (homebuilding) - cost; '-M' variant is SG&A % of revenue",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "SD_S_155": {
+   "better": "higher",
+   "label": "Homebuilding operating earnings",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "SD_S_156": {
+   "better": "higher",
+   "label": "Financial services earnings",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    579
+   ]
+  },
+  "SD_S_177": {
+   "better": "higher",
+   "label": "Investment banking fees",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    35
+   ]
+  },
+  "SD_S_178": {
+   "better": "higher",
+   "label": "Markets revenue",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    35
+   ]
+  },
+  "SD_S_179": {
+   "better": "higher",
+   "label": "Markets revenue",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    35
+   ]
+  },
+  "SD_S_180": {
+   "better": "higher",
+   "label": "Segment margin (machinery)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_181": {
+   "better": "higher",
+   "label": "Segment margin (machinery)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_182": {
+   "better": "higher",
+   "label": "Segment margin (machinery)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_311": {
+   "better": "higher",
+   "label": "Adjusted revenue growth",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    3919
+   ]
+  },
+  "SD_S_354": {
+   "better": "higher",
+   "label": "Segment sales (machinery)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_356": {
+   "better": "higher",
+   "label": "Segment sales (machinery)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_358": {
+   "better": "higher",
+   "label": "Segment sales (machinery)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_400": {
+   "better": "higher",
+   "label": "Financial products revenue",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_405": {
+   "better": "higher",
+   "label": "Financial products profit",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_426": {
+   "better": "higher",
+   "label": "Segment revenue (semis)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    566
+   ]
+  },
+  "SD_S_430": {
+   "better": "higher",
+   "label": "Segment revenue (semis)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    566
+   ]
+  },
+  "SD_S_465": {
+   "better": "higher",
+   "label": "Segment revenue (semis)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    566
+   ]
+  },
+  "SD_S_469": {
+   "better": "higher",
+   "label": "Segment revenue (semis)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    566
+   ]
+  },
+  "SD_S_493": {
+   "better": "higher",
+   "label": "Segment gross margin (semis)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    566
+   ]
+  },
+  "SD_S_555": {
+   "better": "higher",
+   "label": "Sales volume effect",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_556": {
+   "better": "higher",
+   "label": "Price realisation",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    144
+   ]
+  },
+  "SD_S_625": {
+   "better": "higher",
+   "label": "Segment revenue (auto parts)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    3919
+   ]
+  },
+  "SD_S_643": {
+   "better": "higher",
+   "label": "Segment revenue (auto parts)",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    3919
+   ]
+  },
+  "SD_S_666": {
+   "better": "higher",
+   "label": "Segment adjusted operating income",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    3919
+   ]
+  },
+  "SD_S_667": {
+   "better": "higher",
+   "label": "Segment adjusted operating income",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    3919
+   ]
+  },
+  "SD_S_727": {
+   "better": "higher",
+   "label": "Segment adjusted operating income",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    3919
+   ]
+  },
+  "SD_S_763": {
+   "better": "higher",
+   "label": "Segment adjusted operating income",
+   "source": "kpi-spines.md",
+   "ticker_ids": [
+    3919
+   ]
+  },
+  "SD_S_959": {
+   "better": "lower",
+   "label": "Card net charge-off rate",
+   "source": "writing-standard.md: lower for costs, ratios, NCOs, capex as spend",
+   "ticker_ids": [
+    35
+   ]
+  }
+ }
+}

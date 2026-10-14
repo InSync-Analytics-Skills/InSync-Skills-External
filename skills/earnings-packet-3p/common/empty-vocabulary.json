@@ -1,0 +1,19 @@
+{
+  "_doc": "The empty-cell vocabulary, SINGLE SOURCE OF TRUTH for the renderer's prune and the validators' dash-density test, so a column the renderer considers empty is one pass 5 can see. SKILL.md rule 10 points here.",
+  "_the_decision": "The two sets are NOT merged, because they answer different questions and merging them would change behaviour. The PRUNE asks 'does this cell carry data': 'not coded' does not, so the column should go and the note should say so. PASS 5 asks 'is this column a row of dashes on the page': 'not coded' is a legible assertion a reader can act on, not a dash, so counting it toward the density test would fail a column that is doing its job. Hence one vocabulary, two subsets, and a reason recorded per entry.",
+  "_how_to_add": "Add the string here ONCE, with renders_as_dash set deliberately and a reason. Both the renderer and the validators read this file, so drift is no longer possible. Do not add a string to a local set in any script.",
+  "entries": [
+    { "text": "",              "renders_as_dash": true,  "why": "an empty cell is the canonical empty" },
+    { "text": "-",             "renders_as_dash": true,  "why": "ASCII hyphen, a dash by any reading" },
+    { "text": "–",        "renders_as_dash": true,  "why": "en dash, the packet's own empty marker" },
+    { "text": "—",        "renders_as_dash": true,  "why": "em dash, reserved for this purpose by rule 11" },
+    { "text": "–%",       "renders_as_dash": true,  "why": "an empty percentage still reads as a dash" },
+    { "text": "-%",            "renders_as_dash": true,  "why": "the ASCII spelling of the same thing" },
+    { "text": "–x",       "renders_as_dash": true,  "why": "an empty multiple still reads as a dash" },
+    { "text": "n/a",           "renders_as_dash": true,  "why": "conventionally read as no value" },
+    { "text": "N/A",           "renders_as_dash": true,  "why": "the same string, and case matters to a literal test" },
+    { "text": "not coded",     "renders_as_dash": false, "why": "an ASSERTION about the feed, not an absence on the page: the reader learns the code does not exist for this issuer, which is information. It prunes, because the column carries no data; it must not count toward dash density, because a column of these is doing its job" },
+    { "text": "not disclosed", "renders_as_dash": false, "why": "an assertion about the ISSUER, and a stronger one: the company chose not to publish it. Same split as 'not coded'" }
+  ],
+  "_not_empty": "These are assertions the packet is MAKING and are deliberately absent from this file, so neither the prune nor pass 5 treats them as empty: 'none', 'no history', 'not comparable', 'not meaningful', 'negative book', 'not guided', 'net cash'."
+}

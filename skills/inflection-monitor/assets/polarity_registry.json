@@ -1,0 +1,500 @@
+{
+ "schema": "inflection-monitor/polarity-registry/1",
+ "note": "Declared polarity by LTCODE for the provider's standard (P) dictionary, which InSync keeps universal across companies. +1 higher is better, -1 lower is better, 0 declared neutral. A code not listed falls through to the name rules in compute.py; a line no rule covers is UNDECLARED, displayed as neutral and named in the run's unresolved-polarity inventory. Entries marked 'source': 'name_rule' record what the name rules already gave (written behaviour-neutral, v4.51.0); 'source': 'declared' entries were added where no rule spoke.",
+ "codes": {
+  "BS_P_101": {
+   "polarity": 0,
+   "label": "Cash & Cash Equivalents",
+   "source": "declared",
+   "why": "a cash balance has no better direction of its own",
+   "owner": "universal"
+  },
+  "BS_P_103": {
+   "polarity": 0,
+   "label": "Total Assets",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "BS_P_107": {
+   "polarity": -1,
+   "label": "Long Term Debt",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "BS_P_108": {
+   "polarity": -1,
+   "label": "Total Debt (Incl-Operating Lease)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "BS_P_113": {
+   "polarity": 0,
+   "label": "Total Equity",
+   "source": "declared",
+   "why": "equity moves with buybacks and earnings alike",
+   "owner": "universal"
+  },
+  "BS_P_114": {
+   "polarity": -1,
+   "label": "Total Debt (Ex-Operating Lease)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "BS_P_119": {
+   "polarity": -1,
+   "label": "Accounts Receivable, Net",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "BS_P_129": {
+   "polarity": 0,
+   "label": "Accounts Payable",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "BS_P_141": {
+   "polarity": 0,
+   "label": "Cash & Cash Equivalents",
+   "source": "declared",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): a cash balance has no direction of its own (BS_P_101 is declared the same way); was undeclared, read unchanged (Ambiguous)"
+  },
+  "BS_P_147": {
+   "polarity": -1,
+   "label": "Inventory",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "BS_P_250": {
+   "polarity": 0,
+   "label": "Total Gross Loans",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "BS_P_251": {
+   "polarity": 0,
+   "label": "Total Net Loans - EOP",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "BS_P_252": {
+   "polarity": 1,
+   "label": "Deposits",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "BS_P_276": {
+   "polarity": 0,
+   "label": "Common Tier 1 (CET1) capital - BASEL III (Fully Phased)",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "CF_P_101": {
+   "polarity": 0,
+   "label": "Share Repurchase (USD)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "CF_P_104": {
+   "polarity": 0,
+   "label": "Dividend Paid (USD)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "CF_P_105": {
+   "polarity": 0,
+   "label": "DPS",
+   "source": "declared",
+   "why": "a dividend per share is a capital-allocation choice",
+   "owner": "universal"
+  },
+  "CF_P_107": {
+   "polarity": 0,
+   "label": "Dividend Payout Ratio(%)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "CF_P_108": {
+   "polarity": 1,
+   "label": "OCF",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "CF_P_109": {
+   "polarity": 0,
+   "label": "Less: Capex",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "CF_P_110": {
+   "polarity": 1,
+   "label": "FCF",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "CF_P_201": {
+   "polarity": 1,
+   "label": "FCF/Share",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_101": {
+   "polarity": 1,
+   "label": "Total Revenue",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_103": {
+   "polarity": -1,
+   "label": "COGS",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_104": {
+   "polarity": -1,
+   "label": "COGS (Ex-1x Items)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_105": {
+   "polarity": 1,
+   "label": "Gross Profit",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_106": {
+   "polarity": 1,
+   "label": "Gross Profit (Ex-1x Items)",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_107": {
+   "polarity": -1,
+   "label": "Opex",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_108": {
+   "polarity": -1,
+   "label": "Opex (Ex-1x Items)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_109": {
+   "polarity": 1,
+   "label": "EBIT",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_110": {
+   "polarity": 1,
+   "label": "EBIT (Ex- 1x Items)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_111": {
+   "polarity": 0,
+   "label": "D&A",
+   "source": "declared",
+   "why": "depreciation and amortisation follow the asset base; their direction carries no read of its own",
+   "owner": "universal"
+  },
+  "IS_P_113": {
+   "polarity": 1,
+   "label": "EBITDA",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_114": {
+   "polarity": 1,
+   "label": "EBITDA (Ex- 1x Items)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_117": {
+   "polarity": 1,
+   "label": "PBT",
+   "source": "declared",
+   "why": "pre-tax profit",
+   "owner": "universal"
+  },
+  "IS_P_118": {
+   "polarity": 1,
+   "label": "PBT (Ex-1x Items)",
+   "source": "declared",
+   "why": "pre-tax profit, adjusted",
+   "owner": "universal"
+  },
+  "IS_P_119": {
+   "polarity": 0,
+   "label": "Income Tax",
+   "source": "declared",
+   "why": "a tax charge rises with profit; its direction alone is not a read",
+   "owner": "universal"
+  },
+  "IS_P_121": {
+   "polarity": -1,
+   "label": "ETR",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_122": {
+   "polarity": -1,
+   "label": "ETR (Ex-1x Items)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_123": {
+   "polarity": 1,
+   "label": "Net Income",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_124": {
+   "polarity": 1,
+   "label": "Net Income (Ex-1x Items)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_125": {
+   "polarity": -1,
+   "label": "FDS",
+   "source": "declared",
+   "why": "fully diluted share count: more shares dilute each holder",
+   "owner": "universal"
+  },
+  "IS_P_127": {
+   "polarity": 1,
+   "label": "EPS",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_128": {
+   "polarity": 1,
+   "label": "EPS (Ex-1x Items)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_131": {
+   "polarity": -1,
+   "label": "G&A",
+   "source": "declared",
+   "why": "general and administrative expense",
+   "owner": "universal"
+  },
+  "IS_P_132": {
+   "polarity": -1,
+   "label": "G&A (Ex-1x Items)",
+   "source": "declared",
+   "why": "general and administrative expense, adjusted",
+   "owner": "universal"
+  },
+  "IS_P_133": {
+   "polarity": -1,
+   "label": "SG&A",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_135": {
+   "polarity": 0,
+   "label": "R&D",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_141": {
+   "polarity": -1,
+   "label": "Interest Expense",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_151": {
+   "polarity": -1,
+   "label": "SBC",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_201": {
+   "polarity": 1,
+   "label": "Net Interest Income",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_202": {
+   "polarity": 1,
+   "label": "Net Interest Income - TEB",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_203": {
+   "polarity": 1,
+   "label": "NIM (AIEA) - Net Interest Margin (Consolidated)",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_204": {
+   "polarity": 1,
+   "label": "Net Interest Margin (NIM) (%) - TEB",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_205": {
+   "polarity": -1,
+   "label": "Efficiency Ratio",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_207": {
+   "polarity": -1,
+   "label": "Provision for Credit Losses",
+   "source": "name_rule",
+   "owner": "universal",
+   "added": "v4.53.0 (13b): documented spine code, label as the provider returns it; behaviour-neutral"
+  },
+  "IS_P_250": {
+   "polarity": -1,
+   "label": "Basic Shares",
+   "source": "declared",
+   "why": "basic share count: more shares dilute each holder",
+   "owner": "universal"
+  },
+  "IS_P_251": {
+   "polarity": 1,
+   "label": "Basic EPS",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_267": {
+   "polarity": -1,
+   "label": "Cost and Operating Expense",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_268": {
+   "polarity": -1,
+   "label": "Cost and Operating Expense (Ex-1x Items)",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_501": {
+   "polarity": 1,
+   "label": "Restaurant Margin",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_502": {
+   "polarity": 1,
+   "label": "Adjusted Restaurant Margin",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "IS_P_503": {
+   "polarity": 1,
+   "label": "Restaurants Level Profit",
+   "source": "declared",
+   "why": "restaurant-level profit",
+   "owner": "universal"
+  },
+  "IS_P_504": {
+   "polarity": 1,
+   "label": "Adjusted Restaurants Level Profit",
+   "source": "declared",
+   "why": "restaurant-level profit, adjusted",
+   "owner": "universal"
+  },
+  "KM_P_1008": {
+   "polarity": 0,
+   "label": "Total Employee",
+   "source": "declared",
+   "why": "headcount is investment or cost depending on why it moved",
+   "owner": "universal"
+  },
+  "KM_P_1112": {
+   "polarity": 0,
+   "label": "Average Employees",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "KM_P_501": {
+   "polarity": 1,
+   "label": "AUV",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "KM_P_502": {
+   "polarity": 1,
+   "label": "Average - Total Number of Restaurants",
+   "source": "declared",
+   "why": "unit count: more units is growth",
+   "owner": "universal"
+  },
+  "KM_P_503": {
+   "polarity": 1,
+   "label": "Total Number of Restaurants",
+   "source": "declared",
+   "why": "unit count: more units is growth",
+   "owner": "universal"
+  },
+  "KM_P_506": {
+   "polarity": 1,
+   "label": "EOP - Restaurants",
+   "source": "declared",
+   "why": "unit count: more units is growth",
+   "owner": "universal"
+  },
+  "RT_P_301": {
+   "polarity": -1,
+   "label": "DIO",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "RT_P_306": {
+   "polarity": 1,
+   "label": "Inventory Turnover",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "SD_P_505": {
+   "polarity": 1,
+   "label": "% SSS",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "SD_P_511": {
+   "polarity": 1,
+   "label": "% Traffic - Total Revenue",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "SD_P_534": {
+   "polarity": 1,
+   "label": "Digital - Revenue",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "SD_P_537": {
+   "polarity": 1,
+   "label": "Sales from Existing Restaurants",
+   "source": "name_rule",
+   "owner": "universal"
+  },
+  "SD_P_541": {
+   "polarity": 1,
+   "label": "% Price/Mix - Total Revenue",
+   "source": "name_rule",
+   "owner": "universal"
+  }
+ }
+}

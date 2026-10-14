@@ -1,0 +1,67 @@
+{
+  "firmName": "InSync Analytics",
+  "copyrightYear": "2026",
+  "fonts": {
+    "title": "Georgia",
+    "body": "Calibri"
+  },
+  "colors": {
+    "orange": "E8850C",
+    "orangeDk": "B25E08",
+    "ink": "1A1A1A",
+    "navy": "232526",
+    "white": "FFFFFF",
+    "headerBg": "EDEDED",
+    "bandFill": "F0E9D8",
+    "calloutBg": "F6F3EE",
+    "mastBorder": "C9C9C9",
+    "beatGreen": "1E7A34",
+    "missRed": "B02A1F",
+    "inlineGray": "6E6E6E",
+    "sectionHeader": "1A1A1A",
+    "tableBorder": "DDDDDD",
+    "headerRule": "BBBBBB",
+    "rowRule": "EEEEEE",
+    "rowAlt": "F5F0E8",
+    "divider": "F0E9D8",
+    "grayDark": "222222",
+    "grayLight": "555555",
+    "footerBorder": "DDDDDD"
+  },
+  "masthead": {
+    "brand_size_half_points": 33,
+    "brand_size_two_line_half_points": 24,
+    "mark_px": {
+      "w": 59,
+      "h": 46
+    },
+    "company_size_ladder_half_points": [
+      28,
+      27,
+      26,
+      25,
+      24
+    ],
+    "alignment_tolerance_pt": 0.5,
+    "face": "Georgia",
+    "face_overrides": {
+      "earnings-packet-3p": "Times New Roman"
+    },
+    "face_accepted_substitutes": {
+      "Times New Roman": [
+        "Liberation Serif"
+      ]
+    },
+    "period_format": "short",
+    "logo_file": "insync-logo.jpg",
+    "suffix_template": " ({TICKER}) - {PERIOD}",
+    "brand_split": {
+      "orange_word": "InSync",
+      "ink_word": " Analytics"
+    },
+    "exempt_products": [
+      "forecast-reliability-suite"
+    ]
+  },
+  "disclosure": "For informational purposes only. Not investment advice. This document is not an offer to buy or sell, or a solicitation of an offer to buy or sell, any financial instrument, and it does not constitute participation in any trading strategy in any jurisdiction. InSync Analytics does not guarantee the accuracy, completeness, or timeliness of the information presented. This document does not take into account the investment objectives, financial situation, or specific needs of any individual investor. InSync Analytics is not a licensed financial advisor, broker, or dealer, and this document is not intended to provide investment, legal, accounting, or tax advice. You are solely responsible for your own investment decisions; InSync Analytics is not liable for any losses or damages arising from the use of this material."
+}

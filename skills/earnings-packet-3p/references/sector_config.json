@@ -1,0 +1,96 @@
+{
+ "banking": {
+  "spine_adds": "NII, provisions, NIM, CET1, loans, deposits",
+  "drivers": "NIM, cost/income, NPL, loan growth",
+  "lens": [
+   "P/E",
+   "P/B"
+  ]
+ },
+ "insurance": {
+  "spine_adds": "premiums, combined ratio, reserves, book value",
+  "drivers": "combined ratio, retention, cat load",
+  "lens": [
+   "P/E",
+   "P/B"
+  ]
+ },
+ "reit": {
+  "spine_adds": "FFO, AFFO, AFFO per share, NOI, occupancy",
+  "drivers": "same-store NOI, occupancy, spreads",
+  "lens": [
+   "P/E",
+   "EV/EBITDA",
+   "P/B"
+  ]
+ },
+ "energy_materials": {
+  "spine_adds": "production, realisations, unit cost",
+  "drivers": "volumes, realised price, opex/unit",
+  "lens": [
+   "EV/EBITDA",
+   "P/E",
+   "P/B"
+  ]
+ },
+ "utilities": {
+  "spine_adds": "rate base, allowed ROE, regulated EBIT",
+  "drivers": "rate base growth, load, capex",
+  "lens": [
+   "P/E",
+   "EV/EBITDA",
+   "P/B"
+  ]
+ },
+ "software_growth": {
+  "spine_adds": "ARR, NRR, gross margin, FCF, SBC",
+  "drivers": "ARR, NRR, billings, magic number",
+  "lens": [
+   "EV/Sales",
+   "EV/EBITDA",
+   "P/E"
+  ]
+ },
+ "software_mature": {
+  "spine_adds": "ARR or RPO, NRR where published, SBC, FCF margin",
+  "drivers": "ARR or RPO, cRPO, billings, renewal rate",
+  "lens": [
+   "P/E",
+   "EV/EBITDA",
+   "EV/Sales"
+  ]
+ },
+ "internet_platform": {
+  "spine_adds": "published volume measure, segment revenue, SBC, capex",
+  "drivers": "bookings or GMV, users, take rate, engagement",
+  "lens": [
+   "EV/EBITDA",
+   "P/E",
+   "EV/Sales"
+  ]
+ },
+ "financials_nonbank": {
+  "spine_adds": "net revenues, fee-related earnings, BVPS, ROE",
+  "drivers": "AUM, net flows, fee rate, NCO rate",
+  "lens": [
+   "P/E",
+   "P/B"
+  ]
+ },
+ "telecom": {
+  "spine_adds": "service revenue, subs, ARPU, churn, capex",
+  "drivers": "net adds, ARPU, churn, capex intensity",
+  "lens": [
+   "EV/EBITDA",
+   "P/E"
+  ]
+ },
+ "default": {
+  "spine_adds": "the universal spine below",
+  "drivers": "company-published drivers",
+  "lens": [
+   "P/E",
+   "EV/EBITDA"
+  ]
+ }
+}

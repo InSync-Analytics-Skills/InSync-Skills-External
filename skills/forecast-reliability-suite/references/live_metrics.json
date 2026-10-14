@@ -1,0 +1,12 @@
+{
+  "forecast-reliability-suite": {
+    "accuracy":     null,
+    "faithfulness": null,
+    "completion":   null,
+    "reliability":  null,
+    "trigger_frac": null,
+    "token_frac":   null,
+    "latency_frac": null,
+    "notes": "NOT YET MEASURED. Every key is null on purpose: no value here was measured against ground truth, and a plausible-looking number would invalidate the audit it feeds. To populate: run >=3 scenarios across >=3 verified sectors (the internal-edition test fixtures cover staples, retail, banks, insurance, REITs, utilities, managed care, asset managers), reconcile every consensus/MIN/MAX against a live InSync pull per Step 3c, grade with a separate judge, and record pass^k over repeated deterministic rebuilds for reliability. State in this notes field how many scenarios and tickers were run and which figures were ground-truth-verified versus fixture-sourced. Leave any key you did not measure as null."
+  }
+}

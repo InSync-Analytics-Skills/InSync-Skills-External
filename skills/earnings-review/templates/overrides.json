@@ -1,0 +1,17 @@
+{
+ "_note": "Company-document figures that replace or add to InSync. Quote the document text verbatim; apply_overrides.py parses it, logs the InSync value it replaces, and build_html lists every override in the Source block. Delete the sections you do not need.",
+ "values": [
+  {"metric": "ocf", "period": "2Q26", "text": "$142 million", "source": "2Q26 release, cash flow table", "reason": "InSync value not on the continuing-operations basis"}
+ ],
+ "exclude": [
+  {"metric": "revenue", "periods": ["3Q25", "4Q25", "1Q26"], "reason": "pre-spin basis"}
+ ],
+ "guides": [
+  {"metric": "ebitda", "field": "guide_new", "text": "$520 - $560", "source": "2Q26 release, outlook table", "reason": "InSync stores the midpoint only"},
+  {"metric": "revenue", "field": "guide_fy_new", "text": "Mid-to-high teens growth", "tag": "4 Aug", "source": "2Q26 outlook slide"}
+ ],
+ "stated_change": [
+  {"metric": "seg_margin", "text": "an increase of 250 basis points versus the prior year", "basis": "restated", "mode": "replace", "source": "2Q26 call, CFO"},
+  {"metric": "eps", "text": "an increase of $0.12 from the pro forma results in Q2 2025", "basis": "pro forma", "mode": "alongside", "source": "2Q26 call, CFO"}
+ ]
+}

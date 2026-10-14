@@ -1,0 +1,104 @@
+{
+ "_doc": "InSync Analytics library-wide identity and masthead constants. SINGLE SOURCE OF TRUTH. Every skill's renderer reads this via loadBrand() and falls back to its own built-in copy only if this file is missing. Change a value HERE, not in a renderer. The masthead block is enforced at build time by scripts/check_masthead.py in each skill; a renderer that hardcodes a different value will fail its self-check.",
+ "_schema_version": "1.0",
+ "_owner": "InSync Analytics - Public Markets",
+ "firmName": "InSync Analytics",
+ "copyrightYear": "2026",
+ "fonts": {
+  "title": "Georgia",
+  "body": "Calibri"
+ },
+ "colors": {
+  "orange": "E8850C",
+  "orangeDk": "B25E08",
+  "ink": "1A1A1A",
+  "navy": "232526",
+  "white": "FFFFFF",
+  "headerBg": "EDEDED",
+  "bandFill": "F0E9D8",
+  "calloutBg": "F6F3EE",
+  "mastBorder": "C9C9C9",
+  "beatGreen": "1E7A34",
+  "missRed": "B02A1F",
+  "inlineGray": "6E6E6E",
+  "sectionHeader": "1A1A1A",
+  "tableBorder": "DDDDDD",
+  "headerRule": "BBBBBB",
+  "rowRule": "EEEEEE",
+  "rowAlt": "F5F0E8",
+  "divider": "F0E9D8",
+  "grayDark": "222222",
+  "grayLight": "555555",
+  "footerBorder": "DDDDDD",
+  "slate": "3D4550",
+  "grayMid": "5A5A5A",
+  "scoreStrong": "1E7A34",
+  "scoreSolid": "2E7D32",
+  "scoreAdequate": "8A6D1E",
+  "scoreWeak": "B02A1F",
+  "_colors_note": "Read by scripts/render_capalloc.py at import - this file is the declaration and the renderer follows it, never the other way round. An internal-edition test fails the build if they disagree.",
+  "_advisory": [
+   "divider",
+   "footerBorder",
+   "grayDark",
+   "grayLight",
+   "orangeDk",
+   "sectionHeader",
+   "white"
+  ],
+  "_advisory_note": "Library-wide palette values that THIS skill's renderer does not consume. Listed explicitly so the distinction is reviewed rather than assumed: a key that is neither read nor listed here fails an internal-edition palette test. Keys outside this list are binding on scripts/render_capalloc.py. Shortened in v2.71.0, when the renderer's local cool-grey table furniture (EEF1F4/F5F7F9/F4F6F8/C4C9CF/D15A1E) was replaced with the shared warm tokens and the signal colours were wired in, so this report reads the same way as Earnings Wrap, Earnings Flash and the Tear Sheet."
+ },
+ "masthead": {
+  "_doc": "Geometry of the three-cell masthead: [logo] [InSync Analytics / Company (TICKER) - Period] [Product name / dates]. Sizes are OOXML half-points; the mark is CSS/Word pixels. These four values are what drifted across the library before v5.x and are now asserted on the rendered PDF, not just in source.",
+  "brand_size_half_points": 33,
+  "_brand_note": "16.5pt. FIXED for every ticker and every product. Never derive it from the company-line size and never let a long company name shrink it.",
+  "brand_size_two_line_half_points": 24,
+  "_brand_two_line_note": "12pt. Used ONLY when the issuer name runs to a second company line: the brand line yields the vertical room so the three-line block still spans the mark exactly. Single-line mastheads keep brand_size_half_points. Declared here so check_masthead.py accepts both rather than reading the reduced size as a renderer gone off-spec.",
+  "mark_px": {
+   "w": 59,
+   "h": 46
+  },
+  "_mark_note": "Constant in every product. The mark SPANS the two-line text block: its top edge meets the top of 'InSync Analytics' and its bottom edge meets the bottom of the company/ticker line.",
+  "company_size_ladder_half_points": [
+   28,
+   27,
+   26,
+   25,
+   24,
+   23,
+   22,
+   21,
+   20
+  ],
+  "_ladder_note": "14pt down to a 10pt floor. Start at the top and step down to the FIRST size whose measured width fits the middle cell. SHRINK, NEVER TRUNCATE: elision is a floor guard only and no real issuer name should reach it. Measure with a per-glyph width table, not a character-count estimate.",
+  "alignment_tolerance_pt": 0.5,
+  "_alignment_note": "Max allowed |logo_top - brand_top| and |logo_bottom - company_bottom| on the rendered PDF. The per-renderer offsets that achieve this (Word spaceBefore/spaceAfter twips, CSS px) are NOT shared: raw OOXML, the docx npm library and weasyprint each carry different line metrics, so each skill tunes its own offset to hit this shared target.",
+  "_font_note": "Both alignment assertions are measured on rendered INK, and where the ink sits inside a fixed line box is set by the FONT's ascent/descent, not by the box. Calibrate offsets against Georgia's real metrics (2048 em, hhea ascent 1878, descent -449). A box with no Georgia installed lets LibreOffice substitute DejaVu Serif silently, which moves both edges about 0.3pt; offsets tuned in that state are wrong on every machine that has the font. check_masthead.py prints the face it measured and flags a substitution - treat a flagged run as unverified, not as a pass.",
+  "face": "Georgia",
+  "face_overrides": {
+   "earnings-packet-3p": "Times New Roman",
+   "forecast-reliability-suite": "Times New Roman"
+  },
+  "face_accepted_substitutes": {
+   "Times New Roman": [
+    "Liberation Serif"
+   ]
+  },
+  "_face_note": "Georgia is the house masthead face. earnings-packet-3p is a deliberate exception: its masthead shares the packet's own serif, Times New Roman, which is also the face of its section headings. face_accepted_substitutes lists the stand-ins that are METRIC-FAITHFUL and therefore fine to calibrate and measure against: Liberation Serif matches Times New Roman in both advance widths and vertical metrics (2048 em, hhea 1825/-443/87, win 1825/443), so a Linux render describes the shipped page exactly. Georgia has NO accepted substitute - DejaVu Serif, the usual Linux stand-in, has different vertical metrics and moves both masthead edges, which is how the library shipped constants calibrated against a font nobody sees.",
+  "period_format": "short",
+  "_period_note": "Render '2Q26', never '2Q FY2026'. Normalise in the renderer so an upstream long form still prints short.",
+  "logo_file": "insync_logo.png",
+  "_logo_note": "Canonical filename and the transparent PNG mark. Skills currently shipping insync-logo-mark.png or insync-logo.jpg carry the same bytes under a non-standard name; rename on next touch.",
+  "suffix_template": " ({TICKER}) - {PERIOD}",
+  "_suffix_note": "One ordinary space before the bracket. The suffix is the identifying half of the line and is NEVER shortened by the ladder or the elision guard.",
+  "brand_split": {
+   "orange_word": "InSync",
+   "ink_word": " Analytics"
+  },
+  "exempt_products": [
+   "forecast-reliability-suite:html-portal-header"
+  ],
+  "_exempt_note": "The exemption is the Forecast Reliability Suite's HTML PORTAL HEADER only - the dark band with the uppercase letterspaced wordmark, which is a deliberately different design language. Its PDF masthead is an ordinary three-cell block and IS held to the geometry above. It was read as exempt and drifted badly: the brand line and the mark shrank with the issuer name, and ordinary names were truncated to '..'. The key therefore names the HEADER, not the whole product."
+ },
+ "disclosure": "For informational purposes only. Not investment advice. This document is not an offer to buy or sell, or a solicitation of an offer to buy or sell, any financial instrument, and it does not constitute participation in any trading strategy in any jurisdiction. InSync Analytics does not guarantee the accuracy, completeness, or timeliness of the information presented. This document does not take into account the investment objectives, financial situation, or specific needs of any individual investor. InSync Analytics is not a licensed financial advisor, broker, or dealer, and this document is not intended to provide investment, legal, accounting, or tax advice. You are solely responsible for your own investment decisions; InSync Analytics is not liable for any losses or damages arising from the use of this material."
+}

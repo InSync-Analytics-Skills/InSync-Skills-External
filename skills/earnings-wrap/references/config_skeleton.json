@@ -1,0 +1,478 @@
+{
+ "_help": [
+  "FILL THIS, DO NOT READ sample_config.json UNLESS YOU NEED A POPULATED EXAMPLE.",
+  "Every key below is required unless its placeholder says optional. Delete the _help block or leave it: the renderer ignores unknown keys.",
+  "You supply RAW figures and PROSE only. Never type a delta, surprise, growth rate or arrow anywhere: the renderer computes all of them. Numbers go in `results`/`kpiTable`/`snapshot` as bare numbers, never pre-formatted strings.",
+  "`u` picks the format for a whole row. Vocabulary and the precision rule are in SKILL.md under 'Unit tokens'.",
+  "A snapshot row has three legal shapes: (1) [label, \"\", \"\", \"exact results row name\"] - the renderer formats BOTH cells from that row, so the two can never disagree, and this is the right shape for any metric that also appears in Section 4; (2) {name, a, py, u} - the renderer formats both cells from raw figures, for a metric with no counterpart in results; (3) {name, a, u, note} - a formatted actual plus a NON-numeric market note in the Change column ('Jul 23 close'). CORRECTED v7.7.3: this used to claim \"a numeric string typed into the Change column fails the snapshot_contract gate before any other gate runs\". It does not, and sample_config.json - the authoritative populated example - writes exactly that shape: [label, \"$32.40B\", \"+60.0%\", \"Total Revenue\"], plus 3-element rows like [\"Stock reaction\", \"-2.4%\", \"May 21 print\"]. Both render. It FAILS SAFE, because where a 4th element names a results row the renderer recomputes both cells and the typed strings are ignored - falsifying them changes nothing on the page - but the contract and the example disagreed, so a model copying the fixture wrote a shape the contract called fatal and a model trusting the contract waited for an error that never came. Write shape (1) with empty cells. Where a row has NO 4th element the typed value IS what prints, so the Stock reaction figure is author-supplied: `reaction_agreement` cross-checks it against the prose that states it.",
+  "`w` values are relative and normalised to percentages, so keep the house numbers below rather than inventing a scale.",
+  "`inv: true` on a results row, or a name listed in snapshot.inv, marks lower-is-better ONCE and applies to every table. snapshot.noinv is the escape where the polarity cue misfires (a capital or coverage ratio).",
+  "Prose caps: sentences <=30 words, one comma, no semicolons, no em dashes, 'versus' not 'vs'. Bullets are '**Label:** Clause'."
+ ],
+ "company": "<full legal name as InSync returns it>",
+ "ticker": "<TICKER>",
+ "quarter": "<e.g. 3Q26. MUST be the latest REPORTED quarter: the `staleness` gate blocks anything older than identityProbe.latestFiscalQuarter, and that gate is not downgradable.>",
+ "consensusColumn": "<OPTIONAL, default true. Set FALSE only on the tier-3 case - no pre-print as-of consensus for ANY graded line - and then `consensusBasis` is REQUIRED. The renderer drops the Consensus, Delta-vs-Cons and Dir. columns instead of printing three columns of dashes.>",
+ "consensusBasis": "<REQUIRED when consensusColumn is false: one line naming what the print was graded against instead (the guidance midpoint, or a cited preview by filename). It is forced into the Section 4 caption.>",
+ "prepared": "<Mon DD, YYYY: today>",
+ "reported": "<Mon DD, YYYY: the actual report date from get_call_date, never later than prepared>",
+ "result": "<one sentence: the verdict. e.g. 'Revenue and EPS beat and DC rose 92%, but shares fell 1.8% on a high bar.'>",
+ "resultColor": "<GREEN | RED | DARK | LABEL | GREY - a house palette KEY, not a colour name. v7.7.0: this line used to read 'green | amber | red'; 'amber' is not in the palette and rendering with it costs a run.>",
+ "summary": [
+  [
+   "What happened",
+   [
+    "<bullet with a number>",
+    "<bullet with a number>"
+   ]
+  ],
+  [
+   "What changed",
+   [
+    "<bullet with a number>"
+   ]
+  ],
+  [
+   "Market reaction",
+   [
+    "Positive: <what the market liked, with a number>",
+    "Negative: <what it did not, with a number>",
+    "Net: <the reaction move, stated ONCE in the whole note>"
+   ]
+  ],
+  [
+   "Key debate",
+   [
+    "<the single unresolved question, phrased distinctly from section 9>"
+   ]
+  ]
+ ],
+ "variant": [
+  [
+   "Street view (before earnings)",
+   [
+    "<what consensus modelled, with the figures>"
+   ]
+  ],
+  [
+   "What changed",
+   [
+    "<what the print altered, with a number>"
+   ]
+  ],
+  [
+   "Potential variant",
+   [
+    "<what the market may MISUNDERSTAND, not a restatement of results>"
+   ]
+  ],
+  [
+   "Variant assessment",
+   [
+    "<Supported | Partially Supported | Not Supported>. <one evidence line with a number>"
+   ]
+  ]
+ ],
+ "snapshot": {
+  "head": [
+   "Metric",
+   "Actual",
+   "Change"
+  ],
+  "w": [
+   4400,
+   2500,
+   2500
+  ],
+  "rows": [
+   [
+    "<Primary KPI label> (Primary KPI)",
+    "",
+    "",
+    "<EXACT name of its results row>"
+   ],
+   [
+    "<second Key KPI label> (Key KPI)",
+    "",
+    "",
+    "<EXACT name of its results row>"
+   ],
+   {
+    "name": "<Key Margin label> (Key Margin)",
+    "a": 0,
+    "py": 0,
+    "u": "%"
+   },
+   [
+    "Total revenue",
+    "",
+    "",
+    "Total Revenue"
+   ],
+   [
+    "Adj EPS",
+    "",
+    "",
+    "Adj EPS (Ex-1x Items)"
+   ],
+   {
+    "name": "Stock reaction",
+    "a": 0,
+    "u": "%",
+    "note": "<literal, e.g. 'May 21 print'>"
+   },
+   {
+    "name": "Current price",
+    "a": 0,
+    "u": "$",
+    "note": "<literal, e.g. 'Jul 23 close'>"
+   }
+  ],
+  "inv": [
+   "<exact names of lower-is-better rows, or []>"
+  ],
+  "noinv": [
+   "<names where the polarity cue misfires (a capital or coverage ratio), or omit>"
+  ]
+ },
+ "snapshotCap": "<[A] reported actual; [E] pre-print consensus (as of <date>). Note any line with no clean consensus. Source: InSync MCP; FYE <month>.>",
+ "results": [
+  {
+   "band": "Key Financial Metrics",
+   "rows": [
+    {
+     "name": "Total Revenue",
+     "a": 0,
+     "c": 0,
+     "py": 0,
+     "pq": 0,
+     "u": "$B"
+    },
+    {
+     "name": "Adj EPS (Ex-1x Items)",
+     "a": 0,
+     "c": 0,
+     "py": 0,
+     "pq": 0,
+     "u": "$"
+    }
+   ]
+  },
+  {
+   "band": "Top Operating KPIs",
+   "rows": [
+    {
+     "name": "<Primary KPI, must also appear in kpiTable>",
+     "a": 0,
+     "c": null,
+     "py": 0,
+     "pq": 0,
+     "u": "$B"
+    }
+   ]
+  }
+ ],
+ "resultsCap": "<Consensus is the latest pre-print InSync mean (<date>). Name any line with no clean consensus. Non-GAAP basis.> NEVER name a broker count here or anywhere else on the page (v7.11.0): it is internal, it lives in consensusProbe, and the `broker_disclosure` lint blocks the word. Since v7.11.4 no panel depth blocks the build; the count still stays off the page.",
+ "takeaway": "<one line: what the table adds up to>",
+ "drove": [
+  "**<Driver>.** <what happened, with magnitude>",
+  "**<Driver>.** <what happened, with magnitude>",
+  "**<Driver>.** <what disappointed, with magnitude>"
+ ],
+ "kpiHier": [
+  [
+   "Primary KPI",
+   [
+    "<why this is the core driver, with a number>"
+   ]
+  ],
+  [
+   "Secondary KPIs",
+   [
+    "<the supporting drivers, with numbers>"
+   ]
+  ],
+  [
+   "Supporting",
+   [
+    "<the context metric, with a number>"
+   ]
+  ]
+ ],
+ "kpiTable": {
+  "quarters": [
+   "<Q-4>",
+   "<Q-3>",
+   "<Q-2>",
+   "<Q-1>",
+   "<printed quarter LAST>"
+  ],
+  "rows": [
+   {
+    "name": "<KPI>",
+    "u": "<token; use the issuer's currency for a non-USD reporter>",
+    "kind": "level",
+    "vals": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "name": "<margin or other %-level>",
+    "u": "%",
+    "kind": "rate",
+    "vals": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "name": "<an ALREADY-Y/Y series, e.g. retail comps: kind MUST be 'growth'>",
+    "u": "%",
+    "kind": "growth",
+    "vals": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   }
+  ],
+  "note": "<[A] reported actuals. State the unit basis and the source.>",
+  "_kind": "level = an absolute figure; rate = a %-level such as a margin or combined ratio; growth = a series that is ALREADY a Y/Y. Typing an already-Y/Y series as 'level' makes the renderer append a SECOND Y/Y to it and no gate catches that. Never hand-format a KPI cell, and never emit a values-only or percent-only KPI table."
+ },
+ "kpiCap": "<optional: disclose a KPI provenance tier past mcp_top_kpi, and any substitution>",
+ "guidanceTone": "<STRONG | STEADY | CAUTIOUS> (<the headline guide, e.g. '2Q27 revenue guided to $91.0B'>)",
+ "guidance": [
+  "**<Metric>.** <what was guided, with the number and range>",
+  "**Implication.** <so what: how this resets the forward bar>"
+ ],
+ "guidanceTable": {
+  "head": [
+   "Guide Metric",
+   "Prior [G]",
+   "New [G]",
+   "Pre-print [E]",
+   "Post-print [E]"
+  ],
+  "w": [
+   2800,
+   1900,
+   1900,
+   1800,
+   1840
+  ],
+  "_rows_doc": "Same cell contract as valTable: a figure is {\"v\": 90.68, \"u\": \"$B\"} and a guided range is {\"lo\": 86.70, \"hi\": 87.80, \"u\": \"$B\"}, with an optional \"note\" for the company's own tolerance (\"(\u00b12%)\") or the period a guide applies to (\"for 2Q26\"). The `table_figures` gate refuses a hand-typed figure string.",
+  "rows": [
+   [
+    "<metric>",
+    {
+     "lo": "<prior guide low>",
+     "hi": "<prior guide high>",
+     "u": "$B"
+    },
+    {
+     "lo": "<new guide low>",
+     "hi": "<new guide high>",
+     "u": "$B"
+    },
+    {
+     "v": "<post-print consensus>",
+     "u": "$B"
+    }
+   ]
+  ],
+  "_cols_doc": "Pre-print [E] is the Street mark that stood when management guided \u2014 did the guide beat expectations. Post-print [E] is where the Street moved after \u2014 has it now passed the guide. Both are real and each answers a different question, so the table carries both."
+ },
+ "guidanceTableCap": "<appended AFTER the basis sentence the renderer writes, so do NOT restate what Prior means: put only the source and any caveat here>",
+ "_forwardTable_instead": "ONLY where get_guidance returned zero rows: delete guidanceTable and guidanceTableCap, and add forwardTable with head exactly [\"Forward Metric\",\"Consensus [E]\",\"Basis\"]. Exactly one of the two tables, never both.",
+ "_revisions_optional": "Add `revisions` [{name, before, after, u}] plus `revisionsWindow` and `revisionsCap` where pre- and post-print consensus both exist. Where consensus has not revised, omit the grid only, say so in one line, and still keep guidanceTable. revisionsCap must say what the revision MEANS.",
+ "mgmt": [
+  "**<Topic>.** Management <guided | said | reaffirmed | raised | expects | plans | cited> <the statement>",
+  "**<Topic>.** <a statement or one short attributed quote, never a restated result>",
+  "**<Topic>.** <capital-allocation intent or demand colour>"
+ ],
+ "monitor": [
+  {
+   "metric": "<metric>",
+   "fact": "<the reported number>",
+   "monitor": "<the forward watch question, distinct from the Key Debate>"
+  },
+  {
+   "metric": "<metric>",
+   "fact": "<the reported number>",
+   "monitor": "<forward watch question>"
+  },
+  {
+   "metric": "<metric>",
+   "fact": "<the reported number>",
+   "monitor": "<forward watch question>"
+  }
+ ],
+ "valNote": [
+  "<the metric-basis line: which multiples this sector is valued on, and in which currency>"
+ ],
+ "valTable": {
+  "head": [
+   "Metric",
+   "Current",
+   "3Y Avg",
+   "Peer Median",
+   "Basis"
+  ],
+  "w": [
+   2600,
+   2100,
+   1600,
+   1700,
+   1440
+  ],
+  "_rows_doc": "A cell carrying a FIGURE is a VALUE plus a unit token and the RENDERER formats it - {\"v\": 22.4, \"u\": \"x\"}, or {\"lo\": 4.40, \"hi\": 4.60, \"u\": \"$\"} for a range, with an optional \"note\" for a tolerance band (\"(\u00b12%)\"). Plain text is fine only where it carries NO figure: \"n/a\", \"InSync NTM\", \"Jul 23, 2026 close\". An EMPTY cell (\"\") renders as blank white space and means the comparison is MEANINGLESS, not missing - a 3Y average share price and a peer median share price are not quantities, so the Price and 52-week range rows carry empty 3Y Avg and Peer Median cells. Keep \"n/a\" for the genuinely UNAVAILABLE: a real multiple with no peer set or no history. The two are different claims and must not be swapped. The `table_figures` gate refuses a hand-typed figure string, because no other layer owns these cells.",
+  "rows": [
+   [
+    "<multiple>",
+    {
+     "v": "<current, a number>",
+     "u": "x"
+    },
+    {
+     "v": "<own history average>",
+     "u": "x"
+    },
+    {
+     "v": "<peer median, a number>",
+     "u": "x"
+    },
+    "<provenance, plain text>"
+   ]
+  ]
+ },
+ "_valCap_retired": "The Section 10 caption is retired - not read, not rendered, not required. The methodology (how the average was built: the InSync NTM mean over the same multiple via get_valuation mode=NTM with summarize=true over 3y, which returns mean/median/min/max and a data_points count; any n/a and why; the price date) is provenance for `valProvenance`; any n/a and why goes into `valNote` above the table.",
+ "kpiUniverse": [
+  "<every KPI name the MCP returned, verbatim>"
+ ],
+ "kpiProvenance": "<mcp_top_kpi | mcp_kpi_tier | mcp_discovery>",
+ "primaryKpi": "<must match a kpiUniverse member; from kpi_gate.py --pick-primary>",
+ "secondaryKpi": "<a different kpiUniverse member; from kpi_gate.py --pick-secondary>",
+ "_kpiDiscovery_if_tier3": "Required when kpiProvenance is mcp_discovery: the keyword set used, every candidate ltcode, and which proved out.",
+ "_kpiSubstitutions_if_swapped": "Required for any 'no data -> next KPI' swap: [{dropped, reason, promoted}].",
+ "consensusProbe": {
+  "asOf": "<the day before the report date>",
+  "window": "<the update-date window you queried>",
+  "probed": [
+   {
+    "name": "<must match a results row name>",
+    "ltcode": "<LTCODE>",
+    "found": 0,
+    "brokers": 0
+   },
+   {
+    "name": "<a row with no consensus>",
+    "ltcode": "<LTCODE>",
+    "found": null,
+    "brokers": 0,
+    "evidence": "<the wide window and the latest=true retry you ran to PROVE it empty>"
+   }
+  ]
+ },
+ "spineProbe": {
+  "revenue": {
+   "ltcode": "<LTCODE>",
+   "lineitem": "<copied VERBATIM from the payload>",
+   "yoyNonNull": true
+  },
+  "eps": {
+   "ltcode": "<LTCODE>",
+   "lineitem": "<verbatim>",
+   "yoyNonNull": true
+  }
+ },
+ "sectorProfile": {
+  "_": "paste what sector_resolve.py emits, UNEDITED. Shown here so you can see the fields sector_gate reads.",
+  "subindustry": "<the insync_subindustry string>",
+  "row": "<the matched sectors.json row id, or 'default'>",
+  "resolution": "<table | default>",
+  "marginLtcode": "<the ltcode that PROVED out>",
+  "marginProved": true,
+  "guidanceLive": true,
+  "guidanceSource": "<get_guidance | table>",
+  "guidanceVariable": "<what the issuer actually guides>",
+  "coreDebate": "<the sector's core debate>",
+  "substitutions": []
+ },
+ "priceBasis": {
+  "currency": "<the currency InSync prices this listing in>",
+  "asOf": "<the hero price date>",
+  "reactionSession": "<the session AFTER the call date for a post-close reporter>",
+  "currencyConsistent": true,
+  "note": "<what you resolved if any session disagreed>"
+ },
+ "guidanceBasis": "<quarter-bar = Prior is the guide the company had given FOR the quarter just reported. forward-vintage = Prior is the previous vintage of the same standing forward guide. annual-roll = (v7.7.4) this issuer guides on a full-year basis ONLY, so Prior is the outgoing fiscal year's guide and New the incoming year's - the two target DIFFERENT periods and the change is a roll-forward, not a revision. The renderer writes the caption sentence from this, so a wrong choice prints a wrong provenance claim that every gate passes.>",
+ "revisionsScope": "<one line: which lines you checked for post-print revisions and what came back, whether or not a grid is shown>",
+ "sources": "<InSync MCP tools used; [A] reported actual, [E] consensus estimate, [G] company guidance; draft for analyst review, not investment advice>",
+ "_counts": "drove: 2 to 4 drivers, one on what disappointed. mgmt: 3 to 4 bullets. monitor: 3 to 5 items. summary MARKET REACTION: exactly 3. variant: exactly 4 pairs. kpiTable.quarters: exactly 5. snapshot.rows: exactly 7. Nothing checks these counts, and the page-fit gate hard-fails above 4 pages.",
+ "_shapes": "summary, variant and kpiHier are [label, [bullet, ...]] pairs: a label plus a LIST of bullets. A bare string in the bullet slot raises. drove, mgmt and guidance are FLAT lists of '**Label:** Clause' strings. monitor is a list of {metric, fact, monitor} objects.",
+ "identityProbe": {
+  "ticker": "REQUIRED. The symbol search_tickerid returned, verbatim. Must equal the note's `ticker`.",
+  "company": "REQUIRED. The company_name search_tickerid returned, verbatim. Must equal `company`.",
+  "tickerId": "REQUIRED. The numeric ticker_id every later call was made with.",
+  "matchType": "REQUIRED. The resolver's match_type: exact_ticker | exact_company | exact_isin | exact_cusip. Anything else BLOCKS - a similarity score is not a discriminator, and an ambiguous match is a question for the user, not a guess.",
+  "latestFiscalQuarter": "REQUIRED, and CHECKED since v7.7.0. latest_fiscal_quarter exactly as search_tickerid returned it. The `staleness` gate compares it with `quarter` and blocks a wrap of an older period. Before v7.7.0 nothing read this key: a 1Q26 note rendered clean against a 2Q26 latest, masthead and KPI grid disagreeing on the same page."
+ },
+ "_unitVocabulary": {
+  "_doc": "Every table row carries a `u` and the renderer formats the cell from it. An unrecognised token, or `#` on a fractional value, is a HARD FAILURE (`unit` gate, not downgradable): the first prints a bare float with no currency and no magnitude, and the second rounds a count in millions to a whole number, so a Results row could read `17 | 17 | -0.4%`. Pick the token that keeps the figure's own precision.",
+  "%": "45.1% - a rate. Differenced in pp, never ratioed.",
+  "x": "24.80x - a multiple.",
+  "#": "1,482 - a count in WHOLE units. Refuses a fraction.",
+  "#K / #M / #B": "149.2K / 16.72M / 3.72B - a count with its magnitude.",
+  "2d": "16.72 - a bare number, two decimals.",
+  "bn": "2.00bn - prefer a currency token where one applies.",
+  "$B / $ / $M / $T": "$39.31B / $4.74 - and any currency works in place of the $: EURB, GBpM, CHF, \u00a5T, \u00a3M. The currency you write is the currency that prints.",
+  "_retired": "`%2` and `1d` are RETIRED and hard-fail the `unit` gate. Use `%` for a rate and `2d` for a bare number."
+ },
+ "guidanceFreshness": {
+  "callDate": "<the earnings CALL_DATE, ISO. From get_call_date>",
+  "releaseFile": "<the earnings-release file name from get_document_tree, ET stamp intact, e.g. 'EXM 2Q27 Earnings Release_09.01.26_16.10.00_ET.pdf'. Its time sets the pre-print consensus cutoff>",
+  "newestGuideDate": "<the newest GUIDEDATE across every get_guidance row, ISO. REQUIRED wherever guidanceTable is present: it is the only way to tell this quarter's guides from last quarter's>",
+  "rowsReturned": "<how many rows get_guidance actually returned. REQUIRED wherever forwardTable is present>",
+  "guidanceSource": "<get_guidance | release | transcript | none | unavailable \u2014 where the guides on the page came from. 'none' means a document was READ and carried no guide; 'unavailable' means nothing could be read. Never swap one for the other>",
+  "_why": "get_guidance returns the newest rows that EXIST, not the newest that were GIVEN, and guidance ingests on its own clock. Guidance rows can be stamped the day after the print, so a same-day run reads LAST quarter's guides with rows present, figures real and no warning anywhere. A Wrap grades the print against guidance, so that corrupts verdicts across the note."
+ },
+ "guidanceConsensusProbe": {
+  "asOf": "<the date of the last consensus snapshot BEFORE management guided>",
+  "postAsOf": "<the date of the post-print mark in the Post-print [E] column>",
+  "window": "<the updatedate window you queried>",
+  "probed": [
+   {
+    "name": "<must match a guidanceTable row>",
+    "ltcode": "<LTCODE>",
+    "found": 0,
+    "brokers": 0
+   },
+   {
+    "name": "<a guided metric with no pre-print mark>",
+    "ltcode": "<LTCODE>",
+    "found": null,
+    "brokers": 0,
+    "evidence": "<the wide window you ran to PROVE no pre-print snapshot exists>"
+   }
+  ],
+  "_why": "SEPARATE from consensusProbe, which covers Results rows (the CLOSED quarter) only. A closed quarter's consensus freezes at the print; a FORWARD period keeps revising, so the guided period needs its own pinned pull: get_estimates on the guided ltcodes with latest={enabled:false} and an updatedate window ending at the print, taking the LAST snapshot. Illustration: if $100B stood when management guided and $110B a week later, a $104B-$106B guide reads ABOVE the first and BELOW the second."
+ },
+ "documentAttempts": [
+  {
+   "path": "<file_path from get_document_tree>",
+   "kind": "<release | transcript | supplemental | presentation | filing>",
+   "bytes": 0,
+   "result": "<success | timeout | refusal | empty | error>"
+  }
+ ],
+ "_documentAttempts_why": "REQUIRED whenever guidanceSource is 'release', 'transcript', 'none' or 'unavailable'. It is what stops a failed parse printing as a company that does not guide. Budget: 2 attempts per document, 4 total \u2014 even a large document parses in seconds, so a parse that has not returned is failing, not slow."
+}

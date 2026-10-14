@@ -1,0 +1,598 @@
+{
+  "_comment": "Classification-keyed valuation-multiple preference. resolve_metricset.py matches a ticker's sector via sectorOf() - which reads insync_subindustry, then subindustry, then classification - falling back to industry against each rule's `match` list (normalized substring, both directions) and uses the FIRST hit; else `default`. ORDER MATTERS: specific terms must precede generic ones, or a generic term captures a specific subindustry ('electric' would capture 'Electrical Equipment' for the utilities rule; 'gas' would capture 'Gas and Water Utilities' for the oil rule; 'energy' would capture 'Renewable Energy'). SCOPE: these multiples DRIVE the rendered Valuation card - a change here changes the document. Up to three lenses per rule, in the order listed, then Dividend Yield and a positive FCF Yield appended if the rule omits them; a lens InSync does not carry for the ticker is dropped rather than dashed. See references/valuation-card.md. The `reit` rule precedes `retail` and `health care`, so sub-industry strings such as 'Retail REITs' and 'Health Care REITs' are valued on P/FFO rather than captured by the generic consumer and healthcare rules.",
+  "rules": [
+    {
+      "match": [
+        "specialty finance",
+        "consumer finance",
+        "mortgage finance",
+        "card",
+        "lending"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "P / B",
+          "ntm_metric": "P/B_Ratio",
+          "stm_metric": "P/B_Ratio"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        }
+      ]
+    },
+    {
+      "match": [
+        "renewable",
+        "solar",
+        "hydrogen",
+        "clean energy",
+        "wind"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "electrical equipment",
+        "electrical components"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "gas and water utilities",
+        "water utilities",
+        "multi-utilities",
+        "gas utilities"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM E (P/E)",
+          "ntm_metric": "P/E_Ratio",
+          "stm_metric": "P/E_Ratio"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        },
+        {
+          "label": "EV / NTM EBITDA",
+          "ntm_metric": "EV/EBITDA",
+          "stm_metric": "EV/EBITDA"
+        }
+      ]
+    },
+    {
+      "match": [
+        "real estate services"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "telecommunications",
+        "cable and satellite",
+        "wireless"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        },
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        }
+      ]
+    },
+    {
+      "match": [
+        "construction materials",
+        "aggregates",
+        "cement"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "bank",
+        "diversified banks",
+        "regional banks"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM E (P/E)",
+          "ntm_metric": "P/E_Ratio",
+          "stm_metric": "P/E_Ratio"
+        },
+        {
+          "label": "P / B",
+          "ntm_metric": "P/B_Ratio",
+          "stm_metric": "P/B_Ratio"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        }
+      ]
+    },
+    {
+      "match": [
+        "insurance",
+        "property & casualty",
+        "life insurance"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM E (P/E)",
+          "ntm_metric": "P/E_Ratio",
+          "stm_metric": "P/E_Ratio"
+        },
+        {
+          "label": "P / B",
+          "ntm_metric": "P/B_Ratio",
+          "stm_metric": "P/B_Ratio"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        }
+      ]
+    },
+    {
+      "match": [
+        "asset management",
+        "capital markets",
+        "institutional financial"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        }
+      ]
+    },
+    {
+      "match": [
+        "software",
+        "technology services",
+        "internet services",
+        "application software",
+        "systems software"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        },
+        {
+          "label": "EV / NTM FCF",
+          "ntm_metric": "EV/FCF",
+          "stm_metric": "EV/FCF"
+        },
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        }
+      ]
+    },
+    {
+      "match": [
+        "semiconductor",
+        "technology hardware",
+        "hardware",
+        "semiconductors"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "internet media",
+        "interactive media",
+        "entertainment content",
+        "advertising"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "e-commerce",
+        "ecommerce"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        },
+        {
+          "label": "P / NTM E (P/E)",
+          "ntm_metric": "P/E_Ratio",
+          "stm_metric": "P/E_Ratio"
+        }
+      ]
+    },
+    {
+      "_note_concept": "A REIT's FFO arrives in InSync's FCF series, so P/FCF_Ratio IS the P/FFO lens. The multiple declares concept:\"P/FFO\" so check_invariants INV-2 can verify the label against declared intent rather than trusting convention.",
+      "match": [
+        "reit",
+        "real estate"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM FCF (P/FFO)",
+          "concept": "P/FFO",
+          "ntm_metric": "P/FCF_Ratio",
+          "stm_metric": "P/FCF_Ratio"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        },
+        {
+          "label": "EV / NTM EBITDA",
+          "ntm_metric": "EV/EBITDA",
+          "stm_metric": "EV/EBITDA"
+        }
+      ]
+    },
+    {
+      "match": [
+        "retail",
+        "wholesale",
+        "consumer staples",
+        "consumer discretionary",
+        "apparel",
+        "leisure"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "food",
+        "beverage",
+        "household products",
+        "tobacco",
+        "personal care"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        }
+      ]
+    },
+    {
+      "match": [
+        "health care",
+        "healthcare",
+        "managed care",
+        "biotech",
+        "pharma",
+        "medical",
+        "life sciences"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "oil",
+        "gas",
+        "energy",
+        "exploration & production",
+        "refining"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "P / NTM FCF",
+          "ntm_metric": "P/FCF_Ratio",
+          "stm_metric": "P/FCF_Ratio"
+        },
+        {
+          "label": "FCF Yield",
+          "ntm_metric": "FCF_Yield",
+          "stm_metric": "FCF_Yield"
+        }
+      ]
+    },
+    {
+      "match": [
+        "utilit",
+        "electric",
+        "multi-utilities",
+        "water utilities"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM E (P/E)",
+          "ntm_metric": "P/E_Ratio",
+          "stm_metric": "P/E_Ratio"
+        },
+        {
+          "label": "Dividend Yield",
+          "ntm_metric": "Dividend_Yield",
+          "stm_metric": "Dividend_Yield"
+        },
+        {
+          "label": "EV / NTM EBITDA",
+          "ntm_metric": "EV/EBITDA",
+          "stm_metric": "EV/EBITDA"
+        }
+      ]
+    },
+    {
+      "match": [
+        "machinery",
+        "electrical equipment",
+        "diversified industrial",
+        "aerospace",
+        "defense",
+        "engineering",
+        "construction",
+        "transportation",
+        "logistics",
+        "industrial"
+      ],
+      "multiples": [
+        {
+          "label": "P / NTM Adj E",
+          "ntm_metric": "P/E_Adj_Ratio",
+          "stm_metric": "P/E_Adj_Ratio"
+        },
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "automotive",
+        "auto"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "P / NTM E (P/E)",
+          "ntm_metric": "P/E_Ratio",
+          "stm_metric": "P/E_Ratio"
+        },
+        {
+          "label": "EV / NTM Revenue",
+          "ntm_metric": "EV/Sales",
+          "stm_metric": "EV/Sales"
+        }
+      ]
+    },
+    {
+      "match": [
+        "chemical",
+        "containers",
+        "packaging",
+        "materials",
+        "metals",
+        "mining"
+      ],
+      "multiples": [
+        {
+          "label": "EV / NTM Adj EBITDA",
+          "ntm_metric": "EV/EBITDA_Adj",
+          "stm_metric": "EV/EBITDA_Adj"
+        },
+        {
+          "label": "P / NTM E (P/E)",
+          "ntm_metric": "P/E_Ratio",
+          "stm_metric": "P/E_Ratio"
+        },
+        {
+          "label": "FCF Yield",
+          "ntm_metric": "FCF_Yield",
+          "stm_metric": "FCF_Yield"
+        }
+      ]
+    }
+  ],
+  "default": {
+    "multiples": [
+      {
+        "label": "EV / NTM Adj EBITDA",
+        "ntm_metric": "EV/EBITDA_Adj",
+        "stm_metric": "EV/EBITDA_Adj"
+      },
+      {
+        "label": "P / NTM Adj E",
+        "ntm_metric": "P/E_Adj_Ratio",
+        "stm_metric": "P/E_Adj_Ratio"
+      },
+      {
+        "label": "EV / NTM Revenue",
+        "ntm_metric": "EV/Sales",
+        "stm_metric": "EV/Sales"
+      }
+    ]
+  }
+}

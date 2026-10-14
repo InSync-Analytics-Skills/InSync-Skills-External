@@ -1,0 +1,271 @@
+{
+ "_doc": "Declared polarity per LTCODE.\n\nWHY THIS FILE EXISTS. Without it a row is either declared lower-is-better in the config or coloured by sign. A resolver that can only answer True or False cannot tell a metric DECLARED higher-is-better from one that merely missed every lookup, so nothing downstream could warn about the second: an undeclared operation-and-maintenance cost line that overspends consensus would grade Beat, in GREEN.\n\nWHAT IT IS FOR. Two things. It gives the resolver a third answer, so 'never established' is distinguishable from 'established as higher-is-better'. And it gives polarity_colour_lint a SECOND SOURCE: the renderer stamps each graded row's ltcode into the HTML as data-lt and the layer resolves polarity from THIS FILE, independently of the renderer's own cue list, so the two can genuinely disagree.\n\nWHAT MAY BE ADDED. Only a code whose label is sourced from this package's own spec - common/sectors.json, the BUILD.md 'Common LTCODEs' cheat-sheet, sector_resolve.py's documented ladder, or a fixture that grades that code (the `source` field names which). A wrong entry silently defeats a correct name-cue and is worse than no entry, so the `source` field is required on every code. _S_ codes are per-ticker and MUST NEVER appear here: the same code is a cost line on one issuer and a profit line on another.\n\nBEHAVIOUR-NEUTRALITY. Every addition must leave the resolved polarity of every (label, code) pair in the fixture corpus unchanged, so the file makes the silence legible without moving a verdict.",
+ "version": "7.13.1",
+ "codes": {
+  "BS_P_250": {
+   "label": "Total gross loans",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); a balance line"
+  },
+  "BS_P_287": {
+   "label": "CET1 ratio",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table - a capital build is good news"
+  },
+  "CF_P_101": {
+   "label": "Share buyback",
+   "lower_is_better": false,
+   "source": "BUILD.md Common LTCODEs"
+  },
+  "CF_P_104": {
+   "label": "Dividend paid",
+   "lower_is_better": false,
+   "source": "BUILD.md Common LTCODEs"
+  },
+  "CF_P_108": {
+   "label": "Dividend per share",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "CF_P_110": {
+   "label": "Free cash flow",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table - the level; the margin twin CF_P_110-M was already declared"
+  },
+  "CF_P_110-M": {
+   "label": "FCF margin",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column"
+  },
+  "CF_P_113": {
+   "label": "FFO",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "CF_P_114": {
+   "label": "AFFO",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "CF_P_202": {
+   "label": "FFO per share",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "CF_P_203": {
+   "label": "AFFO per share",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "CF_P_209": {
+   "label": "Core FFO per share",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); a per-share earnings line"
+  },
+  "IS_P_101": {
+   "label": "Total Revenue",
+   "lower_is_better": false,
+   "source": "BUILD.md Common LTCODEs"
+  },
+  "IS_P_102": {
+   "label": "Total Revenue (adjusted)",
+   "lower_is_better": false,
+   "source": "BUILD.md Common LTCODEs"
+  },
+  "IS_P_105-M": {
+   "label": "Gross margin (reported)",
+   "lower_is_better": false,
+   "source": "sector_resolve.py LADDER, reported twin of IS_P_106-M"
+  },
+  "IS_P_106-M": {
+   "label": "Gross margin (adjusted)",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column"
+  },
+  "IS_P_108": {
+   "label": "Adjusted operating expenses",
+   "lower_is_better": true,
+   "source": "BUILD.md Common LTCODEs ('adj opex')"
+  },
+  "IS_P_109-M": {
+   "label": "EBIT margin (reported)",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column"
+  },
+  "IS_P_110": {
+   "label": "Operating / EBIT income (adjusted)",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "IS_P_110-M": {
+   "label": "Operating / EBIT margin (adjusted)",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column"
+  },
+  "IS_P_113-M": {
+   "label": "EBITDA margin (reported)",
+   "lower_is_better": false,
+   "source": "sector_resolve.py LADDER, reported twin of IS_P_114-M"
+  },
+  "IS_P_114": {
+   "label": "EBITDA (adjusted)",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "IS_P_114-M": {
+   "label": "EBITDA margin (adjusted)",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column"
+  },
+  "IS_P_117-M": {
+   "label": "Pre-tax margin (reported)",
+   "lower_is_better": false,
+   "source": "sector_resolve.py LADDER, reported twin of IS_P_118-M"
+  },
+  "IS_P_118-M": {
+   "label": "Pre-tax margin",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column"
+  },
+  "IS_P_127": {
+   "label": "Reported EPS",
+   "lower_is_better": false,
+   "source": "BUILD.md Common LTCODEs"
+  },
+  "IS_P_128": {
+   "label": "Adjusted EPS",
+   "lower_is_better": false,
+   "source": "BUILD.md Common LTCODEs"
+  },
+  "IS_P_148": {
+   "label": "Automotive EBIT (Ex-1x Items) - a dollar amount, not the margin",
+   "lower_is_better": false,
+   "source": "formerly the common/sectors.json margin column; the margin is IS_P_148-M"
+  },
+  "IS_P_148-M": {
+   "label": "Margin - Automotive EBIT (Ex-1x Items)",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column; proved live on an automaker"
+  },
+  "IS_P_150": {
+   "label": "Other operation and maintenance expense",
+   "lower_is_better": true,
+   "source": "kpi-selection-standard.md sector spine table - a cost line"
+  },
+  "IS_P_172": {
+   "label": "EBITDAX",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "IS_P_177": {
+   "label": "FFO margin / same-store NOI",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column"
+  },
+  "IS_P_201": {
+   "label": "Net interest income",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "IS_P_202": {
+   "label": "Net interest income (FTE)",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); an income line"
+  },
+  "IS_P_204": {
+   "label": "NIM (FTE)",
+   "lower_is_better": false,
+   "source": "common/sectors.json margin column"
+  },
+  "IS_P_205": {
+   "label": "Efficiency ratio",
+   "lower_is_better": true,
+   "source": "kpi-selection-standard.md sector spine table - lower is better on a bank"
+  },
+  "IS_P_207": {
+   "label": "Provision for credit losses",
+   "lower_is_better": true,
+   "source": "kpi-selection-standard.md sector spine table - a cost line"
+  },
+  "IS_P_211": {
+   "label": "Non-interest income",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "IS_P_402": {
+   "label": "Net premiums written",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); a premium volume line"
+  },
+  "IS_P_403": {
+   "label": "Net premium earned",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); an earned revenue line"
+  },
+  "IS_P_410": {
+   "label": "Net investment income",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "IS_P_903": {
+   "label": "Medical loss ratio (MLR)",
+   "lower_is_better": true,
+   "source": "common/sectors.json margin column, managed care (payor)"
+  },
+  "KM_P_1011": {
+   "label": "Bookings value",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); an order intake line"
+  },
+  "KM_P_1015": {
+   "label": "Backlog value",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); an order book line"
+  },
+  "KM_P_111": {
+   "label": "Policies in force",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); a customer count"
+  },
+  "KM_P_1228": {
+   "label": "Gas realization",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "KM_P_124": {
+   "label": "Development starts",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); a volume line"
+  },
+  "KM_P_400": {
+   "label": "Quarterly deliveries",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "SD_P_1007": {
+   "label": "Segment revenue",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); a segment revenue line"
+  },
+  "SD_P_101": {
+   "label": "Segment revenue",
+   "lower_is_better": false,
+   "source": "kpi-selection-standard.md sector spine table"
+  },
+  "SD_P_103": {
+   "label": "Combined ratio",
+   "lower_is_better": true,
+   "source": "common/sectors.json margin column, insurance (underwriter)"
+  },
+  "SD_P_1046": {
+   "label": "Segment revenue (system)",
+   "lower_is_better": false,
+   "source": "graded in a live regression fixture (internal edition only); a segment revenue line"
+  },
+  "SD_P_108": {
+   "label": "Accident-year ex-catastrophe ratio",
+   "lower_is_better": true,
+   "source": "kpi-selection-standard.md sector spine table - an underwriting loss ratio; the label carries no cue the gate can see"
+  }
+ }
+}

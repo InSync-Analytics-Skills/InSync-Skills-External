@@ -1,0 +1,4 @@
+# earnings-packet-3p: the build itself is Python standard library only.
+# These two run the PDF checks (validator and masthead geometry).
+pymupdf
+pdfplumber

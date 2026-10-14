@@ -1,0 +1,17 @@
+{
+  "chart_type": "revenue_trend",
+  "company": {"name":"Example Software Co","ticker":"EXSW","sector":"Software"},
+  "source": "Made-up figures in the InSync MCP row format (get_actuals; IS_P_101, IS_P_128)",
+  "as_of": "2026-07-30",
+  "rows_path": "data",
+  "period_field": "FISCALPERIOD",
+  "periods": ["4Q24","1Q25","2Q25","3Q25","4Q25","1Q26","2Q26","3Q26"],
+  "series": [
+    {"name":"Total revenue","value_field":"VALUE","where":{"LTCODE":"IS_P_101"},
+     "kind":"bar","unit":"usd"},
+    {"name":"YoY growth","value_field":"YOY_GROWTH","where":{"LTCODE":"IS_P_101"},
+     "kind":"line","axis":"right","unit":"pct"}
+  ],
+  "subtitle": "Total revenue and reported year-on-year growth",
+  "output": {"basename":"EXSW_revenue_trend","formats":["png"]}
+}

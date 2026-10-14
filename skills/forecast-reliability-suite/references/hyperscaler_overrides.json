@@ -1,0 +1,5 @@
+{
+  "_note": "Maintained override list. A ticker here beats the model's own hyperscaler call. Add a ticker the model marked 'unsure', or one it got wrong.",
+  "include": ["AMZN", "MSFT", "GOOGL", "GOOG", "META", "ORCL"],
+  "exclude": []
+}

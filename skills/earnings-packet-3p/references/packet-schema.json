@@ -1,0 +1,470 @@
+{
+ "$comment": [
+  "earnings-packet-3p, the SHAPE of the three pipeline inputs, generated from the",
+  "`base` regression fixture, which is contract-conformant by construction.",
+  "",
+  "This is a map, not the law. references/check_contract.py is the law: it reads",
+  "the renderer, works out every field it will dereference, and fails on anything",
+  "missing, including fields reached through a local alias. Run it before every",
+  "build. references/pipeline-contracts.md carries the MEANING of each field, the",
+  "decision each one encodes, and the rules the values must obey.",
+  "",
+  "Read pipeline-contracts.md when a field's PURPOSE is unclear; read this when",
+  "its SHAPE is."
+ ],
+ "files": {
+  "packet_computed.json": {
+   "meta": {
+    "ticker": "string",
+    "company": "string",
+    "ticker_id": "string",
+    "target": "string",
+    "target_qend": "string",
+    "call_date": "string",
+    "last_reported": "string",
+    "last_print_date": "string",
+    "prepared": "string",
+    "asof_estimates": "string",
+    "asof_valuation": "string",
+    "fy_end": "string",
+    "hist": [
+     "string",
+     "... 3 more"
+    ],
+    "next_q": "string",
+    "fy_prev": "string",
+    "fy0": "string",
+    "fy1": "string",
+    "sector_key": "string",
+    "periodicity": "string"
+   },
+   "spine": [
+    {
+     "code": "string",
+     "name": "string",
+     "sub": "string",
+     "sl": "null | a value"
+    },
+    "... 8 more"
+   ],
+   "model": [
+    {
+     "code": "string",
+     "name": "string",
+     "fmt": "string",
+     "cells": {
+      "3Q24": "number",
+      "4Q24": "number",
+      "1Q25": "number",
+      "2Q25": "number",
+      "2024": "number",
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number",
+      "4Q26": "number",
+      "2025": "number",
+      "2026": "number",
+      "2027": "number"
+     },
+     "growth": {
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number",
+      "4Q26": "number",
+      "2025": "number",
+      "2026": "number",
+      "2027": "number"
+     }
+    },
+    "... 11 more"
+   ],
+   "segments": [
+    {
+     "code": "string",
+     "name": "string",
+     "cells": {
+      "3Q24": "number",
+      "4Q24": "number",
+      "1Q25": "number",
+      "2Q25": "number",
+      "2024": "number",
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number",
+      "4Q26": "number",
+      "2025": "number",
+      "2026": "number",
+      "2027": "number"
+     },
+     "growth": {
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number"
+     }
+    },
+    "... 2 more"
+   ],
+   "seg_ebit": [
+    {
+     "code": "string",
+     "name": "string",
+     "cells": {
+      "3Q24": "number",
+      "4Q24": "number",
+      "1Q25": "number",
+      "2Q25": "number",
+      "2024": "number",
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number",
+      "4Q26": "number",
+      "2025": "number",
+      "2026": "number",
+      "2027": "number"
+     },
+     "growth": {
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number"
+     },
+     "margin": {
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number"
+     }
+    },
+    "... 2 more"
+   ],
+   "corp": {
+    "cells": {
+     "3Q24": "number",
+     "4Q24": "number",
+     "1Q25": "number",
+     "2Q25": "number",
+     "2024": "number",
+     "3Q25": "number",
+     "4Q25": "number",
+     "1Q26": "number",
+     "2Q26": "number",
+     "3Q26": "number",
+     "4Q26": "number",
+     "2025": "number",
+     "2026": "number",
+     "2027": "number"
+    }
+   },
+   "kpis": [
+    {
+     "code": "string",
+     "name": "string",
+     "fmt": "string",
+     "cells": {
+      "3Q24": "number",
+      "4Q24": "number",
+      "1Q25": "number",
+      "2Q25": "number",
+      "2024": "number",
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number",
+      "4Q26": "number",
+      "2025": "number",
+      "2026": "number",
+      "2027": "number"
+     },
+     "growth": {
+      "3Q25": "number",
+      "4Q25": "number",
+      "1Q26": "number",
+      "2Q26": "number",
+      "3Q26": "number"
+     }
+    },
+    "... 4 more"
+   ],
+   "kpi_growth_sub": [
+    "string"
+   ],
+   "dispersion": [
+    {
+     "code": "string",
+     "name": "string",
+     "fmt": "string",
+     "mean": "number",
+     "min": "number",
+     "max": "number",
+     "disp": "number",
+     "n": "number",
+     "upd": "string",
+     "prior": "number",
+     "yoy": "number"
+    },
+    "... 4 more"
+   ],
+   "disp_keep": [
+    "string",
+    "... 4 more"
+   ],
+   "revisions": [
+    {
+     "ltcode": "string",
+     "name": "string",
+     "fmt": "string",
+     "preprint": "number",
+     "m1": "number",
+     "w2": "number",
+     "latest": "number",
+     "delta": "number",
+     "tag": "string"
+    },
+    "... 3 more"
+   ],
+   "rev_keep": [
+    "string",
+    "... 3 more"
+   ],
+   "rev_buckets": {
+    "preprint": "string",
+    "m1": "string",
+    "w2": "string",
+    "latest": "string"
+   },
+   "rev_cols": [
+    {
+     "key": "string",
+     "label": "string",
+     "base": "boolean"
+    },
+    "... 3 more"
+   ],
+   "guide_vs_cons": [
+    {
+     "item": "string",
+     "target": "string",
+     "text": "string",
+     "lo": "number",
+     "hi": "number",
+     "cons": "number",
+     "unit": "string",
+     "approx": "boolean",
+     "pos": "string",
+     "sign": "number",
+     "date": "string",
+     "src": "string"
+    },
+    "... 3 more"
+   ],
+   "reaction": [
+    {
+     "q": "string",
+     "date": "string",
+     "w_pre": "number",
+     "w_day": "number",
+     "m0": "number",
+     "r0": "number",
+     "m1": "number",
+     "m5": "number",
+     "r5": "number"
+    },
+    "... 7 more"
+   ],
+   "move_band": {
+    "mean_abs_1d": "number",
+    "median_abs_1d": "number",
+    "min_abs_1d": "number",
+    "max_abs_1d": "number",
+    "mean_rel_1d": "number",
+    "mean_abs_5d": "number",
+    "up": "number",
+    "down": "number"
+   },
+   "valuation": [
+    {
+     "name": "string",
+     "key": "string",
+     "ntm": "number",
+     "ltm": "number",
+     "y1": {
+      "mean": "number",
+      "median": "number",
+      "min": "number",
+      "max": "number",
+      "n": "number"
+     },
+     "y3": {
+      "mean": "number",
+      "median": "number",
+      "min": "number",
+      "max": "number",
+      "n": "number"
+     },
+     "vs_1y_mean": "number",
+     "vs_3y_mean": "number"
+    },
+    "... 2 more"
+   ],
+   "val_sector": "string",
+   "val_excluded": [
+    {
+     "name": "string",
+     "key": "string",
+     "reason": "string"
+    }
+   ],
+   "tiles": [
+    {
+     "label": "string",
+     "value": "string",
+     "sign": "null | a value"
+    },
+    "... 11 more"
+   ],
+   "seg_rev_label": "string",
+   "seg_profit_label": "string",
+   "seg_margin_label": "string",
+   "margin_basis": {
+    "Gross margin": "string",
+    "Operating margin": "string",
+    "EBITDA margin": "string",
+    "Segment margin": "string"
+   },
+   "val_raw": {
+    "pe": "number",
+    "evebitda": "number",
+    "pb": "number",
+    "evsales": "number"
+   },
+   "val_sector_key": "string",
+   "warnings": [
+    "string"
+   ]
+  },
+  "packet_narrative.json": {
+   "what_matters": [
+    {
+     "debate": "string",
+     "detail": "string"
+    },
+    "... 4 more"
+   ],
+   "risks": [
+    {
+     "text": "string",
+     "source": "string"
+    },
+    "... 4 more"
+   ],
+   "catalysts": [
+    {
+     "text": "string",
+     "source": "string"
+    },
+    "... 4 more"
+   ],
+   "risks_total": "number",
+   "catalysts_total": "number",
+   "document_figures": [
+    "string"
+   ],
+   "notes": {
+    "guidance": "string",
+    "model": "string",
+    "dispersion": "string",
+    "segment": "string",
+    "drivers": "string",
+    "revisions": "string",
+    "valuation": "string",
+    "valuation_read": "string",
+    "valuation_excluded_reason": "string",
+    "peers_read": "string",
+    "peers_comparability": "string",
+    "peers_caveat": "string",
+    "reaction": "string"
+   }
+  },
+  "peers.json": {
+   "asof_val": "string",
+   "asof_est": "string",
+   "sector_label": "string",
+   "val_label": "string",
+   "growth_label": "string",
+   "op_label": "string",
+   "growth_metric": "string",
+   "lens": [
+    "string",
+    "... 2 more"
+   ],
+   "val_metrics": [
+    {
+     "label": "string",
+     "key": "string",
+     "fmt": "string",
+     "lead": "boolean"
+    },
+    "... 8 more"
+   ],
+   "growth_metrics": [
+    {
+     "label": "string",
+     "key": "string",
+     "fmt": "string"
+    },
+    "... 4 more"
+   ],
+   "op_metrics": [
+    {
+     "label": "string",
+     "key": "string",
+     "fmt": "string"
+    },
+    "... 2 more"
+   ],
+   "rows": [
+    {
+     "t": "string",
+     "name": "string",
+     "id": "string",
+     "lead": "boolean",
+     "mcap": "number",
+     "pe_ntm": "number",
+     "pe_ltm": "number",
+     "pe1y_mean": "number",
+     "pe_vs_1y": "number",
+     "evebitda": "number",
+     "pb": "number",
+     "divy": "number",
+     "fcfy": "number",
+     "ebitm": "number",
+     "comp": "number",
+     "comp_basis": "string",
+     "cy26_rev": "number",
+     "cy27_rev": "number",
+     "cy26_eps": "number",
+     "cy27_eps": "number",
+     "rev_growth": "number",
+     "eps_growth": "number",
+     "peg": "number",
+     "next": "string",
+     "next_q": "string"
+    },
+    "... 5 more"
+   ]
+  }
+ }
+}

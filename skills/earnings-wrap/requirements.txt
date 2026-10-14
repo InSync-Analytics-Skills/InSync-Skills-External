@@ -1,0 +1,2 @@
+# earnings-wrap runtime dependency (the rest of the skill is Python standard library)
+weasyprint

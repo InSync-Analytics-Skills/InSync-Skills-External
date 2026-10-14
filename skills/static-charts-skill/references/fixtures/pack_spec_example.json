@@ -1,0 +1,23 @@
+{
+  "company": {"name": "Example Software Co", "ticker": "EXSW", "sector": "Software"},
+  "source": "Made-up figures for testing",
+  "as_of": "2026-07-28",
+  "report_date": "2026-07-30",
+  "period": "3Q26",
+  "charts": [
+    {"chart_type": "revenue_trend",
+     "periods": ["4Q24","1Q25","2Q25","3Q25","4Q25","1Q26","2Q26","3Q26"],
+     "series": [{"name":"Total revenue","kind":"bar","unit":"usd",
+       "values":[12410000000,12585000000,13102000000,13466000000,14231000000,14873000000,15392000000,15947000000]}]},
+    {"chart_type": "eps_trend",
+     "periods": ["4Q24","1Q25","2Q25","3Q25","4Q25","1Q26","2Q26","3Q26"],
+     "series": [{"name":"Adjusted EPS","kind":"bar","unit":"usd_ps",
+       "values":[1.0412,1.12,1.09,1.17,1.21,1.34,1.38,1.42]}]},
+    {"chart_type": "peer_comparison", "title": "Operating margin versus peers",
+     "categories": ["EXSW","PEERA","PEERB","PEERC","PEERD"],
+     "series": [{"name":"CY26E operating margin","unit":"pct","values":[38.5,27.3,19.6,24.1,29.4]}]},
+    {"chart_type": "peer_comparison", "title": "ROIC versus peers",
+     "categories": ["EXSW","PEERA","PEERB","PEERC","PEERD"],
+     "series": [{"name":"CY26E ROIC","unit":"pct","values":[22.7,13.5,8.9,11.6,15.2]}]}
+  ]
+}

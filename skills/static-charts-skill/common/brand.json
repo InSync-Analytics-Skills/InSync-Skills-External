@@ -1,0 +1,104 @@
+{
+  "_doc": "InSync Analytics library-wide identity and masthead constants. SINGLE SOURCE OF TRUTH. Every skill's renderer reads this file and falls back to its own built-in copy only if this file is missing. Change a value HERE, not in a renderer. The masthead block is enforced at build time by a masthead geometry check (in this skill, references/check_masthead.py); a renderer that hardcodes a different value will fail its self-check.",
+  "_schema_version": "1.0",
+  "_owner": "InSync Analytics",
+  "firmName": "InSync Analytics",
+  "copyrightYear": "2026",
+  "fonts": {
+    "title": "Georgia",
+    "body": "Calibri"
+  },
+  "colors": {
+    "orange": "E8850C",
+    "orangeDk": "B25E08",
+    "ink": "1A1A1A",
+    "navy": "232526",
+    "white": "FFFFFF",
+    "headerBg": "EDEDED",
+    "bandFill": "F0E9D8",
+    "calloutBg": "F6F3EE",
+    "mastBorder": "C9C9C9",
+    "beatGreen": "1E7A34",
+    "missRed": "B02A1F",
+    "inlineGray": "6E6E6E",
+    "sectionHeader": "1A1A1A",
+    "tableBorder": "DDDDDD",
+    "headerRule": "BBBBBB",
+    "rowRule": "EEEEEE",
+    "rowAlt": "F5F0E8",
+    "divider": "F0E9D8",
+    "grayDark": "222222",
+    "grayLight": "555555",
+    "footerBorder": "DDDDDD",
+    "neutralGrey": "8A8A8A"
+  },
+  "masthead": {
+    "_doc": "Geometry of the three-cell masthead: [logo] [InSync Analytics / Company (TICKER) - Period] [Product name / dates]. Sizes are OOXML half-points; the mark is CSS/Word pixels. These four values are asserted on the rendered PDF, not just in source.",
+    "brand_size_half_points": 33,
+    "_brand_note": "16.5pt. FIXED for every ticker and every product. Never derive it from the company-line size and never let a long company name shrink it.",
+    "mark_px": {
+      "w": 59,
+      "h": 46
+    },
+    "_mark_note": "Constant in every product. The mark SPANS the two-line text block: its top edge meets the top of 'InSync Analytics' and its bottom edge meets the bottom of the company/ticker line.",
+    "company_size_ladder_half_points": [
+      28,
+      27,
+      26,
+      25,
+      24,
+      23,
+      22,
+      21,
+      20
+    ],
+    "_ladder_note": "14pt down to a 10pt floor. Start at the top and step down to the FIRST size whose measured width fits the middle cell. SHRINK, NEVER TRUNCATE: elision is a floor guard only and no real issuer name should reach it. Measure with a per-glyph width table, not a character-count estimate.",
+    "alignment_tolerance_pt": 0.5,
+    "_alignment_note": "Max allowed |logo_top - brand_top| and |logo_bottom - company_bottom| on the rendered PDF. The per-renderer offsets that achieve this (Word spaceBefore/spaceAfter twips, CSS px) are NOT shared: raw OOXML, the docx npm library and weasyprint each carry different line metrics, so each skill tunes its own offset to hit this shared target.",
+    "period_format": "short",
+    "_period_note": "Render '2Q26', never '2Q FY2026'. Normalise in the renderer so an upstream long form still prints short.",
+    "logo_file": "insync_logo.png",
+    "_logo_note": "Canonical filename and the transparent PNG mark. A skill that ships insync-logo-mark.png or insync-logo.jpg carries the same bytes under a non-standard name.",
+    "suffix_template": " ({TICKER}) - {PERIOD}",
+    "_suffix_note": "One ordinary space before the bracket. The suffix is the identifying half of the line and is NEVER shortened by the ladder or the elision guard.",
+    "brand_split": {
+      "orange_word": "InSync",
+      "ink_word": " Analytics"
+    },
+    "exempt_products": [
+      "forecast-reliability-suite"
+    ],
+    "_exempt_note": "The Forecast Reliability Suite renders a dark HTML portal header with an uppercase letterspaced wordmark. It is a deliberately different design language and is NOT held to the Georgia masthead geometry above."
+  },
+  "disclosure": "For informational purposes only. Not investment advice. This document is not an offer to buy or sell, or a solicitation of an offer to buy or sell, any financial instrument, and it does not constitute participation in any trading strategy in any jurisdiction. InSync Analytics does not guarantee the accuracy, completeness, or timeliness of the information presented. This document does not take into account the investment objectives, financial situation, or specific needs of any individual investor. InSync Analytics is not a licensed financial advisor, broker, or dealer, and this document is not intended to provide investment, legal, accounting, or tax advice. You are solely responsible for your own investment decisions; InSync Analytics is not liable for any losses or damages arising from the use of this material.",
+  "charts": {
+    "_doc": "Chart-engine tokens (static-charts skill). Split out because charts need axis, grid and a categorical series ramp that documents have no use for. The tokens that OVERLAP with documents - ink, orange, beat/miss, greys, fonts - are NOT repeated here: the engine reads them from colors/fonts above so a chart's beat green is the same green as a table's Beat cell.",
+    "grid": "E6E6E6",
+    "axis": "BFBFBF",
+    "hairline": "DDDDDD",
+    "background": "FFFFFF",
+    "total_bar": "1F3A5F",
+    "_total_note": "Deep navy for waterfall subtotal/total bars and the first categorical series. 11.48:1 on white.",
+    "series_ramp": [
+      "1F3A5F",
+      "E8850C",
+      "7C93A8",
+      "B25E08",
+      "4E6E58",
+      "3E3E3E",
+      "A9B7C4"
+    ],
+    "_series_note": "Ordered so adjacent entries separate in colour AND step monotonically in greyscale luminance, so the ramp survives a black-and-white print.",
+    "sequential": [
+      "FFFFFF",
+      "E4E9EE",
+      "C3CFDA",
+      "9BB0C2",
+      "6E8CA8",
+      "42648A",
+      "1F3A5F"
+    ],
+    "estimate_hatch": "///",
+    "_estimate_note": "Forecast periods are hatched AND banded, never drawn like reported data."
+  }
+}

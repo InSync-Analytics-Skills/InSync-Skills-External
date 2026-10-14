@@ -1,0 +1,146 @@
+{
+  "company": {"name": "Fixture Corp", "ticker": "FIXT", "sector": "Software"},
+  "source": "Fixture data — not market data",
+  "report_date": "2026-07-30",
+  "as_of": "2026-07-28",
+  "charts": [
+    {
+      "chart_type": "revenue_trend",
+      "periods": ["1Q25", "2Q25", "3Q25", "4Q25", "1Q26", "2Q26", "3Q26E", "4Q26E"],
+      "series": [
+        {"name": "Revenue", "kind": "bar", "unit": "usd_mn", "estimate_from": 6,
+         "values": [12480, 13120, 13890, 15240, 14310, 15080, 15960, 17420]},
+        {"name": "YoY growth", "kind": "line", "axis": "right", "unit": "pct",
+         "derive": {"op": "yoy", "of": "Revenue", "periods_per_year": 4}}
+      ],
+      "axis_labels": {"left": "US$ mn", "right": "YoY %"},
+      "output": {"basename": "01_revenue_trend"}
+    },
+    {
+      "chart_type": "eps_trend",
+      "periods": ["1Q25", "2Q25", "3Q25", "4Q25", "1Q26", "2Q26", "3Q26E", "4Q26E"],
+      "series": [
+        {"name": "Adjusted EPS", "kind": "bar", "unit": "usd_ps", "estimate_from": 6,
+         "values": [2.41, 2.58, 2.77, 3.12, 2.86, 3.04, 3.19, 3.55]},
+        {"name": "Consensus at print", "kind": "line", "unit": "usd_ps",
+         "values": [2.35, 2.52, 2.74, 3.02, 2.88, 2.97, 3.21, 3.48]}
+      ],
+      "output": {"basename": "02_eps_trend"}
+    },
+    {
+      "chart_type": "margin_trend",
+      "periods": ["1Q25", "2Q25", "3Q25", "4Q25", "1Q26", "2Q26"],
+      "series": [
+        {"name": "Gross margin", "kind": "line", "unit": "pct",
+         "values": [69.8, 70.2, 70.9, 71.4, 71.1, 71.8]},
+        {"name": "Operating margin", "kind": "line", "unit": "pct",
+         "values": [41.2, 42.0, 43.1, 44.6, 42.8, 44.0]},
+        {"name": "FCF margin", "kind": "line", "unit": "pct",
+         "values": [33.4, 31.9, 35.2, null, 34.6, 36.1]}
+      ],
+      "output": {"basename": "03_margin_trend"}
+    },
+    {
+      "chart_type": "valuation_history",
+      "periods": ["3Q23", "4Q23", "1Q24", "2Q24", "3Q24", "4Q24", "1Q25", "2Q25",
+                  "3Q25", "4Q25", "1Q26", "2Q26"],
+      "series": [
+        {"name": "Forward P/E", "kind": "line", "unit": "x", "focus": true,
+         "values": [24.1, 26.3, 28.7, 27.4, 25.9, 29.8, 31.2, 30.1, 28.4, 32.6, 34.1, 31.7]}
+      ],
+      "subtitle": "Forward P/E with period mean and ±1 s.d.",
+      "output": {"basename": "04_valuation_history"}
+    },
+    {
+      "chart_type": "surprise_history",
+      "periods": ["3Q24", "4Q24", "1Q25", "2Q25", "3Q25", "4Q25", "1Q26", "2Q26"],
+      "series": [
+        {"name": "EPS surprise", "kind": "bar", "unit": "pct",
+         "values": [3.2, 5.8, -1.4, 2.6, 4.1, 6.9, -0.8, 4.4]}
+      ],
+      "output": {"basename": "05_surprise_history"}
+    },
+    {
+      "chart_type": "revision_trend",
+      "periods": ["Jan-26", "Feb-26", "Mar-26", "Apr-26", "May-26", "Jun-26", "Jul-26"],
+      "series": [
+        {"name": "FY26 EPS", "kind": "line", "unit": "usd_ps",
+         "values": [12.14, 12.20, 12.18, 12.41, 12.55, 12.62, 12.88]},
+        {"name": "FY27 EPS", "kind": "line", "unit": "usd_ps",
+         "values": [14.02, 14.11, 14.05, 14.38, 14.61, 14.70, 15.06]}
+      ],
+      "options": {"data_labels": false},
+      "output": {"basename": "06_revision_trend"}
+    },
+    {
+      "chart_type": "peer_comparison",
+      "categories": ["FIXT", "ALPH", "BETA", "GAMM", "DELT", "EPSL", "ZETA"],
+      "series": [
+        {"name": "CY26E operating margin", "unit": "pct",
+         "values": [44.0, 38.2, 29.7, 41.5, 22.4, 35.8, null]}
+      ],
+      "options": {"highlight": "FIXT", "reference_line": "median"},
+      "title": "Fixture Corp (FIXT) — Operating margin versus peers",
+      "output": {"basename": "07_peer_comparison"}
+    },
+    {
+      "chart_type": "capital_allocation_waterfall",
+      "categories": ["Operating cash flow", "Capex", "Acquisitions", "Buybacks",
+                     "Dividends", "Debt repaid", "Net cash change"],
+      "series": [
+        {"name": "LTM capital allocation", "unit": "usd_mn",
+         "values": [24800, -6400, -3100, -9200, -2600, -1500, 2000]}
+      ],
+      "options": {"first_is_total": true, "last_is_total": true},
+      "subtitle": "LTM sources and uses of cash",
+      "output": {"basename": "08_capital_allocation_waterfall"}
+    },
+    {
+      "chart_type": "segment_revenue_mix",
+      "periods": ["1Q25", "2Q25", "3Q25", "4Q25", "1Q26", "2Q26"],
+      "series": [
+        {"name": "Cloud", "unit": "usd_mn", "values": [6100, 6620, 7180, 8010, 7640, 8190]},
+        {"name": "Licence", "unit": "usd_mn", "values": [3980, 4010, 4120, 4460, 4020, 4160]},
+        {"name": "Services", "unit": "usd_mn", "values": [2400, 2490, 2590, 2770, 2650, 2730]}
+      ],
+      "output": {"basename": "09_segment_revenue_mix"}
+    },
+    {
+      "chart_type": "revision_heatmap",
+      "row_labels": ["FIXT", "ALPH", "BETA", "GAMM", "DELT"],
+      "col_labels": ["1M rev", "3M rev", "1M EPS", "3M EPS", "FY27 EPS"],
+      "matrix": [
+        [0.8, 2.1, 1.4, 3.6, 2.9],
+        [-0.4, 0.2, -1.1, -2.4, -0.9],
+        [0.1, -0.3, 0.4, 0.8, 1.2],
+        [1.9, 4.2, 2.8, 5.1, 4.4],
+        [-1.6, -3.8, -2.2, -4.9, null]
+      ],
+      "units": {"left": "pct"},
+      "options": {"highlight": "FIXT", "color_scheme": "diverging"},
+      "subtitle": "Change in consensus, per cent",
+      "output": {"basename": "10_revision_heatmap"}
+    },
+    {
+      "chart_type": "relative_valuation",
+      "categories": ["FIXT", "ALPH", "BETA", "GAMM", "DELT", "EPSL"],
+      "series": [
+        {"name": "CY26E revenue growth", "unit": "pct", "meta": {"role": "x"},
+         "values": [14.2, 9.8, 6.1, 18.4, 3.2, 11.0]},
+        {"name": "CY26E EV/Sales", "unit": "x", "meta": {"role": "y"},
+         "values": [9.4, 6.8, 4.1, 12.6, 2.7, 7.5]}
+      ],
+      "options": {"highlight": "FIXT"},
+      "output": {"basename": "11_relative_valuation"}
+    },
+    {
+      "chart_type": "shareholder_returns",
+      "periods": ["FY22", "FY23", "FY24", "FY25", "LTM"],
+      "series": [
+        {"name": "Buybacks", "unit": "usd_mn", "values": [6800, 7400, 8100, 8900, 9200]},
+        {"name": "Dividends", "unit": "usd_mn", "values": [1900, 2050, 2240, 2410, 2600]}
+      ],
+      "output": {"basename": "12_shareholder_returns", "preset": "word_half"}
+    }
+  ]
+}

@@ -1,0 +1,551 @@
+{
+  "_comment": "DIRECTION, KEYED ON LTCODE. Deciding direction from the line item's NAME, with a bare `return 'higher'` fallthrough, grades any cost line the lexicon misses as higher-is-better and prints a rising cost in house green: a utility's operations-and-maintenance line at $500.00M against $470.00M consensus would read as a beat (figures made up). A name can be wrong about its own metric: extending the regex with cost vocabulary flips EPS, EBIT and gross margin to lower-is-better, because 'Amortization' appears inside their exclusion clauses. A code cannot be wrong about itself, which is why this file exists and the lexicon is only a fallback.",
+  "_contract": "Each entry is keyed on the BASE LTCODE and carries {polarity, label, aliases?, source, note?}. `polarity` is 'higher' | 'lower' | 'neutral' - the same three values resolve_metricset.py emits; this file never introduces a fourth. `label` is the line-item name the code carried when the entry was written, verbatim from the source: the lookup requires it to still match, so a code silently repurposed for a different metric falls back to the lexicon and warns rather than applying a stale direction. `source` records where the label came from. Derived suffixes -Y, -Q and -M inherit from their base code (a cost growing is bad, a cost as a share of revenue growing is bad). `source` and `note` are ADVISORY: no script reads them, and they are here so a future editor can see where a direction came from and why a contested one was accepted. `polarity`, `label` and `aliases` are the only fields polarity.py reads.",
+  "_discipline": "Do NOT add a code whose label you cannot source from a live search_lineitem response or the package's own spec - a wrong entry defeats a correct regex silently and is worse than no entry. Add entries only after an A/B resolve of the corpus is green (internal edition only), declaring any intended move. Entries that merely confirm what the lexicon already resolves are wanted: they are what makes the silence legible, and they cost nothing because the harness proves they moved nothing.",
+  "metrics": {
+    "CF_P_108": {
+      "polarity": "higher",
+      "label": "OCF",
+      "source": "insync-mcp search_lineitem 2026-09-16"
+    },
+    "CF_P_110": {
+      "polarity": "higher",
+      "label": "FCF",
+      "aliases": [
+        "FCF - Consolidated Free Cash Flow"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "CF_P_114": {
+      "polarity": "higher",
+      "label": "AFFO",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "CF_P_202": {
+      "polarity": "higher",
+      "label": "FFO/Share",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "CF_P_203": {
+      "polarity": "higher",
+      "label": "AFFO/Share",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "IS_P_101": {
+      "polarity": "higher",
+      "label": "Total Revenue",
+      "source": "insync-mcp search_lineitem 2026-09-16",
+      "aliases": [
+        "Total Revenues and Other Income"
+      ]
+    },
+    "IS_P_102": {
+      "polarity": "higher",
+      "label": "Total Revenue (Ex-1x Items)",
+      "source": "insync-mcp search_lineitem BNY 2026-09-16"
+    },
+    "IS_P_103": {
+      "polarity": "lower",
+      "label": "COGS",
+      "source": "insync-mcp search_lineitem 2026-09-16"
+    },
+    "IS_P_105": {
+      "polarity": "higher",
+      "label": "Gross Profit",
+      "source": "insync-mcp search_lineitem 2026-09-16"
+    },
+    "IS_P_106": {
+      "polarity": "higher",
+      "label": "Gross Profit (Ex-1x Items)",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "IS_P_107": {
+      "polarity": "lower",
+      "label": "Operating Expenses",
+      "source": "insync-mcp search_lineitem 2026-09-16",
+      "aliases": [
+        "Opex"
+      ]
+    },
+    "IS_P_110": {
+      "polarity": "higher",
+      "label": "EBIT (Ex-1x Items)",
+      "aliases": [
+        "EBIT (Ex-1x Items) - Consolidated",
+        "EBIT (Ex-1x Items, SBC & Amortization)"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "IS_P_113": {
+      "polarity": "higher",
+      "label": "EBITDA",
+      "source": "insync-mcp search_lineitem 2026-09-16"
+    },
+    "IS_P_114": {
+      "polarity": "higher",
+      "label": "EBITDA (Ex SBC & 1x Items)",
+      "aliases": [
+        "EBITDA (Ex-1x Items & SBC)",
+        "EBITDA (Ex-1x Items)",
+        "EBITDA (Ex-1x Items) (Consolidated)",
+        "EBITDAre (Ex-1x Items)"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "IS_P_117": {
+      "polarity": "higher",
+      "label": "PBT",
+      "source": "insync-mcp search_lineitem 2026-09-16"
+    },
+    "IS_P_123": {
+      "polarity": "higher",
+      "label": "Net Income",
+      "source": "insync-mcp search_lineitem 2026-09-16"
+    },
+    "IS_P_124": {
+      "polarity": "higher",
+      "label": "Net Income (Ex-1x Items)",
+      "source": "insync-mcp search_lineitem 2026-09-16",
+      "aliases": [
+        "Net Income (Ex- 1x Items)"
+      ]
+    },
+    "IS_P_127": {
+      "polarity": "higher",
+      "label": "Diluted EPS",
+      "aliases": [
+        "EPS"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "IS_P_128": {
+      "polarity": "higher",
+      "label": "Diluted EPS (Ex-1x Items & Amortization)",
+      "aliases": [
+        "Diluted EPS (Ex-1x Items)",
+        "EPS (Adj)",
+        "EPS (Ex SBC & 1x Items)",
+        "EPS (Ex- 1x Items)",
+        "EPS (Ex-1x Items)",
+        "EPS (Ex-1x Items, SBC & Amortization)"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "IS_P_141": {
+      "polarity": "lower",
+      "label": "Interest Expense",
+      "source": "insync-mcp search_lineitem 2026-09-16"
+    },
+    "IS_P_200": {
+      "polarity": "higher",
+      "label": "Total Revenue (FTE)",
+      "source": "insync-mcp get_actuals JPM 2026-09-16",
+      "note": "A bank's fully-taxable-equivalent top line, the same quantity IS_P_101 carries for a non-financial. Declared because the default-higher fallback warned on it on the JPM live run; the value it resolves to is unchanged."
+    },
+    "IS_P_202": {
+      "polarity": "higher",
+      "label": "Net Interest Income (FTE)",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "IS_P_206": {
+      "polarity": "lower",
+      "label": "Efficiency Ratio (%) (Ex-1x Items)",
+      "aliases": [
+        "Efficiency Ratio (%)"
+      ],
+      "source": "insync-mcp search_lineitem BNY 2026-09-16",
+      "note": "A bank efficiency ratio is cost/income: LOWER is better. The lexicon already catches it via \"efficiency ratio\"; declared so the direction is recorded rather than re-derived."
+    },
+    "IS_P_210": {
+      "polarity": "higher",
+      "label": "PPNR (FTE)",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0",
+      "aliases": [
+        "PPNR (Ex-1x Items)"
+      ]
+    },
+    "IS_P_402": {
+      "polarity": "higher",
+      "label": "Net Premiums Written",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "IS_S_103": {
+      "polarity": "lower",
+      "label": "Other Operation & Maintenance",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16",
+      "aliases": [
+        "Demand Creation Expense - SG&A"
+      ],
+      "note": "Two different issuers use this code for two different cost lines - a utility's Other Operation & Maintenance and an apparel issuer's Demand Creation Expense - SG&A. Both are COSTS, so one 'lower' is correct for both and both labels are listed. Checked deliberately: an alias list is where a repurposed code would hide, and a shared code carrying metrics of OPPOSITE direction must be left undeclared rather than given a single answer."
+    },
+    "IS_S_105": {
+      "polarity": "lower",
+      "label": "Property & Revenue Taxes",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16"
+    },
+    "IS_S_1062": {
+      "polarity": "higher",
+      "label": "Total Machinery & Power Systems Sales - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "IS_S_412": {
+      "polarity": "higher",
+      "label": "AFFO / Share",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_1001": {
+      "polarity": "higher",
+      "label": "Billings",
+      "source": "frozen control corpus, CRM live-fetch fixture, v8.1.1"
+    },
+    "KM_P_1003": {
+      "polarity": "higher",
+      "label": "Total RPO",
+      "source": "frozen control corpus, CRM live-fetch fixture, v8.1.1"
+    },
+    "KM_P_1004": {
+      "polarity": "higher",
+      "label": "Current RPO",
+      "source": "frozen control corpus, CRM live-fetch fixture, v8.1.1"
+    },
+    "KM_P_1007": {
+      "polarity": "higher",
+      "label": "Annual Recurring Revenue(ARR)",
+      "source": "frozen control corpus, CRM live-fetch fixture, v8.1.1"
+    },
+    "KM_P_1015": {
+      "polarity": "higher",
+      "label": "Backlog",
+      "aliases": [
+        "Total Energy & Transportation - Machinery & Power Systems Sales"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_1016": {
+      "polarity": "higher",
+      "label": "Backlog (unflagged legacy metricset)",
+      "aliases": [
+        "Total Energy & Transportation - Machinery & Power Systems Sales"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_111": {
+      "polarity": "higher",
+      "label": "Policies In Force (In Thousand) - Direct - Personal Auto - Consolidated",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_1121": {
+      "polarity": "higher",
+      "label": "Average -  Freight Revenue/Carload",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_1205": {
+      "polarity": "higher",
+      "label": "Total Average Daily Production (MBoe/d)",
+      "aliases": [
+        "Total Average Daily Production (MBoe/d) - Average Daily Production"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_400": {
+      "polarity": "higher",
+      "label": "Total Deliveries",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_413": {
+      "polarity": "higher",
+      "label": "Total Portfolio Sq Ft",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_450": {
+      "polarity": "higher",
+      "label": "ASP by Platform",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "KM_P_503": {
+      "polarity": "higher",
+      "label": "Total Warehouses",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "KM_P_705": {
+      "polarity": "higher",
+      "label": "Consolidated PRASM (Cents)",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_903": {
+      "polarity": "higher",
+      "label": "Subs - Postpaid Retail Wireless",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_P_923": {
+      "polarity": "higher",
+      "label": "Net Adds - Postpaid Retail Wireless",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_S_110": {
+      "polarity": "higher",
+      "label": "Total Operating Revenues - Wisconsin - Revenue by Segment",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16"
+    },
+    "KM_S_118": {
+      "polarity": "higher",
+      "label": "Total Operating Revenues - Illinois - Revenue by Segment",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16"
+    },
+    "KM_S_134": {
+      "polarity": "higher",
+      "label": "Total Operating Revenues - Utility Operations - Revenue by Segment",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16"
+    },
+    "KM_S_163": {
+      "polarity": "higher",
+      "label": "Total Retail - Sales",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "KM_S_170": {
+      "polarity": "higher",
+      "label": "Total Average Price",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_S_199": {
+      "polarity": "higher",
+      "label": "Total Refinery Throughput (kbd/d) - Average Daily Production",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_S_200": {
+      "polarity": "higher",
+      "label": "US Crude - Realized Prices",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_S_320": {
+      "polarity": "higher",
+      "label": "Policies in Force",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_S_482": {
+      "polarity": "higher",
+      "label": "ARPU - Prepaid Retail Wireless Consumer excl. SafeLink",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_S_637": {
+      "polarity": "higher",
+      "label": "Total Broadband Connections (Excl Traditional copper-based network)",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "KM_S_655": {
+      "polarity": "higher",
+      "label": "Executive Membership Card Holders",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_P_1002": {
+      "polarity": "higher",
+      "label": "Subscription & Support - Revenue",
+      "source": "frozen control corpus, CRM live-fetch fixture, v8.1.1"
+    },
+    "SD_P_1029": {
+      "polarity": "higher",
+      "label": "DRAM - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_P_1030": {
+      "polarity": "higher",
+      "label": "NAND - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_P_1035": {
+      "polarity": "higher",
+      "label": "Gaming - Revenue By Segment",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_P_1503": {
+      "polarity": "higher",
+      "label": "Cardiometabolic Health Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_P_1506": {
+      "polarity": "higher",
+      "label": "Oncology Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_P_1509": {
+      "polarity": "higher",
+      "label": "Immunology Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_P_404": {
+      "polarity": "higher",
+      "label": "Automotive Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_P_454": {
+      "polarity": "higher",
+      "label": "Software and Services Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_P_540": {
+      "polarity": "higher",
+      "label": "Membership Fees (MFI) - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_P_Geo101.1": {
+      "polarity": "higher",
+      "label": "North America - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_101": {
+      "polarity": "higher",
+      "label": "Others - Revenue",
+      "aliases": [
+        "Segment Revenue"
+      ],
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_1097": {
+      "polarity": "higher",
+      "label": "Zepbound",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_115": {
+      "polarity": "higher",
+      "label": "Memory - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_117": {
+      "polarity": "higher",
+      "label": "Semiconductor - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_1238": {
+      "polarity": "higher",
+      "label": "Greater China - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_126": {
+      "polarity": "higher",
+      "label": "Handset - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_148": {
+      "polarity": "higher",
+      "label": "Net Premium Earned - Commercial Auto - Consolidated",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_161": {
+      "polarity": "higher",
+      "label": "Mounjaro (Tirzepatide)",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_177": {
+      "polarity": "higher",
+      "label": "Total Investment Banking Fees",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_194": {
+      "polarity": "higher",
+      "label": "Nike Brand - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_220": {
+      "polarity": "higher",
+      "label": "Nike Brand - EBIT",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_227": {
+      "polarity": "higher",
+      "label": "Florida Power & Light - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_228": {
+      "polarity": "higher",
+      "label": "NextEra Energy Resources - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_311": {
+      "polarity": "higher",
+      "label": "Net Premiums Written",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_354": {
+      "polarity": "higher",
+      "label": "Total Construction Industries - Machinery & Power Systems Sales",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_358": {
+      "polarity": "higher",
+      "label": "Total Energy & Transportation - Machinery & Power Systems Sales",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_414": {
+      "polarity": "higher",
+      "label": "Rental Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_417": {
+      "polarity": "lower",
+      "label": "Fuel And Purchased Power",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16"
+    },
+    "SD_S_419": {
+      "polarity": "lower",
+      "label": "Other Operation And Maintenance",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16"
+    },
+    "SD_S_423": {
+      "polarity": "lower",
+      "label": "Property And Revenue Taxes",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16"
+    },
+    "SD_S_438": {
+      "polarity": "lower",
+      "label": "Interest Expense",
+      "source": "insync-mcp search_lineitem WEC 2026-09-16"
+    },
+    "SD_S_475": {
+      "polarity": "higher",
+      "label": "Compute - Data Center Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_476": {
+      "polarity": "higher",
+      "label": "Networking - Data Center Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_539": {
+      "polarity": "higher",
+      "label": "Blackwell - Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_610": {
+      "polarity": "higher",
+      "label": "TRASM",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_614": {
+      "polarity": "higher",
+      "label": "PRASM",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.0"
+    },
+    "SD_S_638": {
+      "polarity": "higher",
+      "label": "Segment Income (Loss) - U.S. - Upstream",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_649": {
+      "polarity": "higher",
+      "label": "Segment Income (Loss) - Non U.S. - Upstream",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_659": {
+      "polarity": "higher",
+      "label": "Data Center - Revenue By Segment",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    },
+    "SD_S_990": {
+      "polarity": "higher",
+      "label": "COVID Vaccine Revenue",
+      "source": "frozen control corpus (live-fetch fixtures), v8.1.1"
+    }
+  },
+  "_notDeclared": "Deliberately ABSENT, because direction is genuinely contested and a wrong entry is worse than none: IS_P_119 / CF_P_117 income tax and CF_S_526 / IS_P_111 D&A (a higher tax charge usually accompanies higher pre-tax profit; D&A is a non-cash charge whose direction depends on why it moved). These stay on the lexicon and will surface in the [polarity] warning for a human to decide, which is the correct outcome rather than a guess frozen into a file. ALSO deliberately absent: KM_P_612 ASMs and KM_P_620 Flights Operated. These are pure CAPACITY, not revenue - more seats or more flights is good only with demand behind it, and an airline adding capacity into a soft market is a warning rather than a beat. They stay undeclared so the Summary Financials caption names them and a human decides per issuer.",
+  "_aliasDiscipline": "Every alias was checked for semantic consistency before it was accepted: an entry may list the same metric on different bases (EPS Ex-1x / EPS Adj / Diluted EPS) or the same concept under different vendor wording (Operating Expenses / Opex), and must NOT list two metrics whose good direction differs. Harvesting alias lists from the corpus without that check is how a registry becomes worse than no registry."
+}

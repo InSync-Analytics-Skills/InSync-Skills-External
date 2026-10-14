@@ -1,0 +1,13 @@
+{
+  "name": "insync-external",
+  "owner": {
+    "name": "InSync Analytics"
+  },
+  "plugins": [
+    {
+      "name": "insync-external-skills",
+      "description": "Reusable Claude Code skills provided by InSync Analytics",
+      "source": "./"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+# forecast-reliability-suite runtime dependency
+# reportlab draws the PDF. Without it, pass --nopdf for the HTML portal only.
+reportlab

@@ -1,0 +1,7 @@
+# Required
+matplotlib>=3.5
+
+# Optional — interactive backend and its static exporter.
+# The engine falls back to matplotlib whenever these are absent.
+# plotly>=5.18
+# kaleido>=0.2.1

@@ -1,0 +1,188 @@
+ltcode,label,pct,lower_is_better
+BS_P_250,Total Gross Loans,no,no
+BS_P_261,NCO,no,yes
+BS_P_287,CET 1 Capital Ratio - Standardized,yes,no
+BS_P_302,Days Claims Payable/DCP,no,yes
+BS_S_528,Book Value Per Share - Month 3,no,no
+CF_P_109,Less: Capex,no,no
+CF_P_113,FFO,no,no
+CF_P_136,Core FFO,no,no
+CF_P_202,FFO/Share,,no
+CF_P_203,AFFO/Share,no,no
+CF_P_209,Core FFO/Share,no,no
+CF_S_188,Amortization of Content Assets,no,yes
+COMPUTED,Derived margin row (profit / revenue),,no
+IS_P_101,Total Revenue,,no
+IS_P_103,COGS,no,yes
+IS_P_105,Gross Profit,,no
+IS_P_107,Total Opex,no,yes
+IS_P_108-M,% Revenue - Operating Expenses (Ex-1x Items),yes,yes
+IS_P_109,EBIT,,no
+IS_P_110,EBIT (Ex-1x Items),,no
+IS_P_110-M,Margin - EBIT (Ex- 1x Items),yes,no
+IS_P_1101,Operating Ratio,yes,yes
+IS_P_1102,Operating Ratio (%),yes,yes
+IS_P_113,EBITDA (Ex-1x Items) - variant,,no
+IS_P_114,EBITDA (Ex-1x Items),,no
+IS_P_117,PBT,,no
+IS_P_118,PBT (Ex-1x Items),,no
+IS_P_121,ETR,yes,yes
+IS_P_123,Net Income,,no
+IS_P_124,Net Income (Ex-1x Items),,no
+IS_P_127,EPS,,no
+IS_P_128,EPS (Ex-1x Items),,no
+IS_P_141,Net Interest Expense,no,yes
+IS_P_161,Net Operating Income (NOI),no,no
+IS_P_172,EBITDAX,no,no
+IS_P_179,Property Maintenance & Repair Expenses,no,yes
+IS_P_186,Lease & Well Expenses,no,yes
+IS_P_188,Transportation Expenses,no,yes
+IS_P_190,Gathering & Processing Expenses,no,yes
+IS_P_192,Exploration Expenses,no,yes
+IS_P_202,Net Interest Income (FTE),no,no
+IS_P_204,NIM (FTE),yes,no
+IS_P_205,Efficiency Ratio,yes,yes
+IS_P_209,PPNR,,no
+IS_P_210,PPNR (FTE),,no
+IS_P_211,Non Interest Income,no,no
+IS_P_213,Non Interest Expense,no,yes
+IS_P_239,Salary & Benefits,,yes
+IS_P_276,EBITDA (Ex-1x Items) - variant,,no
+IS_P_306,Investment Advisory & Administration Fees - Revenue,no,no
+IS_P_402,Net Premiums Written,no,no
+IS_P_403,Net Premium Earned,no,no
+IS_P_406,Underwriting Income (Loss),no,no
+IS_P_410,Net Investment Income,no,no
+IS_P_449,Medical Costs,no,yes
+IS_P_449-M,% Medical Care Ratio - Medical Costs,yes,yes
+IS_P_502,Restaurant Margin (%),yes,no
+IS_P_503,Restaurant Profit,no,no
+IS_P_504,Restaurant Profit,no,no
+IS_P_903,Consolidated Medical Loss Ratio (MLR),yes,yes
+IS_S_103,Other Operation & Maintenance,no,yes
+IS_S_105,Property & Revenue Taxes,no,yes
+IS_S_1062,Total Machinery & Power Systems Sales,no,no
+IS_S_114,Technology & Risk Management Revenue,no,no
+IS_S_615,"R&D & MG&A (Ex-1x Items, SBC & Amortization)",,yes
+KM_P_1001,Total Billings,,no
+KM_P_1003,Total RPO,no,no
+KM_P_1004,Current RPO,no,no
+KM_P_1007,Annual Recurring Revenue(ARR),no,no
+KM_P_1082,Postpaid Phone ARPU,no,no
+KM_P_1101,Total Freight Carloads Volume,no,no
+KM_P_111,Policies In Force - Direct Personal Auto,no,no
+KM_P_1121,Average Freight Revenue/Carload,no,no
+KM_P_1205,Total Average Daily Production (MBoe/d),no,no
+KM_P_124,Development Starts - Prologis Share,no,no
+KM_P_1251,Total Electric Sales (GWh),no,no
+KM_P_1256,ASP (USD) - Modules,no,no
+KM_P_1713,Total Average Daily Package Volume - Federal Express,no,no
+KM_P_1714,Total Composite Package Yield - Federal Express,no,no
+KM_P_1726,Total Average Daily Freight Pounds - Federal Express,no,no
+KM_P_1730,Total Membership,no,no
+KM_P_205,Comparable Sales Growth (%),,no
+KM_P_211,eCommerce Sales Growth (%),,no
+KM_P_301,AUM - EOP,no,no
+KM_P_303,Net Flows,no,no
+KM_P_400,Total Vehicle Wholesale Unit Sales,no,no
+KM_P_503,EOP Total Stores / Number of Restaurants,no,no
+KM_P_541,Comparable Average Ticket,no,no
+KM_P_840,Net Cruise Cost per ALBD,no,yes
+KM_P_847,Net Cruise Cost,no,yes
+KM_P_901,Total Paid Membership - EOP,no,no
+KM_P_921,Net Adds - Total Paid Membership,no,no
+KM_P_941,Membership ARPU,no,no
+KM_S_142,Net Bookings (GW),no,no
+KM_S_143,Monthly Transacting Users (MTUs ),no,no
+KM_S_144,Assets on Platform,no,no
+KM_S_145,MW Sold - Modules,no,no
+KM_S_147,Trading Volume,no,no
+KM_S_152,North American Towables RV Units,no,no
+KM_S_177,Medicare Advantage - Membership,no,no
+KM_S_188,GTMs/Employee,no,no
+KM_S_194,Global Unit Case Volume Growth (%),yes,no
+KM_S_199,Total Refinery Throughput (kbd/d),no,no
+KM_S_200,US Crude - Realized Prices,no,no
+KM_S_221,Commercial ASO - PMPM,no,no
+KM_S_296,Net Adds - Fiber Broadband Consumer Wireline,no,no
+KM_S_324,Net Adds - Phone Postpaid Branded Mobility,no,no
+KM_S_327,% Average Occupancy - Prologis Share,yes,no
+KM_S_328,% Net Effective Rent Change,yes,no
+KM_S_376,% Churn - Phone Postpaid,yes,yes
+KM_S_387,Long Term - Base Fee,no,no
+KM_S_407,Total Stores by Geography,no,no
+KM_S_454,Net Adds - Medicare Advantage Membership,no,no
+RT_P_102,Return on Equity (ROE),yes,no
+RT_P_107,ROTCE,yes,no
+SD_P_1002,Subscription & Services - Revenue,no,no
+SD_P_1007,Intelligent Cloud - Revenue,no,no
+SD_P_101,Loss Ratio (%),yes,yes
+SD_P_102,Expense Ratio (%),yes,yes
+SD_P_103,Combined Ratio (%),yes,yes
+SD_P_1035,Gaming - Revenue By Segment,no,no
+SD_P_104,Catastrophe Losses,no,yes
+SD_P_105,Catastrophe Losses Ratio (%),yes,yes
+SD_P_106,Prior Period Development,no,yes
+SD_P_108,Accident Year Combined Ratio (AYCR) (%),yes,yes
+SD_P_109,Accident Year Loss Ratio (AYLR) (%),yes,yes
+SD_P_1101,Freight - Revenue,no,no
+SD_P_1761,Premium - Revenue,no,no
+SD_P_301,% Price / % Price Mix - Total Revenue,yes,no
+SD_P_303,% Organic - Total Revenue,yes,no
+SD_P_448,North America Recreational Vehicles Revenue,no,no
+SD_P_449,European Recreational Vehicles Revenue,no,no
+SD_P_502,Franchised Revenue,no,no
+SD_P_505,% SSS,yes,no
+SD_P_506,Comparable Customer Transactions,no,no
+SD_P_508,System Wide Sales,no,no
+SD_P_531,Revenue (Ex-Membership),no,no
+SD_P_924,Streaming - Revenue,no,no
+SD_P_Geo101.1,North America - Revenue,no,no
+SD_P_Geo101.4,APAC - Revenue,no,no
+SD_P_Geo101.5,EMEA - Revenue,no,no
+SD_P_Geo101.6,Americas - Revenue,no,no
+SD_P_Geo109.1,North America - EBIT (Ex-1x Items),no,no
+SD_S_123,North American Motorized RV Revenue,no,no
+SD_S_129,% Volume - Americas,yes,no
+SD_S_135,% SSS (Ex-Fuel) - Walmart US,yes,no
+SD_S_144,Regulated Electric - Revenue,no,no
+SD_S_145,% SSS (Ex-Fuel) - Sam's Club,yes,no
+SD_S_146,% Volume - Construction Industries,yes,no
+SD_S_147,% Price - Construction Industries,yes,no
+SD_S_148,Net Premium Earned - Commercial Auto,no,no
+SD_S_161,Optum Rx - Revenue,no,no
+SD_S_165,Electric Utilities & Infrastructure - Segment NI,no,no
+SD_S_166,Gas Utilities & Infrastructure - Segment NI,no,no
+SD_S_172,ISG Revenue,,no
+SD_S_173,Commercial - CSG Revenue,,no
+SD_S_175,CSG Revenue,,no
+SD_S_177,Total Investment Banking Fees,no,no
+SD_S_183,"ISG - EBIT (Ex-1x Items, SBC & Amortization)",,no
+SD_S_187,Rental & Other Income,no,no
+SD_S_293,US E-Commerce Sales - Wal-Mart US,no,no
+SD_S_323,Transaction - Revenue,no,no
+SD_S_354,Total Construction Industries - Sales,no,no
+SD_S_358,Total Energy & Transportation - Sales,no,no
+SD_S_445,Federal Express - Revenue,no,no
+SD_S_451,Federal Express - EBIT (Ex-1x Items),no,no
+SD_S_475,Compute - Data Center Revenue,no,no
+SD_S_476,Networking - Data Center Revenue,no,no
+SD_S_486,"SRS, Mingledorffs & GMS - Revenue",no,no
+SD_S_539,Blackwell - Revenue,no,no
+SD_S_564,Policies in Force - Consolidated,no,no
+SD_S_595,Ford Blue - EBIT (Ex-1x Items),no,no
+SD_S_596,Ford Model E - EBIT (Ex-1x Items),no,no
+SD_S_597,Ford Pro - EBIT (Ex-1x Items),no,no
+SD_S_638,Segment Income (Loss) - U.S. - Upstream,no,no
+SD_S_649,Segment Income (Loss) - Non U.S. - Upstream,no,no
+SD_S_659,Data Center - Revenue By Segment,no,no
+SD_S_683,AI - ISG Revenue,,no
+SD_S_754,% Volume - PFNA,yes,no
+SD_S_760,% Volume - PBNA,yes,no
+SD_S_761,% Price/Mix - PBNA,yes,no
+SD_S_791,PBNA - EBIT (Ex-1x Items) by Segment,no,no
+SD_S_887,LinkedIn - Revenue,no,no
+SD_S_917,Productivity & Business Processes - Revenue,no,no
+SD_S_930,Advanced Connectivity - Revenue,no,no
+KM_P_601,GOV / GTV / GMV,no,no
+KM_P_604,Take Rate,yes,no

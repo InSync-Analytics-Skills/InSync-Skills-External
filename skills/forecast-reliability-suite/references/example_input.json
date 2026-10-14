@@ -1,0 +1,737 @@
+{
+  "ticker": "EXMP",
+  "company": "Example Retail Co",
+  "currency": "$",
+  "rev_unit": "B",
+  "fiscal_quarters": [
+    "2Q25",
+    "3Q25",
+    "4Q25",
+    "1Q26",
+    "2Q26",
+    "3Q26",
+    "4Q26",
+    "1Q27"
+  ],
+  "next_quarter": "2Q27",
+  "as_of": "2026-08-17",
+  "metrics": [
+    {
+      "key": "eps",
+      "label": "EPS (adj)",
+      "ltcode": "IS_P_128",
+      "pct_metric": false,
+      "headline": true,
+      "actuals": {
+        "2Q25": 0.5085,
+        "3Q25": 0.4705,
+        "4Q25": 0.5251,
+        "1Q26": 0.4635,
+        "2Q26": 0.572,
+        "3Q26": 0.486,
+        "4Q26": 0.5122,
+        "1Q27": 0.508
+      },
+      "consensus": {
+        "2Q25": 0.4888,
+        "3Q25": 0.4332,
+        "4Q25": 0.5269,
+        "1Q26": 0.4333,
+        "2Q26": 0.6187,
+        "3Q26": 0.4661,
+        "4Q26": 0.51,
+        "1Q27": 0.5147
+      },
+      "est_range": {
+        "2Q25": {
+          "min": 0.4721,
+          "max": 0.5025
+        },
+        "3Q25": {
+          "min": 0.421,
+          "max": 0.48
+        },
+        "4Q25": {
+          "min": 0.5004,
+          "max": 0.5637
+        },
+        "1Q26": {
+          "min": 0.4135,
+          "max": 0.4522
+        },
+        "2Q26": {
+          "min": 0.5665,
+          "max": 0.7536
+        },
+        "3Q26": {
+          "min": 0.4504,
+          "max": 0.4885
+        },
+        "4Q26": {
+          "min": 0.4869,
+          "max": 0.532
+        },
+        "1Q27": {
+          "min": 0.4945,
+          "max": 0.5448
+        }
+      }
+    },
+    {
+      "key": "rev",
+      "label": "Total Revenue",
+      "ltcode": "IS_P_101",
+      "pct_metric": false,
+      "headline": true,
+      "actuals": {
+        "2Q25": 92.3821,
+        "3Q25": 107.2535,
+        "4Q25": 97.3871,
+        "1Q26": 87.0262,
+        "2Q26": 90.7186,
+        "3Q26": 112.5101,
+        "4Q26": 105.2552,
+        "1Q27": 107.7538
+      },
+      "consensus": {
+        "2Q25": 93.8304,
+        "3Q25": 108.0107,
+        "4Q25": 94.6947,
+        "1Q26": 85.7469,
+        "2Q26": 90.5556,
+        "3Q26": 113.2534,
+        "4Q26": 102.8787,
+        "1Q27": 108.6429
+      },
+      "est_range": {
+        "2Q25": {
+          "min": 93.2541,
+          "max": 94.3674
+        },
+        "3Q25": {
+          "min": 106.8749,
+          "max": 109.6233
+        },
+        "4Q25": {
+          "min": 93.1369,
+          "max": 95.8821
+        },
+        "1Q26": {
+          "min": 84.8306,
+          "max": 86.9175
+        },
+        "2Q26": {
+          "min": 89.5264,
+          "max": 91.3122
+        },
+        "3Q26": {
+          "min": 112.4077,
+          "max": 115.1584
+        },
+        "4Q26": {
+          "min": 101.9826,
+          "max": 103.9284
+        },
+        "1Q27": {
+          "min": 107.0584,
+          "max": 110.4452
+        }
+      },
+      "basis": "reported"
+    },
+    {
+      "key": "ecom",
+      "label": "E-Commerce Sales - Segment A",
+      "ltcode": "SD_S_293",
+      "pct_metric": false,
+      "headline": false,
+      "actuals": {
+        "2Q25": 14.1985,
+        "3Q25": 15.6316,
+        "4Q25": 19.5968,
+        "1Q26": 17.6334,
+        "2Q26": 18.251,
+        "3Q26": 19.7662,
+        "4Q26": 23.4767,
+        "1Q27": 24.3012
+      },
+      "consensus": {
+        "2Q25": 13.1012,
+        "3Q25": 14.7485,
+        "4Q25": 18.9146,
+        "1Q26": 16.7949,
+        "2Q26": 16.409,
+        "3Q26": 18.4752,
+        "4Q26": 21.7836,
+        "1Q27": 22.829
+      },
+      "est_range": {
+        "2Q25": {
+          "min": 11.4623,
+          "max": 14.1522
+        },
+        "3Q25": {
+          "min": 12.5631,
+          "max": 16.0353
+        },
+        "4Q25": {
+          "min": 16.9877,
+          "max": 19.9298
+        },
+        "1Q26": {
+          "min": 14.1148,
+          "max": 17.6476
+        },
+        "2Q26": {
+          "min": 14.0439,
+          "max": 17.232
+        },
+        "3Q26": {
+          "min": 15.308,
+          "max": 20.1826
+        },
+        "4Q26": {
+          "min": 19.1746,
+          "max": 23.6738
+        },
+        "1Q27": {
+          "min": 18.6572,
+          "max": 24.4514
+        }
+      },
+      "unit": "$B"
+    },
+    {
+      "key": "sss_us",
+      "label": "% Comparable Sales - Segment A",
+      "ltcode": "SD_S_135",
+      "pct_metric": true,
+      "headline": false,
+      "actuals": {
+        "2Q25": 2.9491,
+        "3Q25": 5.1841,
+        "4Q25": 3.4463,
+        "1Q26": 3.7095,
+        "2Q26": 3.7274,
+        "3Q26": 4.0259,
+        "4Q26": 4.363,
+        "1Q27": 4.2852
+      },
+      "consensus": {
+        "2Q25": 2.4858,
+        "3Q25": 3.583,
+        "4Q25": 3.2727,
+        "1Q26": 3.1119,
+        "2Q26": 3.1794,
+        "3Q26": 3.6195,
+        "4Q26": 4.0895,
+        "1Q27": 4.1101
+      },
+      "est_range": {
+        "2Q25": {
+          "min": 1.7456,
+          "max": 3.1421
+        },
+        "3Q25": {
+          "min": 2.421,
+          "max": 4.4643
+        },
+        "4Q25": {
+          "min": 1.8386,
+          "max": 3.9419
+        },
+        "1Q26": {
+          "min": 2.4375,
+          "max": 3.8187
+        },
+        "2Q26": {
+          "min": 2.3905,
+          "max": 3.7451
+        },
+        "3Q26": {
+          "min": 2.742,
+          "max": 4.113
+        },
+        "4Q26": {
+          "min": 3.3209,
+          "max": 4.7442
+        },
+        "1Q27": {
+          "min": 3.1216,
+          "max": 5.2027
+        }
+      }
+    },
+    {
+      "key": "sss_sams",
+      "label": "% Comparable Sales - Segment B",
+      "ltcode": "SD_S_145",
+      "pct_metric": true,
+      "headline": false,
+      "actuals": {
+        "2Q25": 4.4159,
+        "3Q25": 5.3573,
+        "4Q25": 6.1919,
+        "1Q26": 8.227,
+        "2Q26": 5.4534,
+        "3Q26": 3.3489,
+        "4Q26": 3.3146,
+        "1Q27": 3.1196
+      },
+      "consensus": {
+        "2Q25": 3.2053,
+        "3Q25": 3.1434,
+        "4Q25": 4.3314,
+        "1Q26": 5.7683,
+        "2Q26": 4.6363,
+        "3Q26": 4.0761,
+        "4Q26": 3.62,
+        "1Q27": 2.8639
+      },
+      "est_range": {
+        "2Q25": {
+          "min": 2.5372,
+          "max": 4.2286
+        },
+        "3Q25": {
+          "min": 1.9452,
+          "max": 4.2794
+        },
+        "4Q25": {
+          "min": 2.7472,
+          "max": 5.9523
+        },
+        "1Q26": {
+          "min": 3.0169,
+          "max": 7.844
+        },
+        "2Q26": {
+          "min": 2.3368,
+          "max": 6.5431
+        },
+        "3Q26": {
+          "min": 1.7684,
+          "max": 6.1893
+        },
+        "4Q26": {
+          "min": 2.8927,
+          "max": 4.9589
+        },
+        "1Q27": {
+          "min": 1.6365,
+          "max": 3.273
+        }
+      }
+    },
+    {
+      "key": "rev_exmem",
+      "label": "Revenue (Ex-Membership)",
+      "ltcode": "SD_P_531",
+      "pct_metric": false,
+      "headline": false,
+      "actuals": {
+        "2Q25": 123.919,
+        "3Q25": 119.5495,
+        "4Q25": 152.2145,
+        "1Q26": 117.8425,
+        "2Q26": 138.5944,
+        "3Q26": 152.4891,
+        "4Q26": 139.0657,
+        "1Q27": 131.9303
+      },
+      "consensus": {
+        "2Q25": 123.5855,
+        "3Q25": 115.8094,
+        "4Q25": 154.0207,
+        "1Q26": 117.4246,
+        "2Q26": 135.1484,
+        "3Q26": 150.9694,
+        "4Q26": 137.2336,
+        "1Q27": 132.6706
+      },
+      "est_range": {
+        "2Q25": {
+          "min": 122.8046,
+          "max": 124.2338
+        },
+        "3Q25": {
+          "min": 114.5338,
+          "max": 117.5738
+        },
+        "4Q25": {
+          "min": 151.387,
+          "max": 155.9432
+        },
+        "1Q26": {
+          "min": 116.218,
+          "max": 119.1112
+        },
+        "2Q26": {
+          "min": 133.5732,
+          "max": 136.2755
+        },
+        "3Q26": {
+          "min": 149.7898,
+          "max": 153.546
+        },
+        "4Q26": {
+          "min": 136.0275,
+          "max": 138.686
+        },
+        "1Q27": {
+          "min": 130.6968,
+          "max": 134.8203
+        }
+      },
+      "unit": "$B"
+    },
+    {
+      "key": "stores",
+      "label": "EOP - Total Stores",
+      "ltcode": "KM_P_503",
+      "pct_metric": false,
+      "headline": false,
+      "actuals": {
+        "2Q25": 3997,
+        "3Q25": 3487,
+        "4Q25": 3892,
+        "1Q26": 3760,
+        "2Q26": 3559,
+        "3Q26": 3611,
+        "4Q26": 4252,
+        "1Q27": 4120
+      },
+      "consensus": {
+        "2Q25": 3995.8101,
+        "3Q25": 3518.7638,
+        "4Q25": 3833.5403,
+        "1Q26": 3747.6255,
+        "2Q26": 3568.9326,
+        "3Q26": 3623.7521,
+        "4Q26": 4181.2332,
+        "1Q27": 4087.1692
+      },
+      "est_range": {
+        "2Q25": {
+          "min": 3952.9567,
+          "max": 4034.8327
+        },
+        "3Q25": {
+          "min": 3477.4964,
+          "max": 3548.2688
+        },
+        "4Q25": {
+          "min": 3771.2299,
+          "max": 3874.6028
+        },
+        "1Q26": {
+          "min": 3659.4849,
+          "max": 3769.7736
+        },
+        "2Q26": {
+          "min": 3479.6679,
+          "max": 3604.6384
+        },
+        "3Q26": {
+          "min": 3527.2349,
+          "max": 3658.2704
+        },
+        "4Q26": {
+          "min": 4057.5969,
+          "max": 4217.9732
+        },
+        "1Q27": {
+          "min": 3927.1003,
+          "max": 4109.9296
+        }
+      },
+      "unit": "stores"
+    }
+  ],
+  "guidance": [
+    {
+      "source_period": "2Q25",
+      "fiscal_period": "3Q25",
+      "metric": "eps",
+      "label": "Q EPS (adj)",
+      "low": 0.3903,
+      "high": 0.3979,
+      "guide_date": "2024-08-22",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "source_period": "4Q25",
+      "fiscal_period": "1Q26",
+      "metric": "eps",
+      "label": "Q EPS (adj)",
+      "low": 0.437,
+      "high": 0.4446,
+      "guide_date": "2025-02-27",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "source_period": "2Q26",
+      "fiscal_period": "3Q26",
+      "metric": "eps",
+      "label": "Q EPS (adj)",
+      "low": 0.4415,
+      "high": 0.4568,
+      "guide_date": "2025-08-28",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "source_period": "3Q26",
+      "fiscal_period": "4Q26",
+      "metric": "eps",
+      "label": "Q EPS (adj)",
+      "low": 0.5152,
+      "high": 0.5537,
+      "guide_date": "2025-11-27",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "source_period": "4Q26",
+      "fiscal_period": "1Q27",
+      "metric": "eps",
+      "label": "Q EPS (adj)",
+      "low": 0.4763,
+      "high": 0.4914,
+      "guide_date": "2026-02-26",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "metric": "eps",
+      "label": "Q EPS (adj)",
+      "fiscal_period": "2Q25",
+      "low": 0.478,
+      "high": 0.5011,
+      "actual": 0.519,
+      "unit": "$",
+      "guide_date": "2024-05-23",
+      "ltcode": "IS_P_128"
+    }
+  ],
+  "fy_guidance": [
+    {
+      "fiscal_period": "2025",
+      "source_period": "2Q25",
+      "metric": "eps",
+      "label": "FY Adjusted EPS",
+      "low": 1.8359,
+      "high": 1.8984,
+      "guide_date": "2024-08-22",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "fiscal_period": "2025",
+      "source_period": "3Q25",
+      "metric": "eps",
+      "label": "FY Adjusted EPS",
+      "low": 1.8466,
+      "high": 1.8848,
+      "guide_date": "2024-11-26",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "fiscal_period": "2026",
+      "source_period": "4Q25",
+      "metric": "eps",
+      "label": "FY Adjusted EPS",
+      "low": 1.9341,
+      "high": 2.0114,
+      "guide_date": "2025-02-27",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "fiscal_period": "2026",
+      "source_period": "1Q26",
+      "metric": "eps",
+      "label": "FY Adjusted EPS",
+      "low": 1.9556,
+      "high": 2.0338,
+      "guide_date": "2025-05-22",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "fiscal_period": "2026",
+      "source_period": "2Q26",
+      "metric": "eps",
+      "label": "FY Adjusted EPS",
+      "low": 1.9603,
+      "high": 2.038,
+      "guide_date": "2025-08-28",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "fiscal_period": "2026",
+      "source_period": "3Q26",
+      "metric": "eps",
+      "label": "FY Adjusted EPS",
+      "low": 2.0081,
+      "high": 2.0471,
+      "guide_date": "2025-11-27",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "fiscal_period": "2027",
+      "source_period": "4Q26",
+      "metric": "eps",
+      "label": "FY Adjusted EPS",
+      "low": 2.1267,
+      "high": 2.204,
+      "guide_date": "2026-02-26",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    },
+    {
+      "fiscal_period": "2027",
+      "source_period": "1Q27",
+      "metric": "eps",
+      "label": "FY Adjusted EPS",
+      "low": 2.1467,
+      "high": 2.2248,
+      "guide_date": "2026-05-28",
+      "unit": "$",
+      "ltcode": "IS_P_128"
+    }
+  ],
+  "qual_guidance": [
+    {
+      "label": "Business drivers, guided 4Q26",
+      "fiscal_period": "2027",
+      "text": "Management expects continued growth in the core segment, led by e-commerce, with cost pressure from input prices partly offset by efficiency work.",
+      "metric": "ecom"
+    }
+  ],
+  "report_dates": {
+    "2Q25": "2024-08-22",
+    "3Q25": "2024-11-26",
+    "4Q25": "2025-02-27",
+    "1Q26": "2025-05-22",
+    "2Q26": "2025-08-28",
+    "3Q26": "2025-11-27",
+    "4Q26": "2026-02-26",
+    "1Q27": "2026-05-28"
+  },
+  "prices": {
+    "2Q25": {
+      "prior": 40.09,
+      "report": 43.22
+    },
+    "3Q25": {
+      "prior": 49.87,
+      "report": 51.91
+    },
+    "4Q25": {
+      "prior": 59.51,
+      "report": 55.84
+    },
+    "1Q26": {
+      "prior": 56.35,
+      "report": 55.59
+    },
+    "2Q26": {
+      "prior": 59.87,
+      "report": 56.72
+    },
+    "3Q26": {
+      "prior": 57.8,
+      "report": 61.81
+    },
+    "4Q26": {
+      "prior": 74.09,
+      "report": 72.4
+    },
+    "1Q27": {
+      "prior": 77.48,
+      "report": 71.18
+    }
+  },
+  "revision_trail": [
+    {
+      "label": "Pre Earnings",
+      "date": "16-May-26",
+      "eps": 0.5757,
+      "rev": 106.024,
+      "kpis": {
+        "ecom": 23.4859,
+        "sss_us": 3.423,
+        "sss_sams": 3.7106
+      }
+    },
+    {
+      "label": "Current",
+      "date": "07-Aug-26",
+      "eps": 0.5731,
+      "rev": 107.6237,
+      "kpis": {
+        "ecom": 24.5624,
+        "sss_us": 3.3904,
+        "sss_sams": 3.8437
+      }
+    }
+  ],
+  "revision_kpis": [
+    {
+      "key": "ecom",
+      "label": "E-Commerce Sales - Segment A",
+      "pct": false,
+      "unit": "B"
+    },
+    {
+      "key": "sss_us",
+      "label": "% Comparable Sales - Segment A",
+      "pct": true
+    },
+    {
+      "key": "sss_sams",
+      "label": "% Comparable Sales - Segment B",
+      "pct": true
+    }
+  ],
+  "next_consensus": {
+    "eps": 0.5683,
+    "rev": 107.109,
+    "eps_min": 0.553,
+    "eps_max": 0.5881,
+    "as_of": "2026-08-14",
+    "stale": false
+  },
+  "guide_next": {
+    "eps_low": 0.55,
+    "eps_high": 0.57
+  },
+  "restated_quarters": [],
+  "consensus_asof": {
+    "2Q25": "2024-08-21",
+    "3Q25": "2024-11-25",
+    "4Q25": "2025-02-26",
+    "1Q26": "2025-05-21",
+    "2Q26": "2025-08-27",
+    "3Q26": "2025-11-26",
+    "4Q26": "2026-02-25",
+    "1Q27": "2026-05-27"
+  },
+  "resolution": {
+    "match_type": "exact_ticker",
+    "score": 100.0,
+    "ticker_id": "999",
+    "latest_fiscal_quarter": "1Q27"
+  },
+  "hyperscaler": {
+    "is": false,
+    "reason": "Retailer; runs no public cloud or AI data-center business.",
+    "source": "model"
+  }
+}

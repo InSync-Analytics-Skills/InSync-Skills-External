@@ -1,0 +1,8 @@
+{
+  "name": "insync-external-skills",
+  "description": "Reusable Claude Code skills provided by InSync Analytics",
+  "author": {
+    "name": "InSync Analytics"
+  },
+  "license": "Apache-2.0"
+}

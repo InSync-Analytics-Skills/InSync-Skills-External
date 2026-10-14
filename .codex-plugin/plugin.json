@@ -1,0 +1,28 @@
+{
+  "name": "insync-external-skills",
+  "version": "1.0.0",
+  "description": "Buy-side research and earnings skills built on InSync MCP data.",
+  "author": {
+    "name": "InSync Analytics"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/InSync-Analytics-Skills/InSync-Skills-External",
+  "keywords": [
+    "finance",
+    "earnings",
+    "equity-research",
+    "insync"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "InSync Analytics",
+    "shortDescription": "Earnings flashes, previews, wraps and tear sheets from InSync data.",
+    "longDescription": "Research and earnings-analysis skills that turn a plain-English request into a finished, branded deliverable built from live InSync MCP data. Requires an active InSync MCP connection.",
+    "developerName": "InSync Analytics",
+    "category": "Finance",
+    "defaultPrompt": [
+      "Earnings flash on ADBE",
+      "Tear sheet on NVDA"
+    ]
+  }
+}

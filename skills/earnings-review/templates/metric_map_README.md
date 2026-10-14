@@ -1,0 +1,3 @@
+# metric_map.json
+
+metric id -> how to fetch and display it. ltcode: adjusted first, reported fallback; ONE of them is graded for actual, consensus, guide and revisions (the first that has both a printed-period actual and a pre-print consensus). unit: m|b|count|k|pct|num (base unit for parsing InSync VALUE strings; the currency is read from the value). fmt: display (bn,m,int,k,knum,pct1,pct2,usd2,usd3,num1,num2,days,x; usd = the reporting currency's symbol). kind: level (surprises in %) | rate (surprises in bps). better: higher | lower (required when the code is not in assets/polarity_registry.json). Delete rows the issuer does not report; add the sector's driver KPIs from references/kpi-spines.md.

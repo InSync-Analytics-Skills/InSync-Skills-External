@@ -1,0 +1,10 @@
+{"status":"ok","data":{"rows":[
+ {"ticker":"FIXT","fiscal_period":"1Q25","metric":"SALES","value":12480},
+ {"ticker":"FIXT","fiscal_period":"2Q25","metric":"SALES","value":13120},
+ {"ticker":"FIXT","fiscal_period":"3Q25","metric":"SALES","value":13890},
+ {"ticker":"FIXT","fiscal_period":"4Q25","metric":"SALES","value":15240},
+ {"ticker":"FIXT","fiscal_period":"1Q26","metric":"SALES","value":14310},
+ {"ticker":"FIXT","fiscal_period":"2Q26","metric":"SALES","value":15080},
+ {"ticker":"FIXT","fiscal_period":"1Q25","metric":"EPS","value":2.41},
+ {"ticker":"FIXT","fiscal_period":"2Q26","metric":"EPS","value":3.04}
+]}}
