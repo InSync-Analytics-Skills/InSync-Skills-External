@@ -145,7 +145,7 @@
    ]
   ]
  },
- "snapshotCap": "[A] reported actual; [E] pre-print consensus (as of May 20, 2026). Data Center and margin have no clean quarterly consensus. Source: InSync MCP. FYE January.",
+ "snapshotCap": "[A] reported actual; [E] pre-print consensus. Data Center and margin have no clean quarterly consensus. Source: InSync MCP. FYE January.",
  "results": [
   {
    "band": "Key Financial Metrics",
@@ -206,7 +206,7 @@
    ]
   }
  ],
- "resultsCap": "Consensus is the latest pre-print InSync mean (May 20, 2026). Data Center, networking and margin have no clean quarterly consensus. Non-GAAP (ex-1x) where applicable.",
+ "resultsCap": "Consensus is the latest pre-print InSync mean. Data Center, networking and margin have no clean quarterly consensus. Non-GAAP (ex-1x) where applicable.",
  "takeaway": "Revenue beat 3.8% and EPS 5.9% with Data Center up 68% Y/Y. Shares fell 2.4% as the print cleared a high bar.",
  "drove": [
   "**Data Center.** Revenue reached $24.30B, up 15.2% Q/Q on AI accelerator demand.",

@@ -245,9 +245,8 @@ def guidance_freshness_gate(mcp_resp, call_date_iso, guidance_source=None,
         status["guidance_rungs_unrecorded"] = _missing
         warnings.append(
             "[guidance unavailable] guidance_source='unavailable' — NOTHING could be "
-            "retrieved and the Guidance Snapshot is absent from the page entirely. There is "
-            "no note, caption or placeholder on the page saying so, so this line is the only "
-            "record. Routes tried: "
+            "retrieved; the Guidance Snapshot carries one line, 'Guidance could not be "
+            "retrieved at press time.' Routes tried: "
             + ("; ".join(_routes) if _routes else "NONE RECORDED")
             + (". Rungs with no recorded failed attempt: " + ", ".join(_missing)
                if _missing else ". Every rung recorded a failed attempt.")
@@ -390,7 +389,7 @@ def pick_pre_print_consensus(mcp_resp, call_date_iso: str,
             warnings.append(
                 f"[no pre-print consensus] {key[0]} / {key[1]}: every consensus snapshot "
                 f"post-dates {cutoff.isoformat()}, so no pre-guide comparator exists. Write "
-                f"`vs. consensus of not available` rather than quoting a post-guide number.")
+                f"the guide alone, with no consensus, rather than quoting a post-guide number.")
             continue
         chosen = eligible[-1]
         prior = eligible[-2] if len(eligible) > 1 else None
@@ -1339,7 +1338,7 @@ def page_basis(fin_ltcodes, names) -> str:
         return "Adjusted (Non-GAAP)"
     if not any(flags):
         return "Reported (GAAP)"
-    return "Mixed basis - see rows"
+    return "Mixed basis (Adjusted and GAAP)"
 
 
 ROUNDING_NOTES: List[str] = []
@@ -1552,18 +1551,17 @@ def main(in_path: str, out_dir: str, require_estimate: bool = False,
         if cur_actuals.get(_lt) is not None and prior_actuals.get(_lt) is not None:
             _fin_sig[(cur_actuals[_lt], prior_actuals[_lt], _sh.get("cur"), bool(_sh.get("pct")))] = \
                 f"{names.get(_lt, _lt)} ({_lt})"
-    _shown = min(_cap_target(selected), len(selected))
     _rep = []
     for _k in list(selected):
         _sh = shapes.get(_k["ltcode"]) or {}
         _hit = _fin_sig.get((cur_actuals.get(_k["ltcode"]), prior_actuals.get(_k["ltcode"]),
                              _sh.get("cur"), bool(_sh.get("pct"))))
-        if _hit and len(selected) - 1 >= _shown:
+        if _hit:
             selected = [k for k in selected if k is not _k]
             _rep.append(f"{_k['name']} ({_k['ltcode']}) repeats {_hit}")
     if _rep:
-        warnings.append("KPI repeating a Key Financial Metrics row removed, and the next KPI "
-                        "took its slot: " + "; ".join(_rep) + ".")
+        warnings.append("KPI repeating a Key Financial Metrics row removed: "
+                        + "; ".join(_rep) + ".")
 
     _seen_sig: Dict[Any, str] = {}
     _dupes: List[str] = []

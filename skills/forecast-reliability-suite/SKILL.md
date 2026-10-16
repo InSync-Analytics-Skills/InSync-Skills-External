@@ -2,17 +2,7 @@
 name: forecast-reliability-suite
 version: 7.12.1
 argument-hint: "[TICKER]"
-description: >
-  Measure forecasting reliability: a buy-side Consensus / Forecast-Accuracy Suite (HTML portal
-  + PDF) for any public company from InSync MCP. Measures how accurate the Street's pre-print consensus and management's guidance have been
-  over ~8 quarters, ranks where consensus is chronically wrong, and shows dispersion, revision
-  momentum and the next-print setup. Deterministic Path-B: bundled Python does all math. Triggers on
-  "/forecast-reliability-suite [TICKER]", "/consensus-suite [TICKER]", "forecast reliability suite",
-  "consensus suite", "accuracy suite", "forecast reliability", "how accurate
-  is consensus / how accurate has the Street been on [TICKER]", "can I trust consensus on [TICKER]", "how
-  reliable are estimates for [TICKER]", "is the Street too high/low on [TICKER]", "does [TICKER] guide
-  conservatively / sandbag", "guidance credibility for [TICKER]", "forecasting edge for [TICKER]". NOT
-  for single-quarter beat/miss recaps, estimate-revision history, or quarterly snapshots (use those skills).
+description: "A Forecast Reliability Suite, also called the Consensus Suite, that checks how far you can trust consensus for a company: how accurate analyst estimates and management guidance have been over the last eight quarters. It shows which numbers the Street usually gets too high or too low, whether management guides cautiously, and how much analysts disagree. Delivered as an interactive page and a PDF; it looks back and does not predict results."
 ---
 
 # Forecast Reliability Suite (Consensus Suite)

@@ -2,19 +2,7 @@
 name: inflection-monitor
 version: 4.59.0
 argument-hint: <TICKER> [QUARTER]
-description: >-
-  A concise buy-side momentum monitor, two to four pages, never a report. Scans
-  everything a company discloses - financial, operating, segment, geographic and ratio
-  metrics - and reports only the lines that inflected, scoring each metric's latest
-  growth acceleration against its own history and separating what moved from what it
-  means. Answers "what changed this quarter" and "what should I watch" without the
-  analyst nominating a metric first. A bundled Python engine computes every figure, so a
-  number cannot be fabricated. Delivers ONE file: a branded, page-budgeted PDF. Triggers
-  on "inflection", "what inflected", "what changed at [TICKER]", "what's accelerating",
-  "what's slowing", "momentum shift", "deviation monitor" - even when no metric or
-  format is named. NOT for grading a print against consensus (earnings-review), a quick
-  post-print take (earnings-flash-skill), a quarter's narrative (earnings-wrap) or a
-  pre-print setup (earnings-preview-portal).
+description: "An inflection monitor that scans everything a company reports and flags only what changed: the lines where growth is accelerating or slowing. It shows whether each shift looks lasting or one-off and what to watch next quarter, in a two to four page PDF. No metric needs to be named first."
 ---
 
 # Inflection Monitor

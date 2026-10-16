@@ -51,7 +51,7 @@
   [
    "Street view (before earnings)",
    [
-    "<what consensus modelled, with the figures>"
+    "<what pre-print consensus modelled, with the figures; say pre-print consensus, never its date>"
    ]
   ],
   [
@@ -135,7 +135,7 @@
    "<names where the polarity cue misfires (a capital or coverage ratio), or omit>"
   ]
  },
- "snapshotCap": "<[A] reported actual; [E] pre-print consensus (as of <date>). Note any line with no clean consensus. Source: InSync MCP; FYE <month>.>",
+ "snapshotCap": "<[A] reported actual; [E] pre-print consensus. Never print a consensus date anywhere on the page. Note any line with no clean consensus. Source: InSync MCP; FYE <month>.>",
  "results": [
   {
    "band": "Key Financial Metrics",
@@ -172,7 +172,7 @@
    ]
   }
  ],
- "resultsCap": "<Consensus is the latest pre-print InSync mean (<date>). Name any line with no clean consensus. Non-GAAP basis.> NEVER name a broker count here or anywhere else on the page (v7.11.0): it is internal, it lives in consensusProbe, and the `broker_disclosure` lint blocks the word. Since v7.11.4 no panel depth blocks the build; the count still stays off the page.",
+ "resultsCap": "<Consensus is the latest pre-print InSync mean (no date). Name any line with no clean consensus. Non-GAAP basis.> NEVER name a broker count here or anywhere else on the page (v7.11.0): it is internal, it lives in consensusProbe, and the `broker_disclosure` lint blocks the word. Since v7.11.4 no panel depth blocks the build; the count still stays off the page.",
  "takeaway": "<one line: what the table adds up to>",
  "drove": [
   "**<Driver>.** <what happened, with magnitude>",

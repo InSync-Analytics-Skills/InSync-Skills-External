@@ -1,7 +1,7 @@
 ---
 name: capital-allocation-strategy
 version: "2.73.0"
-description: "Generate a buy-side CAPITAL ALLOCATION ANALYSIS (.docx): a neutral, evidence-first report describing where capital went, how the mix changed, and whether that matches stated strategy - it does not argue right or wrong. PATH B: bundled scripts compute every figure and rating deterministically. Needs a real peer set; auto-adapts by sector (Software, Semis, Tech Hardware, Media, Banks, Insurance - P&C / life / broker, REITs, Real Estate operating and services, Healthcare, Pharma, Medtech, Industrials, Materials, Transport, Consumer, Utilities, Telecom, Renewables, Energy - upstream / integrated / downstream / midstream / services). Use when the user asks for a 'capital allocation review', 'how has allocation changed', 'sources and uses of cash', 'buyback/dividend/capex/M&A analysis', 'reinvestment rate' or 'consistency with stated strategy'. NOT for a bull/bear thesis, a tearsheet or an earnings recap."
+description: "A capital allocation review showing where a company's cash went over five years: buybacks, dividends, capex, acquisitions and debt. It shows how the mix changed, whether it matches management's stated strategy, and how it compares with peers, scored on a published scorecard. Delivered as a Word and PDF report that describes the choices rather than judging them."
 ---
 
 # Capital Allocation Analysis (Path B)

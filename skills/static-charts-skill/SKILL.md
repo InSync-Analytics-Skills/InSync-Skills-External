@@ -1,6 +1,6 @@
 ---
 name: static-charts
-description: "The shared chart engine for the InSync skills library. Renders institutional static financial charts (PNG/SVG) in one fixed house style: revenue, EBITDA, EPS and margin trends, segment mix, estimate revisions, earnings surprise, P/E and EV/EBITDA history, relative valuation, peer bars, capital-allocation waterfalls, capex, heatmaps. Triggers on 'chart', 'graph', 'plot', 'exhibit', 'figure', 'chart pack', 'chart this', 'make a chart of', 'plot the revenue trend', 'P/E history chart', 'peer comparison chart', 'add a chart to the note'. Use whenever a chart is needed for a note, deck or dashboard, and whenever another skill needs a static chart image; it is the one place such images should be drawn."
+description: "Makes finance charts and graphs in the InSync house style: revenue, margin and EPS trends, segment mix, estimate revisions, results against expectations, valuation history, peer comparisons and cash waterfalls. Charts come out as image files ready for Word, PowerPoint or the web, singly or as a chart pack. The other InSync skills use it for their charts too."
 ---
 
 # Static Charts — the InSync chart engine

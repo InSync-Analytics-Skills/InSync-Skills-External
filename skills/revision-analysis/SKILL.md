@@ -1,6 +1,6 @@
 ---
 name: revision-analysis
-description: Build a "Consensus Revision Analysis" Excel workbook for any public company that reports quarterly, from InSync MCP data — how the InSync consensus estimate has MOVED for the ONE upcoming (next unreported) quarter, for ~30-55 key line items (segment revenue, main P&L, top KPIs, key BS & CF lines). Earnings-anchored chronological columns (Pre-Print, then T+10 and T+40 once elapsed AND distinct from their neighbours, then Current) with live Δ$/%Δ-since-print formulas, YoY/Seq growth, Low/High/broker-count dispersion, delivered as a SINGLE Revision Summary tab. Use whenever the user asks for a revision analysis / revision sheet / estimate revisions / consensus changes / "how have estimates moved" / "what has the street done since the print" for a ticker, mentions upgrades-downgrades to consensus numbers, or invokes /revision-analysis with a bare ticker. Trigger even on a terse "revisions for [TICKER]" or "[TICKER] revision sheet in excel".
+description: "A revision analysis in Excel showing how estimates for a company's next quarter and current year have moved since the last results. It tracks 30 to 55 line items from the pre-results consensus to today, with a short summary of what the revisions mean and what to watch."
 metadata:
   argument-hint: TICKER
   version: 2.5.0

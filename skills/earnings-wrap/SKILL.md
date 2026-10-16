@@ -1,16 +1,7 @@
 ---
 name: earnings-wrap
 version: "7.13.1"
-description: >-
-  Generate a deterministic buy-side post-earnings WRAP: the story of a quarter already reported,
-  as a branded roughly 3-page PDF (Executive Summary plus 9 numbered sections). Every figure comes
-  from the InSync MCP; pre-print consensus is probed for every graded line, and the print is graded
-  against consensus, guidance and post-print estimate revisions. Triggers on: "earnings wrap",
-  "wrap [TICKER] [Q]Q[YY]", "post-earnings note for [TICKER]", "[TICKER] earnings review",
-  "recap the [TICKER] print", "write up [TICKER]'s quarter", "how did [TICKER] report". Choose it
-  when the user wants the NARRATIVE of a reported quarter: what happened, what beat or missed, what
-  matters now. NOT for a plain data or KPI lookup; for a quick take use earnings-flash-skill; before
-  the company reports use earnings-preview-portal. Arguments: TICKER [QUARTER].
+description: "An earnings wrap that tells the story of a quarter already reported: how the company did, what surprised, what drove it, how guidance and expectations moved, what management said and what matters now. Delivered as a three-page PDF. For a line-by-line grade use Earnings Review; for a quick first read use Earnings Flash."
 ---
 
 # Earnings Wrap
@@ -326,7 +317,7 @@ the cutoff steps back a day. No readable stamp → step back a day and say so.
 picked shows either against the one before it, step back one and note it.
 
 **Post-print consensus** fills `Post-print [E]` and the revisions grid: use the latest available revision
-and stamp its date. If consensus has not revised, say exactly that and frame the reset off the NEW guide.
+and never print its date (say pre-print or post-print). If consensus has not revised, say exactly that and frame the reset off the NEW guide.
 Never pass a stale pre-print number off as post-print, and never read "unrevised" as "the Street
 confirmed".
 

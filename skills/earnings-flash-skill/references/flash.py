@@ -1445,17 +1445,22 @@ def cmd_guides(d, st, path):
         assert isinstance(entries, list) and all(isinstance(e, dict) and e.get("guide") for e in entries)
     except Exception:
         _die('that file is not a JSON list like [{"ltcode": "IS_P_101", "period": "2Q27", "guide": "$6.80B-$6.85B"}]')
-    tagged = nt.tag_release_guides(entries, sheet.get("prior_guides"))
+    tagged = nt.tag_release_guides(entries, sheet.get("prior_guides"), sheet.get("pinned_consensus"))
+    shown, dropped = nt.rank_guides(tagged, {r.get("ltcode") for r in sheet.get("rows") or []})
+    tagged = shown + [dict(g, dropped=True) for g in dropped]
     with open(os.path.join(d, "release_guides.json"), "w", encoding="utf-8") as f:
         json.dump(tagged, f, indent=1, ensure_ascii=False)
     sheet["release_guides"] = tagged
     with open(fp, "w", encoding="utf-8") as f:
         json.dump(sheet, f, indent=1, ensure_ascii=False)
     for r in tagged:
-        if r["by"] == "code":
-            print("  [%s] %s %s: %s (was %s) - tagged by code, use it%s" % (
+        if r.get("dropped"):
+            print("  NOT ON THE PAGE (ranked out): %s %s: %s" % (r["period_label"], r["lineitem"], r["guide"]))
+        elif r["by"] == "code":
+            print("  [%s] %s %s: %s (was %s) - tagged by code, use it%s%s" % (
                 r["tag"], r["period_label"], r["lineitem"], r["guide"], r["prior_guide"],
-                ("; " + r["note"]) if r.get("note") else ""))
+                ("; " + r["note"]) if r.get("note") else "",
+                ("; vs. " + nt.pre_cons(r["consensus"], r["consensus_as_of"])) if r.get("consensus") else ""))
         else:
             print("  [?] %s %s: %s - %s" % (r["period_label"], r["lineitem"], r["guide"], r["why"]))
     print("NEXT: write %s/narrative.json with these tags (writing-rules.md), then: python3 flash.py build" % d)
@@ -1474,7 +1479,7 @@ def cmd_template(d, st, only_failed=False):
         for k in st.get("failed_fields") or []:
             if k == "guidance" and gsrc in ("release", "transcript"):
                 print("guidance is left as you wrote it: rewrite it from the parsed document, using the "
-                      "PRIOR guides and pinned consensus on the fact sheet.")
+                      "tags and order flash.py guides printed (consensus only where it printed one).")
                 continue
             if k in draft:
                 cur[k] = draft[k]

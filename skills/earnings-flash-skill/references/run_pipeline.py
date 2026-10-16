@@ -571,6 +571,12 @@ def _guidance_slot_gate(narrative: dict, gsource: str, provenance: dict):
     g = [s for s in (narrative.get("guidance") or []) if str(s).strip()]
     fv = [s for s in (narrative.get("forwardView") or []) if str(s).strip()]
     src = (gsource or "mcp").strip().lower()
+    for s in g:
+        if re.search(r"not available|\bn/a\b|unavailable|no (?:available )?consensus", str(s), re.I):
+            fatal.append(f"[facts] guidance bullet says consensus is missing: {str(s)[:70]!r}. "
+                         f"A guide with no consensus is written alone, with no comparator.")
+    if len([s for s in g if not str(s).startswith("Source:")]) > 5:
+        fatal.append("[facts] guidance carries more than 5 guides; keep the 5 the fact sheet ranks first.")
 
     if src in ("mcp", "release", "transcript"):
         if not g:
@@ -1123,6 +1129,21 @@ def main(input_path: str, narrative_path: str, output_docx: str,
         )
 
     _fact_fatal, _fact_warn = fact_coverage_lint(computed, narrative, strict=strict_facts)
+    if (inp.get("guidance_source") or "mcp") == "mcp" and narrative.get("guidance"):
+        import narrative_template as _nt
+        _bul = [str(x) for x in narrative.get("guidance") or []]
+        _n = lambda x: re.sub(r"(?<=\d)[KMBT]\b|\s", "", str(x))
+        _hit = lambda g: any(g["period_label"] in b and _n(g["guide"]) in _n(b) for b in _bul)
+        _fsh = _nt.fact_sheet(computed, inp)
+        _on = {(g["period_label"], g["guide"]) for g in _fsh["guidance"]}
+        _miss = [g for g in _fsh["guidance"] if not g.get("unit_check") and not _hit(g)]
+        _out = [g for g in _fsh["guidance_dropped"] if (g["period_label"], g["guide"]) not in _on and _hit(g)]
+        if _miss or _out:
+            _fact_fatal.append("[facts] guidance does not follow the fact sheet's ranking (top 5)."
+                               + (" Missing: " + "; ".join("%s %s %s" % (g["period_label"], g["lineitem"], g["guide"])
+                                                           for g in _miss) + "." if _miss else "")
+                               + (" Ranked out but quoted: " + "; ".join("%s %s" % (g["period_label"], g["lineitem"])
+                                                                       for g in _out) + "." if _out else ""))
     _note(_fact_warn)
     if _fact_fatal:
         return _err("fact_coverage_failed — the narrative does not carry the facts Python "
@@ -1171,7 +1192,9 @@ def main(input_path: str, narrative_path: str, output_docx: str,
         "investmentRead":        narrative.get("investmentRead", ""),
         "whatMatters":           narrative.get("whatMatters", []),
         "variantView":           narrative.get("variantView", {}),
-        "guidance":              narrative.get("guidance", []),
+        "guidance":              narrative.get("guidance") or (
+            ["Guidance could not be retrieved at press time."]
+            if inp.get("guidance_source") == "unavailable" else []),
         "forwardView":           narrative.get("forwardView", []),
         "nextWatchItems":        narrative.get("nextWatchItems", []),
         "dataPath":  inp.get("dataPath", "A"),
@@ -1380,7 +1403,7 @@ def main(input_path: str, narrative_path: str, output_docx: str,
             "Do not read 'pages: null' as one page.")
     summary = {
         "status": "success",
-        "skill_version": "v11.2.3",
+        "skill_version": "v11.3.0",
         "renderer": "python" if _use_py else "node",
         "output_docx": os.path.abspath(output_docx),
         "output_pdf": pdf_path,

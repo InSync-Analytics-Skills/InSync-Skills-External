@@ -958,7 +958,7 @@ def build_document_xml(data):
 
 
 def build_footer_xml(data):
-    text = "%s  |  %s, fiscal · InSync MCP  |  %s %s Earnings Flash" % (
+    text = "%s  |  %s  |  %s %s Earnings Flash" % (
         BRAND["firmName"], data.get("basis") or "Adjusted (Non-GAAP)", _js_str(data.get("ticker")),
         _js_str(data.get("currentPeriod")))
     f = '<w:rFonts w:ascii="%s" w:cs="%s" w:eastAsia="%s" w:hAnsi="%s"/>' % ((F_BODY,) * 4)

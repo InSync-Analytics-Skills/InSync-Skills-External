@@ -1,6 +1,6 @@
 # Earnings Flash
 
-*Version 11.2.3*
+*Version 11.3.0*
 
 ## What this skill does
 

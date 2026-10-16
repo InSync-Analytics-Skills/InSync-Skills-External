@@ -1,7 +1,7 @@
 ---
 name: company-tearsheet-skill
 version: "8.1.0"
-description: "Build a branded one-page company Tear Sheet (.docx plus PDF twin) from InSync MCP data: market snapshot, key financials, operating KPIs, valuation vs 5Y averages, bull and bear thesis, key debates, peer comps, catalysts. Triggers on 'tearsheet', 'tear sheet', 'tear sheet on [TICKER]', 'company deep dive', 'deep dive on [company]', 'one pager', 'one-pager for [TICKER]', 'one-page summary', 'company one-pager', 'investment tear sheet', 'stock tear sheet', 'company profile', 'company fact sheet', 'factsheet', 'company overview', 'stock overview', 'company briefing', 'company rundown', 'investment profile', 'brief me on [company]', 'give me the full picture on [TICKER]', '/company-tearsheet-skill'. Covers all 20 InSync sectors. NOT for a single-quarter earnings snapshot, a standalone bull/bear case, or an earnings flash, preview or wrap: those are separate skills."
+description: "A one-page tear sheet or company profile: a quick deep dive on any company in any sector. It covers price, key financials, operating KPIs, valuation against its own history, the bull and bear case, key debates, peers and upcoming catalysts, in Word and PDF. For a single quarter's results use Earnings Flash or Earnings Wrap."
 ---
 # Tear Sheet
 

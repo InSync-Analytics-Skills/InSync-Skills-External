@@ -1,7 +1,7 @@
 ---
 name: earnings-preview-portal
 version: 9.0.5
-description: Generate a buy-side Earnings Preview as a Word document (.docx, the sole output) for any public company ahead of its next print, from InSync MCP data via a deterministic Path B pipeline. The LLM only fetches raw data and writes fenced factual narrative; bundled scripts do ALL math and tables, so numbers cannot be hallucinated. Sections - valuation, setup summary, summary financials (MCP-resolved metrics, KPIs, FCF), revisions, expectations, guidance evolution, call commentary, tone shift, sell-side focus, beat-history chart. A bundled zero-dependency renderer builds the .docx in every environment including claude.ai. Use whenever the user asks for a preview portal, earnings preview, preview dashboard, or pre-earnings note for a ticker. Triggers include "earnings preview", "preview portal", "EPP [TICKER]", "preview [TICKER] [Q]Q[YY]", "pre-print note", "ahead of the print", "earnings setup", "curtain raiser", "/earnings-preview-portal". PRE-earnings note; for post-earnings recaps use earnings-wrap.
+description: "A detailed earnings preview to read ahead of the print, setting up the coming quarter. It covers valuation, the key items the result turns on, summary financials, estimate revisions, guidance history, recent call commentary, management tone and the beat history, in one Word document. For a three-page version use Earnings Packet; after results use Earnings Wrap."
 ---
 
 # Earnings Preview Portal, Path B pipeline

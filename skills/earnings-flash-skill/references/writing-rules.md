@@ -14,7 +14,7 @@ write words around numbers that are already on the fact sheet (`facts.json`).
 | `investmentRead` | The key open question this quarter sets up, looking forward, tied to a guided number or KPI. | 90 characters (110 at most), one sentence |
 | `whatMatters` | 3 to 5 bullets, biggest surprise first. Fold in the top quality-of-earnings signal (a one-off flattering the print, a GAAP vs adjusted gap, cash flow diverging from profit) and a one-clause management-tone read, when the facts support them. | one line each |
 | `variantView` | Expectations vs what printed, not a view of your own. `street`: what consensus expected. `expectationGap`: the one or two metrics that differed most. `evidence`: their numbers. `whyItMatters`: leads with a number, ties to a guide or KPI. | one line each |
-| `guidance` | Tagged guidance bullets (see below). | 2 to 6 |
+| `guidance` | Tagged guidance bullets (see below). | 2 to 5 |
 | `forwardView` | Only when `guidance_source` is `none`: four `[E]` bullets. | exactly 4 |
 | `nextWatchItems` | Up to 3 things to watch, each tied to a number or a guide. | 3 |
 
@@ -82,24 +82,26 @@ On first mention of the company, write the name and then the ticker in brackets:
 
 ## Guidance bullets
 
-When `guidance_source` is `mcp`, the fact sheet gives each guide its tag, worked out by
-comparing it with the last guide: use that tag. When it is `release` or `transcript`, the feed
-had not updated: take the current guides from the parsed document, and tag each against the
-PRIOR guide the fact sheet lists for the same line and period (the sheet says how). Quote
-consensus only from the fact sheet. Each bullet has: the tag, the new guide, the old guide if
-it changed, and the consensus with its date.
+At most 5 guides, in the order the code ranks them. On `mcp` use the fact sheet's 5 and tags as
+given, never one marked NOT ON THE PAGE (the build checks). On `release` or `transcript`, take
+the guides from the parsed document, run `flash.py guides`, use its order and tags, and tag the
+rest against the PRIOR guide. Each bullet: the tag, the new guide, the old guide if it changed,
+any pre-print consensus as the fact sheet prints it. Name EPS as its scorecard row.
 
-- `[RAISED] FY26 revenue to $18,240M-$18,290M, from $18,150M-$18,250M, vs. consensus of $18.26B as of 8 Aug.`
-- `[MAINTAINED] FY26 adjusted EPS held at $1.90-$2.00 vs. consensus of $1.96 as of 20 Apr.`
-- `[NEW] 4Q26 revenue of $4,900M-$4,950M vs. consensus of $4.94B as of 8 Aug.`
+- `[RAISED] FY26 revenue to $18,240M-$18,290M, from $18,150M-$18,250M, vs. pre-print consensus of $18.26B.`
+- `[MAINTAINED] FY26 adjusted EPS held at $1.90-$2.00 vs. pre-print consensus of $1.96 (last updated 20 Apr).`
+- `[NEW] 4Q26 revenue of $4,900M-$4,950M vs. pre-print consensus of $4.94B.`
 
 Tags: `[RAISED]`, `[LOWERED]`, `[MAINTAINED]`, `[NEW]`, `[WITHDRAWN]`. With no consensus, write
-`vs. consensus of not available`. A qualitative guide (buybacks, capex priorities) takes no
-comparator. A guide held flat against a beat is news: say `held rather than raised`.
+the guide alone, never saying it is missing (the build blocks that):
+`[NEW] 4Q26 revenue of $4,900M-$4,950M.`
+On the release path, quote a guide's consensus only where `flash.py guides`
+printed it, in any section. A qualitative guide (buybacks, capex) takes no comparator. A guide held flat against a beat is news: say `held rather than raised`.
 `[WITHDRAWN]` only when the company says it withdrew or suspended a guide; a guide that is simply
 missing is left out. A range narrowed on the same midpoint stays `[MAINTAINED]`: say `narrowed to`.
-When the guides came from the release or transcript, end the section with:
-`Guides sourced from the earnings release; the structured feed had not updated at press time.`
+When the guides came from the release or transcript, end the section with
+`Source: earnings release.` (or `Source: earnings call transcript.`). When `guidance_source` is
+`unavailable`, leave `guidance` empty: the page prints `Guidance could not be retrieved at press time.`
 
 ## Forward View (only when `guidance_source` is `none`)
 
@@ -109,6 +111,7 @@ next-quarter revenue, next-quarter adjusted EPS, full-year revenue, full-year ad
 
 ## Watch items
 
-Each item names what to watch and against which number:
+Each item names what to watch and against which number (a consensus only where the guidance
+rules above allow one):
 `Whether 4Q26 revenue lands inside the $4,900M-$4,950M guide against the $4.94B consensus.`
 Never a bare phrase like `Free cash flow`.

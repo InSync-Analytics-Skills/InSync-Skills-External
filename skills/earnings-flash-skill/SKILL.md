@@ -1,13 +1,13 @@
 ---
 name: earnings-flash-skill
-version: 11.2.3
-description: "Generate a rapid, one-page buy-side earnings flash (.docx/.pdf) minutes after a release — the fast first read before the deeper Earnings Wrap. Deterministic Path B: Python computes every number from the InSync MCP, so figures cannot be fabricated. Sections: Flash Verdict, What Matters, Scorecard, Variant View, Guidance Snapshot, Next Watch Items. Triggers on 'earnings flash', 'flash report', 'flash note', 'flash the print', 'quick take on the print', 'first read on the print', 'reaction note', 'post-earnings note', 'one-page earnings note', 'earnings TL;DR', 'brief me on [company]'s earnings'. Any brevity or speed cue — short, brief, quick, nutshell, TL;DR, one-page, rapid — routes a casual earnings request HERE. For the full story of a reported quarter use earnings-wrap; before the company reports use earnings-preview-portal; a peer comparison workbook is outside this plugin."
+version: 11.3.0
+description: "A one-page earnings flash written minutes after a company reports: the quick first read, or TL;DR, on the print. It shows what beat or missed, what matters, how guidance changed and what to watch next, in Word and PDF. Use it for any short or quick request about a reported quarter. For the full story of a quarter use Earnings Wrap; before results use Earnings Preview."
 ---
 
 # Earnings Flash
 
-**SKILL VERSION: v11.2.3 (InSync Analytics library)**. If asked "what version is this skill",
-reply exactly: `earnings-flash version v11.2.3`.
+**SKILL VERSION: v11.3.0 (InSync Analytics library)**. If asked "what version is this skill",
+reply exactly: `earnings-flash version v11.3.0`.
 
 A one-page first read on a company's quarter: what printed, what beat or missed, what matters
 next. Output is `{TICKER}_DOC_EARNINGS_FLASH_{YYMMDD_HHMMSS}.docx` plus a `.pdf` when LibreOffice
@@ -84,8 +84,8 @@ response and assemble again.
 flash.py facts
 ```
 This prints the fact sheet: every scorecard cell as it will print, the guidance with its tag
-already worked out (RAISED / LOWERED / MAINTAINED / NEW) and the consensus beside it. It is
-also saved as `facts.json`. **Write only from this sheet.**
+already worked out (RAISED / LOWERED / MAINTAINED / NEW), ranked, 5 at most, and the consensus
+beside it where there is one. It is also saved as `facts.json`. **Write only from this sheet.**
 
 **5. Write `narrative.json`** in the run folder. Read `references/writing-rules.md` first. The
 shape:
@@ -101,7 +101,8 @@ shape:
 ```
 
 When `guidance_source` is `none`, leave `guidance` empty and add `forwardView` (four `[E]`
-bullets). When it is `unavailable`, leave both empty. For a first draft to edit, run
+bullets). When it is `unavailable`, leave both empty: the page prints one line saying guidance
+could not be retrieved. For a first draft to edit, run
 `flash.py template`.
 
 **6. Build.**
@@ -178,7 +179,8 @@ skill's code: numbers were not machine-checked.`
    In-Line (0.25 points for % rows; reversed for costs).
 7. Copy values exactly as returned. Round each cell first ($ to 2 decimals in its unit, % to
    1 decimal), then work out Delta, Delta % and Y/Y from the ROUNDED cells, as the table
-   prints them. Guidance tags: compare with the previous `SOURCE_PERIOD`.
+   prints them. Guidance tags: compare with the previous `SOURCE_PERIOD`. At most 5 guides; a guide
+   with no consensus is written alone.
 8. Same sections, writing rules (`references/writing-rules.md`) and rules that never bend.
 
 ## Attribution

@@ -328,7 +328,7 @@ _FIGURE_RE = re.compile(
 SUPPRESSED_CELL = "—"
 
 
-PEER_MIN = 3
+PEER_MIN = 1
 
 def _peer_cell(c):
     if not (isinstance(c, dict) and "peers" in c):

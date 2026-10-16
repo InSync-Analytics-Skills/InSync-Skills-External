@@ -1,7 +1,7 @@
 ---
 name: earnings-packet-3p
 version: 7.12.4
-description: Build a dense THREE-PAGE buy-side pre-earnings packet as a Word .docx and PDF deliverable for any public company in any sector - banking, insurance, REITs, energy, utilities, software, staples, industrials, healthcare. Ten locked sections on three pages - preview and key debate, guidance vs consensus, financial summary, consensus dispersion, KPI and operating drivers, estimate revisions, valuation vs own history, peer comparison, earnings-day reaction, key risks and catalysts. InSync MCP is the only data source; bundled scripts do all math and layout, so numbers cannot be fabricated. Sector drives the model spine, the driver KPIs and the valuation lens. Triggers on 'three-page packet', 'earnings packet', 'condensed earnings packet', 'buy-side earnings packet', 'one-glance packet', 'dense preview', 'pre-earnings packet', 'PM packet', '/earnings-packet-3p'. Pre-earnings only; for a reported quarter use earnings-wrap.
+description: "A dense three-page earnings packet for a portfolio manager to read before a company reports. It covers the key debate, guidance against consensus, financials, analyst spread, KPIs, estimate revisions, valuation, peers, typical results-day reaction, and risks and catalysts, in Word and PDF. For a longer, more detailed preview use Earnings Preview."
 argument-hint: TICKER [target quarter e.g. 3Q26] [--peers "PEER1,PEER2,PEER3"]
 ---
 

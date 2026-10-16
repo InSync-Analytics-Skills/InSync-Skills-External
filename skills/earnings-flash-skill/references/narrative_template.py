@@ -24,6 +24,28 @@ _PLAIN = {"IS_P_101": "revenue", "IS_P_128": "adjusted EPS", "IS_P_127": "GAAP E
           "IS_P_110": "adjusted EBIT", "IS_P_109": "EBIT", "CF_P_209": "core FFO per share",
           "CF_P_202": "FFO per share", "CF_P_110": "free cash flow", "CF_P_109": "capex"}
 _ORDER = ["IS_P_101", "IS_P_128", "IS_P_127", "CF_P_209", "CF_P_202", "IS_P_114", "IS_P_110"]
+_CHANGE = {"RAISED": 0, "LOWERED": 0, "WITHDRAWN": 0, "NEW": 1, "MAINTAINED": 2}
+_EPS = ("IS_P_128", "IS_P_127")
+_NO_CONS = re.compile(r"not available|\bn/a\b|unavailable|no (?:available )?consensus", re.I)
+
+
+def rank_guides(guides, board, cap=5):
+    core = set(board) | set(_ORDER) | {"IS_P_102", "IS_P_113", "IS_P_109", "IS_P_124", "IS_P_123"}
+    on = lambda g: re.sub(r"-[YM]$", "", str(g["ltcode"])) in core
+    near = lambda p: (0 if re.match(r"^\d[QH]\d{2}$", str(p)) else 1 if re.match(r"^(FY)?\d{2,4}$", str(p)) else 2)
+    key = lambda g: (0 if on(g) else 1, _CHANGE.get(g.get("tag"), 3), 0 if g.get("consensus") else 1,
+                     near(g["period"]), _period_key(g["period"]),
+                     _ORDER.index(g["ltcode"]) if g["ltcode"] in _ORDER else 99)
+    shown, dropped, seen = [], [], set()
+    for g in sorted(guides, key=key):
+        base = re.sub(r"-[YM]$", "", str(g["ltcode"]))
+        fam = ("EPS" if base in _EPS else base, str(g["period"]))
+        if len(shown) >= cap or fam in seen:
+            dropped.append(g)
+            continue
+        seen.add(fam)
+        shown.append(g)
+    return shown, dropped
 
 
 def _round2(x):
@@ -46,6 +68,19 @@ def short_value(v):
 def day_month(iso):
     m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", str(iso or ""))
     return "%d %s" % (int(m.group(3)), _MONTHS[int(m.group(2)) - 1]) if m else str(iso or "")
+
+
+def stale_asof(asof, call, days=30):
+    a, b = (re.match(r"^\d{4}-\d{2}-\d{2}", str(x or "")) for x in (asof, call))
+    if not a or not b:
+        return day_month(asof) if asof else None
+    import datetime as _dt
+    gap = (_dt.date.fromisoformat(b.group(0)) - _dt.date.fromisoformat(a.group(0))).days
+    return day_month(asof) if gap > days else None
+
+
+def pre_cons(value, as_of):
+    return "pre-print consensus of %s%s" % (value, " (last updated %s)" % as_of if as_of else "")
 
 
 def fy_label(fp):
@@ -121,6 +156,8 @@ def in_consensus_format(text, scale, cons_value):
     c = re.match(r"^(-?)([^\d\-]*?)(-?[\d,]*\.?\d+)([KMBT])$", short_value(cons_value))
     f = _factor(text, scale)
     if not c or not c.group(2) or f is None or "%" in str(text or ""):
+        return None
+    if not str(scale or "").strip() and not _TEXT_UNIT.search(str(text or "")):
         return None
     parts = [q.strip() for q in re.split(r"\s+-\s+", str(text or "").strip())]
     out = []
@@ -309,6 +346,12 @@ def fact_sheet(computed, inp, company_name=None):
             pri_t = _k(pr, "GUIDE_TEXT", "gt") if pr else None
             scale, ccy = r.get("SCALE"), r.get("CURRENCY")
             c = cons.get((lt, fp))
+            q = re.match(r"^[1-4]Q(\d{2})$", fp)
+            yr_twin = q and "%" not in str(cur_t) and next((x for x in g if _k(x, "SOURCE_PERIOD", "sp") != newest
+                                                           and _k(x, "LTCODE", "lt") == lt and _k(x, "GUIDE_TEXT", "gt") == cur_t
+                                                           and _fp_norm(_k(x, "FISCALPERIOD", "fp")) == "20" + q.group(1)), None)
+            if yr_twin:
+                c = None
             _cf = in_consensus_format(cur_t, scale, c["value"]) if c else None
             _pf = in_consensus_format(pri_t, pr.get("SCALE"), c["value"]) if (c and pr) else None
             guides.append({
@@ -319,7 +362,7 @@ def fact_sheet(computed, inp, company_name=None):
                 "tag": _tag(cur_t, pri_t, scale, pr.get("SCALE") if pr else None),
                 "guide_date": _k(r, "GUIDEDATE", "gd"),
                 "consensus": short_value(c["value"]) if c else None,
-                "consensus_as_of": day_month(c.get("asof")) if c else None})
+                "consensus_as_of": stale_asof(c.get("asof"), computed.get("earningsDate")) if c else None})
             _gv, _f = _nums(cur_t), _factor(cur_t, scale)
             if c and _gv and _f:
                 try:
@@ -333,6 +376,8 @@ def fact_sheet(computed, inp, company_name=None):
                         guides[-1]["guide"], max(abs(_mid / _cv), abs(_cv / _mid)), guides[-1]["consensus"])
             if moved_from:
                 guides[-1]["prior_ltcode"] = moved_from
+            if yr_twin:
+                guides[-1]["period_check"] = "the same figures were the FY%s guide last quarter" % fp[-2:]
         here = _period_key(computed.get("currentPeriod"))
         for key, r in prior_by.items():
             if (key not in cur_keys and key not in moved_used and _period_key(key[1]) > here
@@ -346,11 +391,13 @@ def fact_sheet(computed, inp, company_name=None):
             prior_guides.append({k: x[k] for k in ("ltcode", "lineitem", "period", "period_label", "guide",
                                                    "guide_date")})
         guides = []
+    guides, dropped = rank_guides(guides, {r.get("ltcode") for r in rows})
     names = {x["ltcode"]: x["lineitem"] for x in prior_guides}
     pinned = [{"ltcode": c.get("ltcode"), "name": names.get(c.get("ltcode")) or _PLAIN.get(c.get("ltcode")) or c.get("ltcode"),
                "period": str(c.get("fiscal_period")),
                "period_label": fy_label(c.get("fiscal_period")), "consensus": short_value(c.get("value")),
-               "consensus_as_of": day_month(c.get("asof"))} for c in computed.get("guidanceConsensus") or []]
+               "consensus_as_of": stale_asof(c.get("asof"), computed.get("earningsDate"))}
+              for c in computed.get("guidanceConsensus") or []]
     one_off = _one_off_note(computed, inp, rows)
     fwd = []
     for r in ((inp.get("mcp_responses") or {}).get("get_estimates_forward") or {}).get("data") or []:
@@ -365,6 +412,7 @@ def fact_sheet(computed, inp, company_name=None):
         "valuation": computed.get("valuationLine"),
         "guidance_source": gsrc,
         "rows": rows, "bench": computed.get("benchMetrics") or [], "guidance": guides, "forward": fwd,
+        "guidance_dropped": dropped,
         "prior_guides": prior_guides, "pinned_consensus": pinned,
         "not_repeated": not_repeated if gsrc == "mcp" else [],
         "one_off": one_off,
@@ -393,6 +441,9 @@ def render_sheet(s):
         if g.get("unit_check"):
             out += ["", "UNIT CHECK - %s guide: %s. The feed's scale is probably wrong; check the release"
                     % (g.get("lineitem"), g["unit_check"]), "  and do not quote this guide until it is confirmed."]
+        if g.get("period_check"):
+            out += ["", "PERIOD CHECK - %s %s guide: %s, so the period label is probably wrong in the feed."
+                    % (g["period_label"], g.get("lineitem"), g["period_check"]), "  No consensus is quoted beside it."]
     unk = [r for r in s["rows"] if r.get("beatMiss") == DASH]
     if unk:
         out += ["", "DIRECTION UNKNOWN - not graded. For each, decide whether a HIGHER or a LOWER number is",
@@ -431,8 +482,9 @@ def render_sheet(s):
                 "  line, same period, clean figures). Tag the rest yourself against the PRIOR list: higher",
                 "  midpoint RAISED, lower LOWERED, same MAINTAINED, no prior NEW. A PRIOR guide with no new one",
                 "  is NOT withdrawn unless the document says the company withdrew or suspended it: otherwise",
-                "  leave it out. Quote consensus only from the pinned list; a line or period not on it is",
-                "  'vs. consensus of not available'.",
+                "  leave it out. Quote consensus ONLY on a guide TAGGED BY CODE (printed beside it); every",
+                "  other guide is its tag and figures alone, never with a consensus. Show at most 5 guides,",
+                "  in the order flash.py guides prints them.",
                 "  PRIOR guides (feed, last quarter):"]
         for g in s.get("prior_guides") or []:
             out.append("    %s %s: %s (dated %s)  ->  \"ltcode\": \"%s\", \"period\": \"%s\"" % (
@@ -441,15 +493,18 @@ def render_sheet(s):
             out.append("    (none - every guide in the document is NEW)")
         for r in s.get("release_guides") or []:
             if r.get("by") == "code":
-                out.append("  TAGGED BY CODE - use it: [%s] %s %s: %s (was %s)" % (
-                    r["tag"], r["period_label"], r["lineitem"], r["guide"], r["prior_guide"]))
-        out.append("  Pinned pre-guide consensus:")
+                out.append("  TAGGED BY CODE - use it: [%s] %s %s: %s (was %s)%s%s" % (
+                    r["tag"], r["period_label"], r["lineitem"], r["guide"], r["prior_guide"],
+                    " | " + pre_cons(r["consensus"], r["consensus_as_of"]) if r.get("consensus") else "",
+                    " | NOT ON THE PAGE (ranked out)" if r.get("dropped") else ""))
+        out.append("  Pinned pre-guide consensus (quoted only through a guide tagged by code):")
         for c in s.get("pinned_consensus") or []:
-            out.append("    %s %s: %s as of %s" % (c["period_label"], c.get("name") or c["ltcode"], c["consensus"], c["consensus_as_of"]))
+            out.append("    %s %s: %s" % (c["period_label"], c.get("name") or c["ltcode"], pre_cons(c["consensus"], c["consensus_as_of"])))
         if not s.get("pinned_consensus"):
             out.append("    (none pinned)")
     else:
-        out += ["", "GUIDANCE (source: %s). The tag is worked out for you - use it:" % s["guidance_source"]]
+        out += ["", "GUIDANCE (source: %s). Tag and order are worked out for you - use both, these 5 at most:"
+                % s["guidance_source"]]
     def _was(g):
         if not g["prior_guide"] or g["tag"] == "MAINTAINED":
             return ""
@@ -462,12 +517,15 @@ def render_sheet(s):
         return " (was %s)" % g["prior_guide"]
 
     for g in s["guidance"]:
-        out.append("  [%s] %s %s: %s%s | consensus %s%s" % (
+        out.append("  [%s] %s %s: %s%s | %s%s" % (
             g["tag"], g["period_label"], g["lineitem"], g["guide"], _was(g),
-            ("%s as of %s" % (g["consensus"], g["consensus_as_of"])) if g["consensus"] else "not available",
+            pre_cons(g["consensus"], g["consensus_as_of"]) if g["consensus"] else "consensus none - write the guide alone",
             (" | the feed moved this line from %s; compared with it" % g["prior_ltcode"]) if g.get("prior_ltcode") else ""))
     if not s["guidance"] and s["guidance_source"] not in ("release", "transcript"):
         out.append("  (no structured guidance rows)")
+    if s.get("guidance_dropped"):
+        out.append("  NOT ON THE PAGE (ranked out): " + "; ".join(
+            "%s %s" % (g["period_label"], g["lineitem"]) for g in s["guidance_dropped"]))
     if s.get("not_repeated"):
         out.append("  NOT REPEATED this quarter - a hint, not a finding (the feed may not carry it):")
         for g in s["not_repeated"]:
@@ -520,8 +578,9 @@ def parse_guide(text):
     return (min(vals), max(vals), kind + cur)
 
 
-def tag_release_guides(entries, prior_guides):
+def tag_release_guides(entries, prior_guides, pinned=None):
     prior = {(p["ltcode"], str(p["period"])): p for p in prior_guides or []}
+    pin = {(c["ltcode"], str(c["period"])): c for c in pinned or []}
     by_label = {(p["ltcode"], p["period_label"]): p for p in prior_guides or []}
     out = []
     for e in entries or []:
@@ -547,6 +606,8 @@ def tag_release_guides(entries, prior_guides):
             else:
                 rec["tag"] = "RAISED" if ma > mb else "LOWERED"
             rec["by"] = "code"
+        c = pin.get((lt, rec["period"])) if rec["by"] == "code" else None
+        rec["consensus"], rec["consensus_as_of"] = (c["consensus"], c["consensus_as_of"]) if c else (None, None)
         out.append(rec)
     return out
 
@@ -675,17 +736,12 @@ def build_narrative(s):
 
     gl = []
     gsrc = s["guidance_source"]
-    guides = sorted(s["guidance"], key=lambda g: (_ORDER.index(g["ltcode"]) if g["ltcode"] in _ORDER else 99,
-                                                  0 if str(g["period"]).isdigit() else 1))
-    board = {r.get("ltcode") for r in rows}
-    picked = [g for g in guides if g["ltcode"] in _ORDER or g["ltcode"] in board]
-    picked += [g for g in guides if g not in picked and str(g["ltcode"]).endswith("-Y")]
-    if not picked:
-        picked = list(s["guidance"])
-    for g in picked[:5]:
-        name = _PLAIN.get(g["ltcode"]) or (g["lineitem"] + (" growth" if str(g["ltcode"]).endswith("-Y") else ""))
-        cons = ("vs. consensus of %s as of %s" % (g["consensus"], g["consensus_as_of"]) if g["consensus"]
-                else ("" if str(g["ltcode"]).endswith(("-Y", "-M")) else "vs. consensus of not available"))
+    picked = s["guidance"] if gsrc not in ("release", "transcript") else [
+        g for g in s.get("release_guides") or [] if g.get("tag") and not g.get("dropped")]
+    for g in picked:
+        name = ((by_lt.get(g["ltcode"]) or {}).get("name") if g["ltcode"] in _EPS else None) or \
+            _PLAIN.get(g["ltcode"]) or (g["lineitem"] + (" growth" if str(g["ltcode"]).endswith("-Y") else ""))
+        cons = ("vs. " + pre_cons(g["consensus"], g.get("consensus_as_of"))) if g.get("consensus") else ""
         if g["tag"] in ("RAISED", "LOWERED") and g["prior_guide"]:
             body = "%s %s to %s, from %s" % (g["period_label"], name, g["guide"], g["prior_guide"])
             if _lower_better(g):
@@ -709,8 +765,7 @@ def build_narrative(s):
     if gsrc in ("none", "unavailable"):
         gl = []
     elif gsrc in ("release", "transcript"):
-        gl = ["Guidance was issued in the earnings %s; the structured feed had not updated at press time."
-              % ("release" if gsrc == "release" else "call")]
+        gl.append("Source: earnings %s." % ("release" if gsrc == "release" else "call transcript"))
 
     pos = _verdict_side(beats, "beat")
     neg = _verdict_side(misses, "miss")
@@ -724,7 +779,7 @@ def build_narrative(s):
         net += "; guidance %s" % ("held" if all(g["tag"] == "MAINTAINED" for g in picked) else "issued")
 
     nq = next((g for g in picked if g["ltcode"] == "IS_P_101" and not str(g["period"]).isdigit()), None)
-    if nq and nq["consensus"]:
+    if nq and nq.get("consensus"):
         ir = "Can %s revenue land in the %s guide against the %s consensus?" % (nq["period_label"], nq["guide"],
                                                                               nq["consensus"])
     else:
@@ -733,9 +788,10 @@ def build_narrative(s):
     if len(ir) > 110:
         ir = "Does %s hold at %s?" % (_short((misses or beats or rows)[0]["name"], 3), (misses or beats or rows)[0]["currentActual"])
 
-    street = "Consensus stood at %s revenue%s for %s." % (
-        rev["currentEstimate"] if rev else "n/a", (" and %s %s" % (eps["currentEstimate"], _PLAIN[eps["ltcode"]] if eps.get("ltcode") in ("IS_P_124", "IS_P_123")
-                                          else "adjusted EPS")) if eps else "", per)
+    bits = ["%s %s" % (r["currentEstimate"], "revenue" if r is rev else r["name"]) for r in (rev, eps)
+            if r and r.get("currentEstimate") and not _NO_CONS.search(str(r["currentEstimate"]))]
+    street = ("Consensus stood at %s for %s." % (" and ".join(bits), per) if bits
+              else "The scorecard carries no consensus for revenue or EPS for %s." % per)
     gap_bits = []
     for r in [x for x in (rev, eps) if x]:
         if r["beatMiss"] in ("Beat", "Miss"):
@@ -745,10 +801,11 @@ def build_narrative(s):
     gap = "; ".join(gap_bits) + "." if gap_bits else "The scorecard is in line with consensus."
     ev_rows = left_out or [r for r in rows if r.get("block") == "operatingMetrics"][:1] or rows[:1]
     evidence = " ".join(_bullet(r) for r in ev_rows[:2])
-    if nq:
-        why = "The %s revenue guide of %s compares with %s." % (
-            nq["period_label"], nq["guide"], ("%s consensus as of %s" % (nq["consensus"], nq["consensus_as_of"]))
-            if nq["consensus"] else "no available consensus")
+    if nq and nq.get("consensus"):
+        why = "The %s revenue guide of %s compares with the %s." % (
+            nq["period_label"], nq["guide"], pre_cons(nq["consensus"], nq.get("consensus_as_of")))
+    elif nq:
+        why = "The %s revenue guide of %s sets the bar for the next print." % (nq["period_label"], nq["guide"])
     else:
         k = (inline or graded or rows)[0]
         why = "%s at %s sets the base for the next print." % (_short(k["name"], 4), k["currentActual"])
@@ -756,7 +813,7 @@ def build_narrative(s):
     watch = []
     if nq:
         watch.append("Whether %s revenue lands inside the %s guide%s." % (
-            nq["period_label"], nq["guide"], (" against the %s consensus" % nq["consensus"]) if nq["consensus"] else ""))
+            nq["period_label"], nq["guide"], (" against the %s consensus" % nq["consensus"]) if nq.get("consensus") else ""))
     for r in (misses[:1] + [x for x in rows if x.get("block") == "operatingMetrics" and x not in misses][:2]):
         yp = _yoy_phrase(r["yoyChange"])
         watch.append("Whether %s moves from %s%s at the next print." % (r["name"], r["currentActual"],

@@ -49,7 +49,7 @@ Common ones:
 - `[period unmatched]`, `[period shape]`, `[calendar shape]` - the quarter label is wrong. Start
   again in a new folder with the label the warning names: `flash.py start TICKER --period <label> --dir <new folder>`.
 - `[consensus not pinned]` - no call date was found, so no pre-guide consensus. Check the call
-  date; if it is right, write `vs. consensus of not available`.
+  date; if it is right, write the guide alone, with no consensus.
 - `MODEL-SOURCED ACTUAL`, `OUTSIDE BROKER RANGE`, `[basis]`, `[restated period used]`, `AUTO-TRIM` -
   information, but check them: model-sourced rows are marked `†`; a restated prior changes Y/Y;
   after an auto-trim, make sure nothing important was cut.
@@ -64,7 +64,7 @@ flash.py walks it for you, in this order, and stops at the first rung that gives
 3. **Release silent or unreadable** - read the transcript. Source `transcript`.
 4. **Documents read, no guide in them** - the company does not guide. Source `none`; the page
    shows a Forward View with the Street's forward numbers.
-5. **Nothing could be read** - source `unavailable`; the guidance block is left off the page.
+5. **Nothing could be read** - source `unavailable`; the page prints one line: `Guidance could not be retrieved at press time.`
    This needs a recorded failed attempt on every rung (flash.py records them in
    provenance.document_attempts and provenance.guidance_attempts).
 

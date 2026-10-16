@@ -81,6 +81,34 @@ def format_lint(html):
         iss.append("TOO FEW bullet lists")
     return iss
 
+# 2026-10-16: consensus is never dated on the page. "Consensus on Sep 29 modelled...", "[E]
+# pre-print consensus (as of Jul 14, 2026)", "the post-print mean (Aug 8, 2026)" and a revisions
+# window "Jul 27, 2026 pre-print to Aug 29, 2026 post-print" all fail; write pre-print or
+# post-print instead. A sentence (or table cell) fails when it names consensus AND carries a day
+# and month, so guide dates ("the guide standing after the Apr 14 call") and price dates
+# ("Oct 15, 2026 close") still pass.
+_CD_MON = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|"
+           r"sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?")
+_CD_DATE = re.compile(r"(?i)(?:\b\d{1,2}\s+" + _CD_MON + r"(?![a-z])|\b" + _CD_MON + r"\s+\d{1,2}\b"
+                      r"|\b\d{4}-\d{2}-\d{2}\b)")
+_CD_CONS = re.compile(r"(?i)(?:\bconsensus\b|\bstreet\b|\bmean\b|\[e\]|\bpre-print\b|\bpost-print\b"
+                      r"|\bestimates?\b)")
+
+def consensus_dates(html):
+    """Every sentence or table cell on the page that names consensus and carries a date."""
+    import html as _h
+    x = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", html)
+    units = list(re.findall(r"(?is)<t[dh]\b[^>]*>(.*?)</t[dh]>", x))
+    prose = re.sub(r"(?is)<table\b.*?</table>", " ", x)
+    prose = re.sub(r"(?i)<br\s*/?>|</(p|li|div|h\d)>", " . ", prose)
+    units += re.split(r"(?<=[.;])\s+", prose)
+    hits = []
+    for u in units:
+        t = re.sub(r"\s+", " ", _h.unescape(re.sub(r"<[^>]+>", " ", u))).strip()
+        if t and _CD_CONS.search(t) and _CD_DATE.search(t):
+            hits.append(t[:160])
+    return hits
+
 def wrap_eval(html):
     iss = []
     x = re.sub(r'<style[^>]*>.*?</style>', ' ', html, flags=re.S | re.I)
@@ -104,6 +132,8 @@ def wrap_eval(html):
               r'upside potential', r'\bbuy\b(?!-?side)',
               r'\bsell\b(?!-?side)(?!-(?:through|in|out)\b)']:
         if re.search(w, low): iss.append("BANNED lexicon: " + w)
+    for _t in consensus_dates(x):
+        iss.append("DATED CONSENSUS (say pre-print or post-print, never a date): " + _t)
     secs = re.split(r'<h2 class="sec">', x)
     def _sec(name):
         for p in secs:

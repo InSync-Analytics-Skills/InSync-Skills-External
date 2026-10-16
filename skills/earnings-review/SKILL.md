@@ -1,13 +1,7 @@
 ---
 name: earnings-review
 version: 2.0.3
-description: >-
-  Post-earnings EARNINGS REVIEW for any InSync-covered company: a 4-5 page branded PDF grading the reported quarter
-  against InSync pre-print consensus and the prior guide, the 3-5 changes that matter, KPI evolution, new guide vs the
-  consensus it faces, valuation vs own history, management tone shift. Scripts do all arithmetic; prose uses number
-  tokens. Refuses unreported quarters. Triggers: "earnings review [TICKER]", "review [TICKER] [nQyy]", "post-earnings
-  review", "print vs consensus for [TICKER]", "/earnings-review". Not for previews (earnings-preview-portal), flashes
-  (earnings-flash-skill) or the narrative wrap (earnings-wrap).
+description: "A post-earnings review that grades a reported quarter line by line against pre-results consensus and the company's guidance. It picks out the three to five changes that matter, KPI trends, new guidance against expectations, valuation and shifts in management tone, in a four to five page PDF. For the story of the quarter use Earnings Wrap; for a quick read use Earnings Flash."
 argument-hint: TICKER [nQyy]
 ---
 
