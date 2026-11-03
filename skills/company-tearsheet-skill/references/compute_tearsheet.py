@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 compute_tearsheet.py — deterministic math layer for company-tearsheet-skill.
-SKILL VERSION: 8.1.2 (must match SKILL.md frontmatter and README.md).
+SKILL VERSION: 8.1.3 (must match SKILL.md frontmatter and README.md).
 
 The LLM's ONLY numeric job is to paste raw MCP rows into raw_data.json.
 This script computes and formats EVERY derived number: YoY growth, gross
@@ -917,7 +917,8 @@ def main(raw_path, out_path):
                             f"{meta.get('next_quarter', 'the next quarter')} was supplied, so the slot "
                             f"is omitted (EPS is never substituted on this sector). Fetch it (SKILL.md 6.5).")
     else:
-        nq_eps = next((r for r in nq if r["LTCODE"] in ("IS_P_128", "IS_S_643", "IS_P_127")), None)
+        nq_eps = next((r for c in ("IS_P_128", "IS_S_643", "IS_P_127")
+                       for r in nq if r["LTCODE"] == c), None)
 
     _VAL_BOUNDS = {"P/E_Ratio": (1.0, 300.0), "P/E_Adj_Ratio": (1.0, 300.0),
                    "P/FFO": (1.0, 200.0), "EV/EBITDA": (0.5, 200.0),

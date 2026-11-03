@@ -1,11 +1,11 @@
 ---
 name: company-tearsheet-skill
-version: "8.1.2"
+version: "8.1.3"
 description: "A one-page tear sheet or company profile: a quick deep dive on any company in any sector. It covers price, key financials, operating KPIs, valuation against its own history, the bull and bear case, key debates, peers and upcoming catalysts, in Word and PDF. For a single quarter's results use Earnings Flash or Earnings Wrap."
 ---
 # Tear Sheet
 
-**Version: 8.1.2**  ·  Requires `python3` only (standard library; no Node, no npm); see §5.
+**Version: 8.1.3**  ·  Requires `python3` only (standard library; no Node, no npm); see §5.
 
 This file is the specification. `references/rules.md` holds the detail of what the scripts decide
 for you; open it where a line below points there.
