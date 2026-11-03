@@ -334,14 +334,35 @@ reconcile to itself for any issuer with preferred stock. Search `preferred equit
 stock` with `filter="standard"` and put the code in `balance_sheet`. compute DISCLOSES the basis
 and records `bvps_implied_by_pb`; it does not change the number. [R-3.4]
 
-## §4 Consensus estimates (latest)
+## §4 Consensus estimates (forward periods, from the history)
 
-Target Q + next Q + FY0 + FY1, all core codes + KPI codes:
+Target Q + next Q + FY0 (if not yet reported) + FY1, all core codes + KPI codes + the FCF ltcode.
+**Forward periods come from the HISTORY, never the "latest" record (v9.0.8).** Around a print the
+plain call and `latest:{"enabled":true,"limit":1}` can return a 1-2 broker partial update (live
+v5, 2026-10-29: one large-cap's FY26 revenue on 1 broker vs 43 on the full panel; another's FY27
+revenue on 2 brokers vs 32).
+
+- **Target Q and next Q: no extra call.** The §5 history rows (`latest:{"enabled":false}`,
+  window from prior print − 10d) already carry them; put them in `revision_series` as §5 says,
+  with every §4 code (core + KPI + FCF ltcode) in that call.
+- **FY0 (if not yet reported) and FY1:** one history call, paged until `has_more` is false, rows
+  pasted verbatim into `estimates_latest` (several rows per code and period is expected):
 ```json
-{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<core+kpi codes>","fiscal_period":"<targetQ>,<nextQ>","latest":{"enabled":true,"limit":1},"limit":"100"}}
+{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<core+kpi codes>","fiscal_period":"<FY0>,<FY1>","latest":{"enabled":false},"updatedate_start":"<today − 30d, YYYY-MM-DD>","updatedate_end":"today","limit":"100"}}
 ```
-Render VALUE with SCALE/CURRENCY (50 + 10^6 + $ → $50M; portal tables are in $M). Capture
-`BROKERCOUNT` (compute uses it; the document never states it).
+  That is the InSync standalone form. The FactSet wrapper takes the FLAT form
+  `"latest_enabled": false` instead, and the standalone MCP rejects the flat form: if one form is
+  rejected, retry the same call with the other. If a code and period returns no rows, re-fetch
+  it once with a 120-day window (`updatedate_start` = today − 120d).
+
+Keep `BROKERCOUNT` and `UPDATEDATE` on every row. **The script picks, never you:**
+`compute_portal.py` takes one row per (LTCODE, FISCALPERIOD) for every period without an actual,
+with `forward_consensus.py`: the deepest panel in the window is the full panel, a row with at
+least half that many brokers is adequate, and the newest adequate row is the consensus. A forward
+line item whose rows all lack `BROKERCOUNT` or `UPDATEDATE` is REMOVED (renders absent, `—`) and
+named in a `[forward consensus dropped]` warning; list each one in the chat summary, never on the
+page. The build never stops for this. Render VALUE with SCALE/CURRENCY (50 + 10^6 + $ → $50M;
+portal tables are in $M). The document never states broker counts.
 
 ## §5 Revision history → time buckets
 
@@ -395,32 +416,21 @@ grid column from the base code vs its prior-year actual.
 values; stripping the prefix silently suppresses that disclosure. VALUE arrives as formatted
 strings — parse for math, display in $M. [R-6.2]
 
-## §7 Pre-print consensus snapshots (beat history)
+## §7 Pre-print consensus (beat history)
 
-For EACH of the last 6 prints, the consensus that existed going INTO that print:
+For the last 6 prints, the consensus that stood going INTO each print, in ONE plain call:
 ```json
-{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<rev,profit,kpi codes>","fiscal_period":"<that quarter>","latest":{"enabled":false},"updatedate_start":"<print − 21d>","updatedate_end":"<print − 1d>","limit":"100"}}
+{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<rev,profit,kpi codes>","fiscal_period":"<the 6 printed quarters, comma-separated>","limit":"100"}}
 ```
-One call per print, sent with Group B (six calls: two requests in the same turn); save the six
-with the group. Beat% = (actual − snapshot)/snapshot.
+No `latest` override and no update-date window. Send it with Group B and file the rows under
+`preprint_snapshots` (page with `offset` while `has_more`). Beat% = (actual − snapshot)/snapshot.
 
-**WIDEN UNTIL IT REACHES A VINTAGE.** 21 days is a STARTING window, not a verdict: if empty widen
-to 45; if still empty widen to the PRIOR PRINT. A window reaching the prior print that is still
-empty means the vintage genuinely does not exist — record it in `meta.absent_confirmed` as
-`"<LTCODE>|<PERIOD>"`, say in the footer how wide you went, and let compute print `—`. Do not
-widen PAST the prior print. **Expect the terminal rung on a monthly-refresh issuer:** some prints
-come back empty at 21 AND 45 days and resolve only at the prior print, to a vintage close to two
-months before the release. Budget three probes per print there and
-say how old the selected vintage is when it exceeds ~30 days. [R-7.1]
-
-**USE `latest:{"enabled":false}` AND TAKE THE DENSEST VINTAGE IN THE WINDOW.** `enabled:true,
-limit:1` MANUFACTURES thin marks: measured on the same code, period and window, it returns a one- or two-broker
-mark where the window holds a vintage several times denser, and distorts the beat average built
-on it. `enabled:false` returns every vintage
-in the window, so PAGINATE (limit 100, then `offset`). Do not pick among them by hand: compute
-selects the DENSEST vintage on or before the call date, tie-broken on the later date. If a window
-genuinely returns nothing, retry with `latest:{"enabled":true,"limit":1}` and say in the report
-which prints used the fallback. [R-7.2]
+**A closed quarter's consensus FREEZES at the print**, so the plain call returns, per code and
+quarter, the last pre-print mark: one row, dated on or before the release day, the same row
+earnings-flash, earnings-wrap and earnings-review grade against. Never add an update-date window:
+`latest` combined with a window returns thin one- or two-broker marks; the plain call carries the
+full panel. A code and quarter with no row has no pre-print consensus: record it in
+`meta.absent_confirmed` as `"<LTCODE>|<PERIOD>"` and let compute print `—`. [R-7.1, R-7.2]
 
 **KEEP `MIN` AND `MAX` ON EVERY SNAPSHOT ROW**, with `BROKERCOUNT`, pasted verbatim. Compute uses
 the range to decide whether a print's beat is a consensus variance at all — a bank's revenue

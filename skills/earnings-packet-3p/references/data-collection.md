@@ -19,7 +19,7 @@ its own. A request whose arguments come from a reply waits for that reply.
 | 4 | the probe: `get_actuals` + `get_estimates` over the real grid (section 2) | codes, grid |
 | 5 | the index search (section 7) and each peer's `search_tickerid`, alone, one per turn | - |
 | Group A | valuation (section 8) · market-data windows + index (section 7) · guidance page 1 + the revision series (sections 5, 6) | sector lens, print dates |
-| Group B | remaining actuals (section 3) · `fy0`/`fy1` estimates with `MIN`/`MAX`/`BROKERCOUNT` (section 4) · peers (section 9) | probe codes, peer ids |
+| Group B | remaining actuals (section 3) · `fy0`/`fy1` forward estimates from the HISTORY call, all pages (section 4) · peers (section 9) | probe codes, peer ids |
 | then | document extracts (section 10, at most 2 per request), further guidance pages, any split or retried call | the reply each needs |
 
 **Server error (502, 5xx): wait 30, 60, 120, then 240 seconds before each retry, never
@@ -120,10 +120,45 @@ label.
 
 ## 4. Estimates
 
+**The target (printed) quarter** keeps its own call, unchanged:
+
 ```json
-{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<codes>","fiscal_period":"<target>,<next>","latest":{"enabled":true,"limit":1},"limit":"100"}}
-{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<codes>","fiscal_period":"<fy0>,<fy1>","latest":{"enabled":true,"limit":1},"limit":"100"}}
+{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<codes>","fiscal_period":"<target>","latest":{"enabled":true,"limit":1},"limit":"100"}}
 ```
+
+**Forward periods (not yet reported: `next_q`, `fy0`, which holds the unreported target quarter, `fy1`) come
+from the HISTORY call only, never from the plain call or `latest:{"enabled":true,"limit":1}`.**
+Around a print those can return a 1-2 broker partial update as "the" consensus (measured
+2026-10-29: a full-year revenue line on 1 broker against 43 in the history; another on
+2 brokers against 32). The history carries the full panel:
+
+```json
+{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<codes>","fiscal_period":"<next_q>,<fy0>,<fy1>","latest":{"enabled":false},"updatedate_start":"<today-30d YYYY-MM-DD>","updatedate_end":"today","limit":"100"}}
+```
+
+- **Page until `has_more` is false.** The window holds several vintages per code and period.
+- **Flag form.** The InSync standalone MCP takes the nested `"latest":{"enabled":false}` and
+  rejects the flat form; the FactSet wrapper takes the flat `"latest_enabled": false`. If one
+  form is rejected, retry the same call with the other.
+- **Empty window.** A code and period that returns no rows is re-fetched ONCE with a 120-day
+  window (`updatedate_start` = today-120d). Still nothing: it has no forward estimate.
+- **Dump every row as returned into `raw_mcp.json` `forward_rows`** (a list) and leave the
+  forward cells null. Do NOT pick a row yourself. `build_computed.py` picks one row per
+  (`LTCODE`, `FISCALPERIOD`) with `references/forward_consensus.py`: the deepest panel in the
+  window is the full panel, a row is adequate when it has at least half that many brokers,
+  and the newest adequate row is the consensus (the panel also runs thin while it rebuilds the
+  day after a print, which is why the newest row alone is not enough). `VALUE`, `MIN`, `MAX`
+  and `BROKERCOUNT` all come from that one row.
+- **Never a stop.** A forward line item whose rows carry no `BROKERCOUNT` or `UPDATEDATE`, or
+  which has no row at all, is removed: its forward cells are blanked (the existing prune and
+  `dropNote()` handle an emptied column), and a guidance row on that period is removed (an
+  emptied guidance table takes the existing no-guidance note). Each drop is a `warnings` line
+  for the chat summary, never text on the page.
+- **Guidance on a forward period** (a fiscal-year guide, a next-quarter guide): give the plan's
+  `guide_vs_cons` row a `code`, the LTCODE whose consensus it is compared with, and leave
+  `cons` null; the builder takes it from the picked row.
+- The `BROKERCOUNT` 1 relabel (`Single-Broker Estimate`, SKILL.md Step 5) still applies to a
+  name that genuinely has one broker.
 
 `VALUE` is the mean; there is no separate `MEAN` field. `MIN`, `MAX` and `BROKERCOUNT`
 drive section 4, a run without them produces a page of dashes.
@@ -266,6 +301,20 @@ Do not present it as forward-looking: leave the NTM cell empty and footnote it.
 `calendarize: true` is **mandatory**. Capture each peer's same-store definition and
 quarter length for the caveat.
 
+**Recent prints.** The calendarized call ignores the history setting and returns no
+`BROKERCOUNT`, so for a company that has just reported it can return a one- or two-broker
+partial update. In the same batch, fetch every row's call dates and paste the rows as
+returned into `raw_mcp.json` `peer_call_dates`:
+
+```json
+{"tool_name":"get_call_date","tool_arguments":{"ticker_id":"<lead>,<peers>","start_date":"<prepared - 60d>","end_date":"<prepared>","limit":"50"}}
+```
+
+`build_computed.py` blanks the `cy26_*` / `cy27_*` cells of any row (peer or lead) whose
+latest call is within 10 days of `meta.prepared` and names it in the build notes; the
+multiples stay. Report those notes in the chat summary, never on the page. Never a stop: a
+row with no call date returned is used as returned, with a note.
+
 ## 10. Documents, risks and catalysts
 
 ```json
@@ -306,7 +355,7 @@ with a pydantic validation error.
 |---|---|---|
 | `search_lineitem` | 20, per keyword | `queries` required, max 15 keywords |
 | `get_actuals` | 100 | 4 periods x 11 codes fits comfortably |
-| `get_estimates` | 100 | `latest:{enabled:false}` plus an update-date window for revisions |
+| `get_estimates` | 100 | `latest:{enabled:false}` plus an update-date window for revisions and for every forward period |
 | `get_guidance` | 100 | paginate on `has_more`; a 60-row page is safer than a 100-row one |
 | `get_market_data` | **100** | one window per print date |
 | `get_valuation` | 500 | request by CATEGORY to survive a dead metric |

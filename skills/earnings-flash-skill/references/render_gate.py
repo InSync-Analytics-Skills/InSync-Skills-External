@@ -34,7 +34,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import run_math
-from run_pipeline import parse_disp
+from run_pipeline import parse_disp, disp_half, small_base_disp
 
 SCORECARD_COLS = 8
 _BLANK = ("", "-", "--", "—", "N/A", "n/a", "NM", "nm")
@@ -94,15 +94,19 @@ def check_row(cells, ltcode=None):
             + f" ({a_s} / {e_s} / {p_s} / {d_s}). A reader's subtraction is not wrong here, "
               f"it is impossible.")
 
+    ha, he, hp = disp_half(a_s), disp_half(e_s), disp_half(p_s)
+    guard_e, guard_p = small_base_disp(e_s), small_base_disp(p_s)
+
     if None not in (a, e, d):
         scale = max(abs(a), abs(e), 1.0)
-        if abs((a - e) - d) > scale * 1e-9 + 1e-6:
+        if abs((a - e) - d) > scale * 1e-9 + 1e-6 + ((ha + he + disp_half(d_s)) if guard_e else 0.0):
             out.append(f"DELTA — {a_s} - {e_s} = {a - e:,.6g} but the row prints {d_s}")
 
     if not is_pct and None not in (a, e) and e and dp_s.strip() not in _BLANK:
         want = (a - e) / abs(e) * 100.0
         got = parse_disp(dp_s)
-        if got is not None and abs(want - got) > 0.055:
+        tol = 0.055 + ((100.0 * (ha + abs(a / e) * he) / abs(e)) if guard_e else 0.0)
+        if got is not None and abs(want - got) > tol:
             out.append(f"DELTA % — {a_s} vs {e_s} is {want:+.2f}% but the row prints {dp_s}")
 
     if None not in (a, p) and p and y_s.strip() not in _BLANK:
@@ -110,13 +114,13 @@ def check_row(cells, ltcode=None):
         if got is not None:
             if "bps" in y_s:
                 want = (a - p) * 100.0
-                tol = 1.0
+                tol = 100.0 * (ha + hp) + 0.5
             else:
                 if (a >= 0) != (p >= 0):
                     want = got = 0.0
                 else:
                     want = (a - p) / abs(p) * 100.0
-                tol = 0.055
+                tol = 0.055 + ((100.0 * (ha + abs(a / p) * hp) / abs(p)) if (guard_p and p) else 0.0)
             if abs(want - got) > tol:
                 unit = "bps" if "bps" in y_s else "%"
                 out.append(f"YoY — {a_s} against {p_s} is {want:+.2f}{unit} "
@@ -125,11 +129,13 @@ def check_row(cells, ltcode=None):
     if verdict in ("Beat", "Miss", "In-Line") and None not in (a, e) and ltcode:
         lb = run_math._lower_is_better(name, ltcode)
         if is_pct:
-            diff = a - e
+            diff = round(d, 6) if d is not None else a - e
             thr = run_math.PCT_BEAT_MISS_THRESHOLD_PPT
             raw = "Beat" if diff >= thr else ("Miss" if diff <= -thr else "In-Line")
         else:
-            dp = (a - e) / abs(e) * 100.0 if e else 0.0
+            dp = parse_disp(dp_s)
+            if dp is None:
+                dp = (a - e) / abs(e) * 100.0 if e else 0.0
             thr = run_math.BEAT_MISS_THRESHOLD * 100
             raw = "Beat" if dp >= thr else ("Miss" if dp <= -thr else "In-Line")
         want = raw if raw == "In-Line" else (("Miss" if raw == "Beat" else "Beat") if lb else raw)

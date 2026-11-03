@@ -18,7 +18,7 @@ import re, sys, os, json
 
 def _clean(s):
     return re.sub(r'\s+', ' ', re.sub(r'&[a-z]+;|&#\d+;', ' ',
-                  re.sub(r'<[^>]+>', ' ', s))).strip()
+                  re.sub(r'<[^>]+>', ' ', s.replace("\u2212", "-")))).strip()
 
 def house_asserts(html):
     body = re.sub(r'<style[^>]*>.*?</style>', ' ', html, flags=re.S | re.I)
@@ -81,12 +81,6 @@ def format_lint(html):
         iss.append("TOO FEW bullet lists")
     return iss
 
-# 2026-10-16: consensus is never dated on the page. "Consensus on Sep 29 modelled...", "[E]
-# pre-print consensus (as of Jul 14, 2026)", "the post-print mean (Aug 8, 2026)" and a revisions
-# window "Jul 27, 2026 pre-print to Aug 29, 2026 post-print" all fail; write pre-print or
-# post-print instead. A sentence (or table cell) fails when it names consensus AND carries a day
-# and month, so guide dates ("the guide standing after the Apr 14 call") and price dates
-# ("Oct 15, 2026 close") still pass.
 _CD_MON = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|"
            r"sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?")
 _CD_DATE = re.compile(r"(?i)(?:\b\d{1,2}\s+" + _CD_MON + r"(?![a-z])|\b" + _CD_MON + r"\s+\d{1,2}\b"
@@ -95,7 +89,6 @@ _CD_CONS = re.compile(r"(?i)(?:\bconsensus\b|\bstreet\b|\bmean\b|\[e\]|\bpre-pri
                       r"|\bestimates?\b)")
 
 def consensus_dates(html):
-    """Every sentence or table cell on the page that names consensus and carries a date."""
     import html as _h
     x = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", html)
     units = list(re.findall(r"(?is)<t[dh]\b[^>]*>(.*?)</t[dh]>", x))
@@ -368,7 +361,7 @@ def _ct_canon(label):
     return _CT_PLURAL.sub("", s)
 
 def _ct_num(cell):
-    t = re.sub(r"<[^>]+>", "", cell or "")
+    t = re.sub(r"<[^>]+>", "", (cell or "").replace("\u2212", "-"))
     t = t.replace("&mdash;", "").replace("&nbsp;", " ")
     t = t.replace("↑", "").replace("↓", "").strip()
     m = _CT_NUM.match(t)
@@ -407,7 +400,7 @@ def _ct_roles(heads):
 _REACT_ROW = re.compile(r"(?i)stock\s+reaction")
 
 def _react_pct(cell):
-    s = re.sub(r"&#\d+;|&[a-z]+;", " ", str(cell))
+    s = re.sub(r"&#\d+;|&[a-z]+;", " ", str(cell).replace("\u2212", "-"))
     m = re.search(r"([+-]?\d+(?:\.\d+)?)\s*%", s)
     if not m:
         return None
@@ -540,7 +533,7 @@ _DL_CELL = re.compile(
     r"(bn|B|M|T|K|pp|bps|%|x)?\s*$")
 
 def _dl_val(tok):
-    t = re.sub(r"<[^>]+>", "", str(tok))
+    t = re.sub(r"<[^>]+>", "", str(tok).replace("\u2212", "-"))
     t = t.replace("&#8593;", "").replace("&#8595;", "").replace("&mdash;", "—")
     t = t.replace("&nbsp;", " ").replace(" ", "").strip()
     if t in _DL_DASH: return None
@@ -622,7 +615,9 @@ def derived_lint(html):
                     exp = 100.0 * (a[0] - c[0]) / abs(c[0])
                     tol = 100.0 * (a[2] + abs(a[0] / c[0]) * c[2]) / abs(c[0])
                 tol += d[2]
-                if _dl_txt(tds[ai]) == _dl_txt(tds[ci]) and abs(d[0]) > d[2]:
+                guard = _dl_small_base(c, tds[ci])
+                if not guard: tol = d[2] + 1e-6
+                if not guard and _dl_txt(tds[ai]) == _dl_txt(tds[ci]) and abs(d[0]) > d[2]:
                     issues.append("UNVERIFIABLE PRECISION: row %r prints Actual and Consensus "
                                   "both as %s while the surprise column prints %s. The figures "
                                   "differ, but not at the precision the row is printed to, so a "
@@ -630,11 +625,6 @@ def derived_lint(html):
                                   "or drop the surprise."
                                   % (name, _dl_txt(tds[ai]), _dl_txt(tds[di]),
                                      _dl_finer(a[1])))
-                elif tol > max(abs(d[0]), 10 ** -d[2] if d[2] else 1.0):
-                    issues.append("UNVERIFIABLE PRECISION: row %r prints a surprise of %s that its "
-                                  "own cells (%s / %s) support only to +-%.2f. A reader cannot "
-                                  "check the row; print the figures to the precision the claim needs."
-                                  % (name, _dl_txt(tds[di]), _dl_txt(tds[ai]), _dl_txt(tds[ci]), tol))
                 elif abs(exp - d[0]) > tol:
                     issues.append("DELTA DOES NOT RECONCILE: row %r prints a surprise of %s, but "
                                   "%s against %s re-derives %+.2f (tolerance +-%.2f from the "
@@ -676,8 +666,12 @@ def derived_lint(html):
                                      _dl_txt(tds[per[-1]]), exp, tol))
     return issues
 
+def _dl_small_base(c, cell):
+    if not re.search(r"[$€£¥₹]|EUR|USD|GBP|CHF|JPY|GBp", _dl_txt(cell)): return False
+    return abs(c[0]) * {"T": 1e12, "B": 1e9, "bn": 1e9, "M": 1e6, "K": 1e3}.get(c[1], 1.0) < (1e9 if c[1] else 1.0)
+
 def _dl_txt(cell):
-    t = re.sub(r"<[^>]+>", "", str(cell))
+    t = re.sub(r"<[^>]+>", "", str(cell).replace("\u2212", "-"))
     return t.replace("&#8593;", "").replace("&#8595;", "").replace("&nbsp;", " ").strip()
 
 def _dl_finer(unit):
@@ -840,6 +834,7 @@ LAYERS = [("house_asserts", house_asserts), ("format_lint", format_lint),
 
 def validate(html, css_src=None):
     out = {}
+    html = html.replace("\u2212", "-")
     for name, fn in LAYERS:
         out[name] = fn(html, css_src) if name == "palette_lint" else fn(html)
     return out

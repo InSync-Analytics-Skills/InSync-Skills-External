@@ -47,7 +47,8 @@ def _endpoint_label(ax: plt.Axes, s: Series, spec: ChartSpec, color: str) -> Non
     if idx is None:
         return
     v = s.values[idx]
-    text = fmt.fmt_value(v, s.unit, compact=bool(spec.opt("compact_labels", True)))
+    text = fmt.fmt_value(v, s.unit, compact=bool(spec.opt("compact_labels", True)),
+                         peak=_peak(s.values))
     periods = spec.periods or []
     if idx < len(s.values) - 1 and idx < len(periods):
         text = f"{text}\n({periods[idx]})"
@@ -119,11 +120,15 @@ def _should_label(spec: ChartSpec, s: Series, n_points: int,
     return n_points <= 10 and width_in >= 4.4 and (width_in / max(n_points, 1)) >= 0.55
 
 
+def _peak(values) -> Optional[float]:
+    return max((abs(x) for x in values if x is not None), default=None)
+
+
 def _fmt_pt(s: Series, v, spec: ChartSpec, idx: int) -> str:
     if s.labels and idx < len(s.labels) and s.labels[idx] is not None:
         return str(s.labels[idx])
     return fmt.fmt_value(v, s.unit, dp=spec.opt("label_dp"),
-                         compact=bool(spec.opt("compact_labels", True)))
+                         compact=bool(spec.opt("compact_labels", True)), peak=_peak(s.values))
 
 
 def combo_trend(fig: Figure, ax: plt.Axes, spec: ChartSpec) -> Handles:
@@ -264,7 +269,7 @@ def stacked_bar(fig: Figure, ax: plt.Axes, spec: ChartSpec) -> Handles:
                     continue
                 ax.text(i, b + abs(v) / 2.0,
                         fmt.fmt_value(v, "pct" if normalise else s.unit,
-                                      compact=not normalise),
+                                      compact=not normalise, peak=_peak(row)),
                         ha="center", va="center", fontsize=theme.FS_DATALABEL,
                         color=theme.BG if lum < 0.55 else theme.INK,
                         fontfamily=theme.SANS, zorder=5)
@@ -280,7 +285,7 @@ def stacked_bar(fig: Figure, ax: plt.Axes, spec: ChartSpec) -> Handles:
     if spec.opt("total_labels", not normalise and n <= 12):
         for i, t in enumerate(base):
             chrome.data_label(ax, i, max(pos_base[i], t),
-                              fmt.fmt_value(t, series[0].unit, compact=True))
+                              fmt.fmt_value(t, series[0].unit, compact=True, peak=_peak(base)))
 
     chrome.grid(ax)
     chrome.category_ticks(ax, labels)
@@ -423,27 +428,29 @@ def surprise(fig: Figure, ax: plt.Axes, spec: ChartSpec) -> Handles:
                     for a, e in zip(a_s.values, e_s.values)]
     pos_c = spec.opt("positive_color", theme.POS)
     neg_c = spec.opt("negative_color", theme.NEG)
+    pu = main.unit or "pct"
+    side = [None if v is None else (fmt.printed(v, pu) > 0) - (fmt.printed(v, pu) < 0)
+            for v in main.values]
+    kind_c = {1: pos_c, 0: theme.NEUTRAL, -1: neg_c}
 
     for i, v in enumerate(main.values):
         if v is None:
             chrome.na_marker(ax, i)
             continue
-        draw_bar(ax, i, v, width=0.68, color=pos_c if v >= 0 else neg_c,
-                 hatch=None if v >= 0 else "///")
+        draw_bar(ax, i, v, width=0.68, color=kind_c[side[i]],
+                 hatch="///" if side[i] < 0 else None)
         txt = fmt.fmt_value(v, main.unit or "pct", signed=True)
         if abs_beat and i < len(abs_beat) and abs_beat[i] is not None:
-            txt += f"\n{fmt.fmt_value(abs_beat[i], abs_unit, signed=True)}"
-        chrome.data_label(ax, i, v, txt, above=v >= 0,
-                          color=pos_c if v >= 0 else neg_c)
+            txt += f"\n{fmt.fmt_value(abs_beat[i], abs_unit, signed=True, compact=True)}"
+        chrome.data_label(ax, i, v, txt, above=v >= 0, color=kind_c[side[i]])
 
-    present = {v >= 0 for v in main.values if v is not None}
+    present = set(side)
     handles, names = [], []
-    if True in present:
-        handles.append(chrome.legend_patch(pos_c))
-        names.append(spec.opt("positive_label", "Beat"))
-    if False in present:
-        handles.append(chrome.legend_patch(neg_c, "///"))
-        names.append(spec.opt("negative_label", "Miss"))
+    for k, h, key, name in ((1, None, "positive_label", "Beat"), (0, None, "neutral_label", "In line"),
+                            (-1, "///", "negative_label", "Miss")):
+        if k in present:
+            handles.append(chrome.legend_patch(kind_c[k], h))
+            names.append(spec.opt(key, name))
     inputs = {ab.get("actual"), ab.get("estimate")} - {None}
     for s in spec.series:
         if s is main or s.name in inputs:
@@ -457,7 +464,7 @@ def surprise(fig: Figure, ax: plt.Axes, spec: ChartSpec) -> Handles:
     if hit and spec.opt("mean_surprise_line", True) and len(hit) >= 3:
         avg = sum(hit) / len(hit)
         ax.axhline(avg, color=theme.INK, linestyle="--", linewidth=1.0, zorder=5)
-        ax.annotate(f"Average {avg:+.1f}%",
+        ax.annotate(f"Average {fmt.fmt_num(avg, 1, '%')}",
                     xy=(0.0, avg), xycoords=("axes fraction", "data"),
                     xytext=(4, 3 if avg >= 0 else -3), textcoords="offset points",
                     ha="left", va="bottom" if avg >= 0 else "top",
@@ -468,12 +475,12 @@ def surprise(fig: Figure, ax: plt.Axes, spec: ChartSpec) -> Handles:
         names.append("Average")
 
     if hit and spec.opt("hit_rate", True):
-        beats = sum(1 for v in hit if v >= 0)
+        beats = sum(1 for k in side if k == 1)
         rate = beats / len(hit) * 100.0
         biggest = max(hit, key=abs)
-        strip = (f"Beat {beats} of {len(hit)}  ({rate:.0f}%)     "
-                 f"Average {sum(hit) / len(hit):+.1f}%     "
-                 f"Largest {biggest:+.1f}%")
+        strip = (f"Beat {beats} of {len(hit)}  ({fmt.fmt_num(rate, 1, '%', signed=False)})     "
+                 f"Average {fmt.fmt_num(sum(hit) / len(hit), 1, '%')}     "
+                 f"Largest {fmt.fmt_num(biggest, 1, '%')}")
         ax.annotate(strip, xy=(1.0, 1.0), xycoords="axes fraction",
                     xytext=(-2, -4), textcoords="offset points",
                     ha="right", va="top", fontsize=theme.FS_SOURCE,
@@ -511,7 +518,8 @@ def peer_bar(fig: Figure, ax: plt.Axes, spec: ChartSpec) -> Handles:
         draw_bar(ax, y, v, width=0.62, color=col, horizontal=True,
                  alpha=1.0 if is_target else 0.88)
         pad = 4 if v >= 0 else -4
-        ax.annotate(fmt.fmt_value(v, s.unit, compact=bool(spec.opt("compact_labels", True))),
+        ax.annotate(fmt.fmt_value(v, s.unit, compact=bool(spec.opt("compact_labels", True)),
+                                  peak=_peak(s.values)),
                     (v, y), textcoords="offset points", xytext=(pad, 0),
                     ha="left" if v >= 0 else "right", va="center",
                     fontsize=theme.FS_DATALABEL,
@@ -605,7 +613,7 @@ def waterfall(fig: Figure, ax: plt.Axes, spec: ChartSpec) -> Handles:
         top = hi if (hi - lo) >= 0 else lo
         chrome.data_label(ax, i, top,
                           fmt.fmt_value(v, s.unit, compact=bool(spec.opt("compact_labels", True)),
-                                        signed=(k != "total")),
+                                        signed=(k != "total"), peak=_peak(s.values)),
                           above=True,
                           color=col_map[k] if k != "total" else theme.INK)
         if i < len(cats) - 1:

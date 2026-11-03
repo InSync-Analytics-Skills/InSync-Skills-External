@@ -25,7 +25,7 @@ ways that fail silently, so the wrong ones are listed too.
 | Capex | `CF_P_109` | `CF_P_121` is accounts payable within CFO |
 | Inventory | `BS_P_147` | `BS_P_131` is short-term lease |
 | Accounts receivable | `BS_P_119` | `BS_P_121` is not receivables |
-| Cash and equivalents | `BS_P_141` (`BS_P_101` includes securities) | `BS_P_111` is total liabilities |
+| Cash and equivalents | `BS_P_101` (cash, equivalents and short-term investments); `BS_P_141` (cash only) only when the user asks for cash excluding investments | `BS_P_111` is total liabilities |
 | Total debt | `BS_P_108` incl. leases, `BS_P_114` ex-leases | `BS_P_181` does not exist |
 | Days of inventory | `RT_P_301` | |
 

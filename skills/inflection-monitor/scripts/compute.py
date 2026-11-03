@@ -29,13 +29,14 @@ import re
 import statistics
 import sys
 from datetime import datetime, timezone
+from decimal import Decimal, ROUND_HALF_UP
 
 
 def _utc_now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-VERSION = "4.59.0"
+VERSION = "4.59.5"
 
 LOOKBACK_QUARTERS = 13
 MIN_Q_FOR_RANK = 9
@@ -3050,6 +3051,20 @@ class Series:
             return v
         return v / div
 
+    def printed_growth(self):
+        g, c, b = self.latest_growth, self.display_level[0], self.prior_year_display
+        if (g is not None and self.kind == "level" and self.unit == "pct"
+                and self.unit_info[0] in (None, "currency") and c is not None
+                and b is not None and abs(b) >= 1e9):
+            cut = 1e12 if max(abs(c), abs(b)) >= 1e12 else 1e9
+            bp = _hu(b / cut, 2)
+            if bp and abs((c - b) / abs(b) * 100 - g) < 0.5:
+                g = (_hu(c / cut, 2) - bp) / abs(bp) * 100
+        dp = 1 if self.unit == "pct" else 0
+        a = (None if g is None or self.prev_growth is None
+             else _hu(_hu(g, dp) - _hu(self.prev_growth, dp), dp))
+        return g, a
+
     @property
     def absolute_change(self):
         cur, prior = self.display_level[0], self.prior_year_display
@@ -3193,9 +3208,9 @@ class Series:
                 and not NOT_WORKING_CAPITAL_PAT.search(self.name or "")
                 and self.latest_growth - rev.latest_growth > 10.0):
             return "Unfavourable", (
-                "growing %.1f percentage points faster than revenue, which grew "
-                "%.1f%% year over year" % (self.latest_growth - rev.latest_growth,
-                                           rev.latest_growth))
+                "growing %s percentage points faster than revenue, which grew "
+                "%s%% year over year" % (fmt_number(_hu(self.latest_growth, 1) - _hu(rev.latest_growth, 1), 1),
+                                     fmt_number(rev.latest_growth, 1)))
 
         if pol == 0:
             return "Ambiguous", (polarity_note(self.name)
@@ -3207,12 +3222,12 @@ class Series:
             gap = self.latest_growth - rev.latest_growth
             if favourable and gap > 0.05:
                 return "Ambiguous", (
-                    "slowed, but still grew faster than revenue (%+.1f%% against %+.1f%%), "
-                    "so the margin it feeds still narrowed" % (self.latest_growth, rev.latest_growth))
+                    "slowed, but still grew faster than revenue (%s%% against %s%%), "
+                    "so the margin it feeds still narrowed" % (fmt_number(self.latest_growth, 1, True), fmt_number(rev.latest_growth, 1, True)))
             if not favourable and gap < -0.05:
                 return "Ambiguous", (
-                    "sped up, but still grew slower than revenue (%+.1f%% against %+.1f%%), "
-                    "so the margin it feeds still widened" % (self.latest_growth, rev.latest_growth))
+                    "sped up, but still grew slower than revenue (%s%% against %s%%), "
+                    "so the margin it feeds still widened" % (fmt_number(self.latest_growth, 1, True), fmt_number(rev.latest_growth, 1, True)))
         _subj = re.sub(r"^.*?%\s*revenue\s*-\s*", "", self.name or "", flags=re.I)
         _subj = re.sub(r"\s*as\s*%\s*of\s*revenue\s*$", "", _subj, flags=re.I)
         if (self.kind == "ratio" and pol < 0 and self.latest_growth is not None
@@ -3221,11 +3236,11 @@ class Series:
                 and not re.search(r"inventor|receivab|payabl|\bdebt\b|leverage|\bdays\b",
                                   _subj, re.I)):
             if favourable and self.latest_growth > 0.5:
-                return "Ambiguous", ("rose less than last quarter, but is still %+d bps above a year "
-                                     "ago, so the margin it feeds still narrowed" % round(self.latest_growth))
+                return "Ambiguous", ("rose less than last quarter, but is still %s bps above a year "
+                                     "ago, so the margin it feeds still narrowed" % fmt_number(self.latest_growth, 0, True))
             if not favourable and self.latest_growth < -0.5:
-                return "Ambiguous", ("fell less than last quarter, but is still %+d bps below a year "
-                                     "ago, so the margin it feeds still widened" % round(self.latest_growth))
+                return "Ambiguous", ("fell less than last quarter, but is still %s bps below a year "
+                                     "ago, so the margin it feeds still widened" % fmt_number(self.latest_growth, 0, True))
         if self.comp_flag:
             return ("Favourable" if favourable else "Unfavourable",
                     ("higher is generally favourable for this line, and the "
@@ -3249,12 +3264,12 @@ class Series:
             if self.kind == "pre_growth":
                 labels.append(
                     f"Part of the change is the comparison: last quarter's reading of "
-                    f"{ev['prior_growth']:,.1f}% was in the {ev['which']} quarter of this "
+                    f"{fmt_number(ev['prior_growth'], 1)}% was in the {ev['which']} quarter of this "
                     f"line's last {ev['observations']} readings")
             else:
                 labels.append(
                     f"Part of the change is the comparison: last quarter's y/y of "
-                    f"{ev['prior_growth']:+,.{_d}f}{unit} was in the {ev['which']} quarter of "
+                    f"{fmt_number(ev['prior_growth'], _d, True)}{unit} was in the {ev['which']} quarter of "
                     f"this line's last {ev['observations']} readings")
         if ctx.get("acquisition_material") and self.kind == "level":
             labels.append("Acquisition activity is material in the period")
@@ -3417,18 +3432,18 @@ class Series:
             eff_bps, share, size_display = None, None, None
             if unit == "bps" and self.kind == "ratio":
                 eff_bps = size
-                size_display = "about %s bps" % format(int(round(size)), ",")
+                size_display = "about %s bps" % fmt_number(size, 0)
             elif unit == "usd" and self.kind == "ratio" and rev is not None and rev.latest_value:
                 eff_bps = size / abs(rev.latest_value) * 1e4
                 size_display = "about %s (about %s bps of revenue)" % (_money(size, getattr(rev, "currency", None) or "$"),
-                                                                       format(int(round(eff_bps)), ","))
+                                                                       fmt_number(eff_bps, 0))
             elif unit == "usd" and self.kind == "level":
                 size_display = "about " + _money(size, getattr(self, "currency", None) or "$")
                 v = self.as_points()
                 if len(v) >= 5 and v[-1] is not None and v[-5] is not None and v[-1] != v[-5]:
                     share = size / (v[-1] - v[-5])
             elif unit == "usd_per_share":
-                size_display = "about $%.2f a share" % size
+                size_display = "about $%s a share" % fmt_number(size, 2)
             if size_display is None:
                 return None
             charge = str(e.get("direction") or "benefit").lower() == "charge"
@@ -3441,9 +3456,8 @@ class Series:
                     and move is not None:
                 _sg = -1.0 if charge else 1.0
                 _lv = self.latest_value * (100.0 if getattr(self, "pct_is_fraction", False) else 1.0)
-                ex_level = "%.2f%%" % (_lv - _sg * eff_bps / 100.0)
-                ex_move = "%+d bps" % int(round(move - _sg * eff_bps))
-                ex_move = ("+" if not ex_move.startswith("-") else "-") + format(abs(int(round(move - _sg * eff_bps))), ",") + " bps"
+                ex_level = fmt_pct_level(_lv - _sg * eff_bps / 100.0)
+                ex_move = fmt_number(move - _sg * eff_bps, 0, True) + " bps"
             return {"label": str(e.get("label") or "a one-time item"), "kind": kind,
                     "ex_level_display": ex_level, "ex_move_display": ex_move,
                     "charge": charge, "carried_from": ("gross margin" if carried else None),
@@ -3468,9 +3482,8 @@ class Series:
                 _net = (-1.0 if own.get("charge") else 1.0) * own["effect_bps"] \
                     + (-1.0 if car.get("charge") else 1.0) * car["effect_bps"]
                 _lv = self.latest_value * (100.0 if getattr(self, "pct_is_fraction", False) else 1.0)
-                own["ex_level_display"] = "%.2f%%" % (_lv - _net / 100.0)
-                _m = int(round(self.latest_growth - _net))
-                own["ex_move_display"] = ("-" if _m < 0 else "+") + format(abs(_m), ",") + " bps"
+                own["ex_level_display"] = fmt_pct_level(_lv - _net / 100.0)
+                own["ex_move_display"] = fmt_number(self.latest_growth - _net, 0, True) + " bps"
                 own["ex_both"] = True
                 own["share_net"] = round(_net / self.latest_growth, 3) if self.latest_growth else None
             car["ex_level_display"] = car["ex_move_display"] = None
@@ -3560,6 +3573,8 @@ class Series:
             "display_value": self.display_level[0],
             "prior_year_value": self.prior_year_display,
             "absolute_change": self.absolute_change,
+            "growth_printed": self.printed_growth()[0],
+            "accel_printed": self.printed_growth()[1],
             "lower_is_better": self.lower_is_better,
             "growth_series": self.growth,
             "accel_series": self.accel,
@@ -4381,17 +4396,17 @@ def _eps_bridge(series, eps, rev):
         steps.append({"label": fds.display, "growth": fds.latest_growth})
     steps.append({"label": eps.display, "growth": eps.latest_growth})
     txt = "%s %s against %s %s: %s %s" % (
-        eps.display, _fmt_growth(eps.latest_growth, "pct"), rev.display,
-        _fmt_growth(rev.latest_growth, "pct"), ebit.display,
-        _fmt_growth(ebit.latest_growth, "pct"))
+        eps.display, _fmt_growth(eps.printed_growth()[0], "pct"), rev.display,
+        _fmt_growth(rev.printed_growth()[0], "pct"), ebit.display,
+        _fmt_growth(ebit.printed_growth()[0], "pct"))
     if om is not None and om.latest_growth is not None:
         txt += " as the margin moved %s" % _fmt_accel(om.latest_growth, "bps")
     if ni is not None:
         below = ("added to" if ni.latest_growth > ebit.latest_growth else "took from")
         txt += "; %s %s, so items below operating profit %s the growth" % (
-            ni.display, _fmt_growth(ni.latest_growth, "pct"), below)
+            ni.display, _fmt_growth(ni.printed_growth()[0], "pct"), below)
     if fds is not None and fds.latest_growth is not None:
-        txt += "; %s %s y/y" % (fds.display, _fmt_growth(fds.latest_growth, "pct"))
+        txt += "; %s %s y/y" % (fds.display, _fmt_growth(fds.printed_growth()[0], "pct"))
     if ni is None:
         txt += ("; the rest of the gap is below operating profit (interest, other income and tax)"
                 if fds is not None else "; the rest of the gap is below operating profit and in the share count")
@@ -4494,9 +4509,9 @@ def _divergences(series, subindustry=None, template=None):
                 if _cash is not None:
                     out[-1]["cash_context"] = {
                         "text": "%s %s y/y against revenue %s; %s %s y/y to %s over the same quarter."
-                                % (s.display, _fmt_growth(s.latest_growth, "pct"),
-                                   _fmt_growth(rev.latest_growth, "pct"), _cash.display,
-                                   _fmt_growth(_cash.latest_growth, "pct"),
+                                % (s.display, _fmt_growth(s.printed_growth()[0], "pct"),
+                                   _fmt_growth(rev.printed_growth()[0], "pct"), _cash.display,
+                                   _fmt_growth(_cash.printed_growth()[0], "pct"),
                                    _money(_cash.latest_value, getattr(_cash, "currency", None))),
                         "ocf_ltcode": _cash.ltcode}
                 break
@@ -4864,7 +4879,7 @@ def _guide_readable_core(g, rng, s, yoy_form):
         _dp = min(2, max(_dps)) if _dps else (0 if re.search(r"\d", _t) else 2)
         return _range_str(lo, hi, "%", _dp)
     if str(g.get("FORMAT_CODE") or g.get("format_code") or "").upper()[:1] == "X":
-        f = lambda v: ("%.1fx" % v)
+        f = lambda v: fmt_number(v, 2) + "x"
         return f(lo) if lo == hi else f(lo) + " to " + f(hi)
     if s is not None and s.unit_info and s.unit_info[0] not in (None, "currency"):
         lab, div, dp = s.unit_info[0], s.unit_info[1], s.unit_info[2]
@@ -4877,7 +4892,7 @@ def _guide_readable_core(g, rng, s, yoy_form):
            (getattr(s, "currency", None) if s is not None else None))
     if SHARE_COUNT_PAT.search(
             str((s.name if s is not None else "") or g.get("LINEITEM") or g.get("lineitem") or "")):
-        return (_money(lo, "") if lo == hi else _money(lo, "") + " to " + _money(hi, ""))
+        return (_money(lo, "") if lo == hi else _money(lo, "", hi) + " to " + _money(hi, "", lo))
     sym = {"USD": "$", "JPY": "\u00a5", "EUR": "\u20ac", "GBP": "\u00a3"}.get(str(cur or "").upper(), cur or "") \
         or (_DEFAULT_CUR["sym"] or "")
     _gt_raw = str(g.get("GUIDE_TEXT") or g.get("guide_text") or "")
@@ -4893,7 +4908,7 @@ def _guide_readable_core(g, rng, s, yoy_form):
         sym = ""
     if sym == "" and all(abs(v) < 1e3 and float(v).is_integer() for v in (lo, hi)):
         return ("%d" % lo) if lo == hi else "%d to %d" % (lo, hi)
-    return (_money(lo, sym) if lo == hi else _money(lo, sym) + " to " + _money(hi, sym))
+    return (_money(lo, sym) if lo == hi else _money(lo, sym, hi) + " to " + _money(hi, sym, lo))
 
 
 def guide_history(guides):
@@ -5350,7 +5365,7 @@ def company_exclusions(series):
             if ly >= 0 else None
         cur = getattr(base, "currency", None) or ""
         def _f(v):
-            return (cur + ("%.2f" % v)) if abs(v) < 1000 else _money(v, cur)
+            return _money(v, cur)
         row = {"base_ltcode": base.ltcode, "base_display": base.display,
                "excl_ltcode": x.ltcode, "item": m.group(1).strip(),
                "period": last, "base_value": pb[last], "excl_value": px[last],
@@ -5377,7 +5392,7 @@ def company_exclusions(series):
             ya = _year_ago_label(last)
             ya = ya if ya in com else next((q for q in com if clean_period_label(q) == ya), None)
             cur = getattr(_cps, "currency", None) or ""
-            f = lambda v: (("-" if v < 0 else "") + cur + ("%.2f" % abs(v)))
+            f = lambda v: _money(v, cur)
             row = {"base_ltcode": _cps.ltcode, "base_display": _cps.display,
                    "excl_ltcode": _pr.ltcode, "item": "Net promote income",
                    "period": last, "base_value": ps_[last], "excl_value": _ex(last),
@@ -5470,7 +5485,7 @@ def _attach_exclusion_twins(payload, series):
                 "ltcode": t.ltcode, "item": item,
                 "display": t.display, "latest_growth": t.latest_growth, "prev_growth": t.prev_growth,
                 "prev_period": t.periods[-2] if len(t.periods) >= 2 else None,
-                "growth_display": _fmt_growth(t.latest_growth, t.unit),
+                "growth_display": _fmt_growth(t.printed_growth()[0], t.unit),
                 "prev_growth_display": _fmt_growth(t.prev_growth, t.unit),
                 "level_display": (_money(lvl[0], getattr(t, "currency", None))
                                   if lvl and lvl[0] is not None and lvl[1] in (None, "currency") else None),
@@ -5508,7 +5523,7 @@ def _attach_adjusted_twins(payload, series_by_code, raw=None):
                 continue
             tw = {"ltcode": t.ltcode, "display": t.display, "level_word": t.level_word(),
                   "latest_growth": t.latest_growth,
-                  "growth_display": _fmt_growth(t.latest_growth, t.unit)}
+                  "growth_display": _fmt_growth(t.printed_growth()[0], t.unit)}
             adj = series_by_code.get("IS_P_102")
             if (t.ltcode or "").endswith("-M") and t.periods and raw \
                     and re.search(r"1x", getattr(adj, "name", "") or "", re.I):
@@ -5564,9 +5579,9 @@ def _attach_reported_twins(payload, series_by_code):
             lv = s.as_points()[-1]
             r["reported_twin"] = {
                 "ltcode": s.ltcode, "name": s.name, "display": s.display,
-                "latest": lv, "latest_display": "%.1f%%" % lv,
-                "gap_bps_now": round(d_now * 100.0),
-                "gap_bps_max": round(max(gaps) * 100.0) if gaps else None,
+                "latest": lv, "latest_display": fmt_pct_level(lv),
+                "gap_bps_now": int(_hu(d_now * 100.0, 0)),
+                "gap_bps_max": int(_hu(max(gaps) * 100.0, 0)) if gaps else None,
             }
 
 
@@ -5629,9 +5644,9 @@ def _exclusion_pre(s):
         return "vendor_ratio_mismatch", ("Data-Quality Exception, Not Scored: the source's %s reading "
                 "(%s) disagrees with its own %s over %s (%s), which matched in every other "
                 "quarter; the ratio is held out until the source is corrected"
-                % (o["period"], ("%.2f" % o["vendor"]).rstrip("0").rstrip(".") + "%",
+                % (o["period"], fmt_number(o["vendor"], 2).rstrip("0").rstrip(".") + "%",
                    o["numerator"], o["denominator"],
-                   ("%.2f" % o["parts"]).rstrip("0").rstrip(".") + "%"))
+                   fmt_number(o["parts"], 2).rstrip("0").rstrip(".") + "%"))
     if getattr(s, "erratic_stock", False):
         return "erratic_stock", ("Data-Quality Exception, Not Scored: a balance that alternates between two "
                 "levels from quarter to quarter, which a stock of assets does not do; the "
@@ -5771,7 +5786,7 @@ def _unit_str(v, lab, dp, bps_unit=False, div=None):
     if v is None:
         return None
     if lab == "%" or bps_unit:
-        return f"{v:,.{dp if dp is not None else 2}f}%"
+        return fmt_number(v, dp if dp is not None else 2) + "%"
     if lab == "count":
         if abs(v) < 1e3 and float(v).is_integer():
             return "%d" % v
@@ -5781,8 +5796,8 @@ def _unit_str(v, lab, dp, bps_unit=False, div=None):
     if div:
         v = v / div
     if lab == "x":
-        return f"{v:,.2f}x"
-    return f"{v:,.{dp if dp is not None else 2}f} {lab}"
+        return fmt_number(v, 2) + "x"
+    return fmt_number(v, dp if dp is not None else 2) + f" {lab}"
 
 
 def _count_lab(s, lab):
@@ -6087,7 +6102,7 @@ def _guidance(raw, series_by_code, latest_quarter):
             return None
         return (min(vals), max(vals))
     def _g1(v):
-        return ("%.1f" % v).rstrip("0").rstrip(".")
+        return fmt_number(v, 1).rstrip("0").rstrip(".")
     component_checks = []
     _comp = {}
     for n in notes + [{"label": g.get("LINEITEM") or g.get("lineitem"),
@@ -6337,8 +6352,7 @@ def format_gap(gap, unit, kind, name, lab, dp, bound):
 
 
 def _num_fmt(v, dp):
-    t = f"{v:,.{dp}f}"
-    return "0" + ("." + "0" * dp if dp else "") if re.fullmatch(r"-0(\.0+)?", t) else t
+    return fmt_number(v, dp)
 
 
 DEEP_DIVE_FAMILIES = [
@@ -6702,21 +6716,27 @@ def _cash_conversion(series, rev, profit_accelerating=False):
                            "revenue did not accelerate this quarter")}
     rows, missing, held_out = [], [], []
     spliced_notes = []
+    _lq = rev.periods[-1] if rev.periods else None
+    def _cur(x):
+        return _lq is None or not x.periods or x.periods[-1] == _lq
+    _bal = {"Accounts Receivable", "Inventory", "Deferred Revenue"}
     for label, pat in CASH_PANEL:
         _code = CASH_PANEL_CODES.get(label)
+        _flow = (lambda x: label in _bal and ((x.ltcode or "").startswith("CF_")
+                 or re.search(r"change in working capital|change in", x.name or "", re.I)))
         _own = None
         if label == "Free Cash Flow":
             _own = next((x for x in series if re.search(
                 r"free cash flows? \(non-?gaap\)|co\.?\s*defined fcf|company[- ]defined (fcf|free cash)",
                 x.name or "", re.I) and x.latest_growth is not None
-                and x.provenance in ("filed", "presented")), None)
+                and x.provenance in ("filed", "presented") and _cur(x)), None)
         s = (_own or next((x for x in series if _code and x.ltcode == _code
-                   and x.latest_growth is not None), None)
-             or next((x for x in series if re.search(pat, x.name or "", re.I)
-                      and x.latest_growth is not None), None))
+                   and x.latest_growth is not None and _cur(x)), None)
+             or next((x for x in series if re.search(pat, x.name or "", re.I) and not _flow(x)
+                      and x.latest_growth is not None and _cur(x)), None))
         if s is None:
             _any = next((x for x in series if (_code and x.ltcode == _code)
-                         or re.search(pat, x.name or "", re.I)), None)
+                         or (re.search(pat, x.name or "", re.I) and not _flow(x))), None)
             if _any is not None:
                 held_out.append(label)
                 continue
@@ -6733,17 +6753,17 @@ def _cash_conversion(series, rev, profit_accelerating=False):
             spliced_notes.append({"label": label, "with": s.spliced_with})
             continue
         _days = bool(re.search(r"\bdays\b", label, re.I))
-        gap = (s.latest_growth - rev.latest_growth) if (s.kind == "level" and not _days) else None
+        gap = (_hu(s.printed_growth()[0], 1) - _hu(rev.printed_growth()[0], 1)) if (s.kind == "level" and not _days) else None
         _lvl = s.display_level
         rows.append({
             "label": label, "display": s.display, "ltcode": s.ltcode,
-            "unit": s.unit, "latest_growth": s.latest_growth,
+            "unit": s.unit, "latest_growth": s.printed_growth()[0],
             "level": (_lvl[0] if _lvl else None),
             "level_unit": (_lvl[1] if _lvl else None),
-            "level_display": (_money(_lvl[0], getattr(s, "currency", None))
+            "level_display": (_money(_lvl[0], getattr(s, "currency", None), s.prior_year_display)
                               if _lvl and _lvl[0] is not None else None),
             "prior_level": s.prior_year_display,
-            "prior_level_display": (_money(s.prior_year_display, getattr(s, "currency", None))
+            "prior_level_display": (_money(s.prior_year_display, getattr(s, "currency", None), _lvl[0] if _lvl else None)
                                     if s.prior_year_display is not None else None),
             "gap_versus_revenue": gap,
             "status": (("longer than a year ago" if (s.latest_growth or 0) > 0
@@ -6756,9 +6776,9 @@ def _cash_conversion(series, rev, profit_accelerating=False):
     _deferred = [r for r in flagged if r["label"] == "Deferred Revenue"]
     flagged = [r for r in flagged if r["label"] != "Deferred Revenue"]
     _def_txt = ("" if not _deferred else
-                " Deferred Revenue grew %+.1f%%, which is billing collected ahead "
+                " Deferred Revenue grew %s%%, which is billing collected ahead "
                 "of revenue rather than revenue left uncollected."
-                % _deferred[0]["latest_growth"])
+                % fmt_number(_deferred[0]["latest_growth"], 1, True))
     _held_cash = [x for x in held_out if x in ("Operating Cash Flow", "Free Cash Flow")]
     _held_txt = (" and ".join(_held_cash)
                  + (" was" if len(_held_cash) == 1 else " were")
@@ -6769,25 +6789,23 @@ def _cash_conversion(series, rev, profit_accelerating=False):
                  and r.get("latest_growth") is not None), None)
     parts = []
     for r in flagged:
-        parts.append(f"{r['label']} grew {r['latest_growth']:+,.1f}%")
-    rev_txt = f"revenue growth of {rev.latest_growth:+,.1f}%"
+        parts.append(f"{r['label']} grew {fmt_number(r['latest_growth'], 1, True)}%")
+    rev_txt = f"revenue growth of {fmt_number(rev.printed_growth()[0], 1, True)}%"
     _CASH_LABELS = ("Operating Cash Flow", "Free Cash Flow")
     cash_flagged = [r for r in flagged if r["label"] in _CASH_LABELS]
     if parts and cash_flagged:
-        parts = ["%s grew %+.1f%%" % (r["label"], r["latest_growth"]) for r in cash_flagged]
+        parts = ["%s grew %s%%" % (r["label"], fmt_number(r["latest_growth"], 1, True)) for r in cash_flagged]
         _moved = [r for r in rows
                   if r["label"] not in _CASH_LABELS
                   and r.get("latest_growth") is not None
                   and abs(r["latest_growth"]) >= 5.0]
         _mech = ("; over the same period "
-                 + ", ".join("%s %s%.1f%%" % (r["label"].lower(),
-                                              "+" if r["latest_growth"] > 0 else "",
-                                              r["latest_growth"]) for r in _moved[:3])
+                 + ", ".join("%s %s%%" % (r["label"].lower(), fmt_number(r["latest_growth"], 1, True)) for r in _moved[:3])
                  if _moved else "")
         conclusion = (", ".join(parts) + f", compared with {rev_txt}" + _mech + ".")
     elif parts and cash:
         conclusion = (", ".join(parts) + f", compared with {rev_txt}, while "
-                      f"{cash['label']} changed {cash['latest_growth']:+,.1f}%.")
+                      f"{cash['label']} changed {fmt_number(cash['latest_growth'], 1, True)}%.")
     elif parts:
         conclusion = (", ".join(parts) + f", compared with {rev_txt}. "
                       + ((_held_txt[:1].upper() + _held_txt[1:]) if _held_txt
@@ -6799,7 +6817,7 @@ def _cash_conversion(series, rev, profit_accelerating=False):
                  and r.get("latest_growth") is not None]
         if named:
             facts = ", ".join(
-                f"{r['label']} {r['latest_growth']:+,.1f}%"
+                f"{r['label']} {fmt_number(r['latest_growth'], 1, True)}%"
                 + (f" at {r['level_display']}" if r.get("level_display") else "")
                 for r in named)
             behind = [r for r in named
@@ -6820,13 +6838,13 @@ def _cash_conversion(series, rev, profit_accelerating=False):
             else:
                 tail = (" No panel line outgrew revenue by more than the "
                         "reporting threshold.")
-            conclusion = (f"Revenue {'grew' if rev.latest_growth >= 0 else 'changed'} {rev.latest_growth:+,.1f}% against " + facts
+            conclusion = (f"Revenue {'grew' if rev.latest_growth >= 0 else 'changed'} {fmt_number(rev.printed_growth()[0], 1, True)}% against " + facts
                           + "." + tail)
         elif _held_txt:
-            conclusion = (f"Revenue {'grew' if rev.latest_growth >= 0 else 'changed'} {rev.latest_growth:+,.1f}%; " + _held_txt
+            conclusion = (f"Revenue {'grew' if rev.latest_growth >= 0 else 'changed'} {fmt_number(rev.printed_growth()[0], 1, True)}%; " + _held_txt
                           + ", so the conversion question is open.")
         else:
-            conclusion = (f"Revenue {'grew' if rev.latest_growth >= 0 else 'changed'} {rev.latest_growth:+,.1f}% and no cash line was "
+            conclusion = (f"Revenue {'grew' if rev.latest_growth >= 0 else 'changed'} {fmt_number(rev.printed_growth()[0], 1, True)}% and no cash line was "
                           "returned by this scan, so the conversion question is open.")
     conclusion = conclusion + _def_txt
     _CASH = ("Operating Cash Flow", "Free Cash Flow")
@@ -6837,10 +6855,10 @@ def _cash_conversion(series, rev, profit_accelerating=False):
     quality = None
     if _wc_up and not _cash_kept_pace and not any(
             r["label"] in conclusion for r in _wc_up):
-        quality = (", ".join("%s grew %+.1f%%" % (r["label"], r["latest_growth"])
+        quality = (", ".join("%s grew %s%%" % (r["label"], fmt_number(r["latest_growth"], 1, True))
                              for r in _wc_up[:2])
-                   + " against revenue growth of %+.1f%%, while no cash line kept pace."
-                   % rev.latest_growth)
+                   + " against revenue growth of %s%%, while no cash line kept pace."
+                   % fmt_number(rev.printed_growth()[0], 1, True))
     return {"triggered": True, "revenue_growth": rev.latest_growth,
             "revenue_accel": rev.latest_accel, "rows": rows,
             "not_disclosed": [m for m in missing if m not in held_out],
@@ -7090,7 +7108,7 @@ def _non_operating_window(series, payload):
         out.append({"period": per, "role": role,
                     "display": _non_operating_word(series, nio, per),
                     "value_display": _money(abs(vals[per]), cur),
-                    "share_of_operating_profit_pct": round(abs(vals[per]) / abs(ev[per]) * 100.0, 1),
+                    "share_of_operating_profit_pct": _hu(abs(vals[per]) / abs(ev[per]) * 100.0, 1),
                     "ltcode": nio.ltcode})
     if not out:
         return []
@@ -7135,9 +7153,9 @@ def _one_time_items(series, latest_q):
         cur = getattr(x, "currency", None) or _DEFAULT_CUR.get("sym")
         _rev = next((y for y in series if y.ltcode == "IS_P_101"), None)
         _rv = dict(zip(_rev.periods, _rev.values)) if _rev else {}
-        _bps = (round(abs(x.latest_value) / abs(_rv[latest_q]) * 1e4)
+        _bps = (int(_hu(abs(x.latest_value) / abs(_rv[latest_q]) * 1e4, 0))
                 if _rv.get(latest_q) else None)
-        _bps_ya = (round(abs(prior) / abs(_rv[ya]) * 1e4)
+        _bps_ya = (int(_hu(abs(prior) / abs(_rv[ya]) * 1e4, 0))
                    if prior not in (None, 0) and _rv.get(ya) else None)
         if _bps is not None and _bps < 5:
             continue
@@ -7178,16 +7196,16 @@ def _bps_dp(unit, dp):
     return 0 if unit != "pct" else dp
 
 
-def _money(v, cur=None):
+def _money(v, cur=None, ref=None, signed=False):
     if v is None:
         return "level withheld"
     p_ = cur or ""
     a = abs(v)
-    sg = "-" if v < 0 else ""
-    for cut, suf in ((1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K")):
-        if a >= cut:
-            return f"{sg}{p_}{a / cut:,.2f}{suf}"
-    return f"{sg}{p_}{a:,.2f}"
+    a = max(a, abs(ref or 0))
+    for cut, suf in ((1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K"), (1, "")):
+        if a >= cut or cut == 1:
+            s = fmt_number(abs(v) / cut, 2)
+            return ("\u2212" if v < 0 and s.strip("0.,") else "+" if signed else "") + p_ + s + suf
 
 
 def format_row_level(v, unit_label, decimals, withheld, cur=None):
@@ -7199,24 +7217,33 @@ def format_row_level(v, unit_label, decimals, withheld, cur=None):
         a = abs(v)
         for cut, suf in ((1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K")):
             if a >= cut:
-                return f"{v / cut:,.2f}{suf}"
-        return f"{v:,.0f}"
+                return fmt_number(v / cut, 2) + suf
+        return fmt_number(v, 0)
     dp = 2 if decimals is None else decimals
     if unit_label not in ("%", "x") and abs(v) >= 1e6:
         a = abs(v)
         for cut, suf in ((1e12, "T"), (1e9, "B"), (1e6, "M")):
             if a >= cut:
-                return f"{v / cut:,.2f}{suf} {unit_label}"
-    return f"{v:,.{dp}f}" + ("%" if unit_label == "%" else f" {unit_label}")
+                return fmt_number(v / cut, 2) + f"{suf} {unit_label}"
+    return ((fmt_pct_level(v) if dp >= 2 else fmt_number(v, dp) + "%") if unit_label == "%"
+            else fmt_number(v, dp) + f" {unit_label}")
 
 
 def fmt_number(v, dp=1, signed=False):
-    if v is None:
+    if v is None or not math.isfinite(float(v)):
         return "n/a"
-    r = round(float(v), dp)
+    r = _hu(v, dp)
     if r == 0:
         return f"{0.0:,.{dp}f}"
-    return f"{r:+,.{dp}f}" if signed else f"{r:,.{dp}f}"
+    return ("\u2212" if r < 0 else "+" if signed else "") + f"{abs(r):,.{dp}f}"
+
+
+def _hu(v, dp):
+    return float(Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-dp), rounding=ROUND_HALF_UP))
+
+
+def fmt_pct_level(v, ref=None):
+    return fmt_number(v, 2 if max(abs(v), abs(ref or 0)) < 5 else 1) + "%"
 
 
 def _fmt_growth(v, unit, dp=1):
@@ -7452,11 +7479,11 @@ def _ranking_disclosure(payload):
 
 
 def _ph_growth(r, key):
-    v = r.get(key)
+    v = r.get("growth_printed", r.get(key)) if key == "latest_growth" else r.get(key)
     if r.get("kind") == "pre_growth" and v is not None:
         _vs = [x for x in (r.get("value_series") or []) if x is not None]
         _dp = 0 if _vs and all(float(x).is_integer() for x in _vs) else 1
-        return ("%." + str(_dp) + "f%%") % v
+        return fmt_number(v, _dp) + "%"
     return _fmt_growth(v, r["unit"])
 
 
@@ -7506,14 +7533,14 @@ def _placeholders(payload):
     }
     for i, r in enumerate(payload["accelerating"][:DEEP_DIVE_N], 1):
         ph[f"acc{i}.name"] = r.get("display") or r["name"]
-        ph[f"acc{i}.z"] = f"{abs(r['z_display']):.1f}"
-        ph[f"acc{i}.accel"] = _fmt_accel(r["latest_accel"], r["unit"])
+        ph[f"acc{i}.z"] = fmt_number(abs(r['z_display']), 1)
+        ph[f"acc{i}.accel"] = _fmt_accel(r.get("accel_printed", r["latest_accel"]), r["unit"])
         ph[f"acc{i}.growth"] = _ph_growth(r, "latest_growth")
         ph[f"acc{i}.streak"] = str(r["streak"])
     for i, r in enumerate(payload["decelerating"][:DEEP_DIVE_N], 1):
         ph[f"dec{i}.name"] = r.get("display") or r["name"]
-        ph[f"dec{i}.z"] = f"{abs(r['z_display']):.1f}"
-        ph[f"dec{i}.accel"] = _fmt_accel(r["latest_accel"], r["unit"])
+        ph[f"dec{i}.z"] = fmt_number(abs(r['z_display']), 1)
+        ph[f"dec{i}.accel"] = _fmt_accel(r.get("accel_printed", r["latest_accel"]), r["unit"])
         ph[f"dec{i}.growth"] = _ph_growth(r, "latest_growth")
         ph[f"dec{i}.streak"] = str(r["streak"])
     for i, r in enumerate(payload["deep_dive"], 1):
@@ -7528,8 +7555,8 @@ def _placeholders(payload):
         ph[f"dd{i}.implication"] = r.get("implication") or "Ambiguous"
         ph[f"dd{i}.confidence"] = r.get("confidence") or "Withheld"
         ph[f"dd{i}.dir"] = r["streak_dir"]
-        ph[f"dd{i}.z"] = f"{abs(r['z_display']):.1f}"
-        ph[f"dd{i}.accel"] = _fmt_accel(r["latest_accel"], r["unit"])
+        ph[f"dd{i}.z"] = fmt_number(abs(r['z_display']), 1)
+        ph[f"dd{i}.accel"] = _fmt_accel(r.get("accel_printed", r["latest_accel"]), r["unit"])
         ph[f"dd{i}.growth"] = _ph_growth(r, "latest_growth")
         ph[f"dd{i}.prev_growth"] = _ph_growth(r, "prev_growth")
         _ps = r.get("period_series") or []
@@ -7613,7 +7640,7 @@ def _placeholders(payload):
         ph[f"div{i}.headline"] = d["headline"]
         for j, m in enumerate(d["metrics"], 1):
             ph[f"div{i}.m{j}.name"] = m.get("display") or m["name"]
-            ph[f"div{i}.m{j}.z"] = f"{abs(m['z']):.1f}" if m["z"] is not None else "n/a"
+            ph[f"div{i}.m{j}.z"] = fmt_number(abs(m['z']), 1) if m["z"] is not None else "n/a"
     return ph
 
 
@@ -7940,7 +7967,7 @@ def _flag_outside_parts(series):
             def _p(a):
                 if abs(a) < 1e-9:
                     return "0%"
-                return ("%+.0f%%" % a) if abs(a - round(a)) < 1e-9 else ("%+.1f%%" % a)
+                return fmt_number(a, 0 if abs(a - round(a)) < 1e-9 else 1, True) + "%"
             _info = {"period": x.periods[-1], "value_display": _p(v),
                      "aggregate": x.display,
                      "parts_display": ", ".join(
@@ -8083,10 +8110,10 @@ def _prefer_reported(series):
             _lv = x.as_points()[-1]
             f.calculated_twin = {"ltcode": x.ltcode, "name": x.name,
                                  "display": x.display, "latest": _lv,
-                                 "latest_display": ("%.2f%%" % _lv) if x.kind == "ratio" else None,
+                                 "latest_display": fmt_pct_level(_lv) if x.kind == "ratio" else None,
                                  "gap_max": round(best[2], 4), "gap_now": round(best[3], 4),
-                                 "gap_bps_max": round(best[2] * 100) if x.kind == "ratio" else None,
-                                 "gap_bps_now": round(best[3] * 100) if x.kind == "ratio" else None}
+                                 "gap_bps_max": int(_hu(best[2] * 100, 0)) if x.kind == "ratio" else None,
+                                 "gap_bps_now": int(_hu(best[3] * 100, 0)) if x.kind == "ratio" else None}
 
 
 def _income_sign_convention(series):
@@ -8679,9 +8706,9 @@ def cmd_build(args):
                     _gr["guide_display_text"] = _t = "above " + _t
                 elif re.search(r"\bapprox|\baround\b|\babout\b|~", _gt, re.I) and " to " not in _t:
                     _gr["guide_display_text"] = _t = "approx. " + _t
-            if _t.startswith("-") and re.search(r"capex|capital expend",
+            if _t.startswith(("-", "\u2212")) and re.search(r"capex|capital expend",
                                                 str(_gr.get("name") or _gr.get("display") or ""), re.I):
-                _parts = [x.strip().lstrip("-") for x in _t.split(" to ")]
+                _parts = [x.strip().lstrip("-\u2212") for x in _t.split(" to ")]
                 _gr["guide_display_text"] = " to ".join(reversed(_parts)) if len(_parts) == 2 else _parts[0]
     _CNT = re.compile(r"\bstores?\b|\blocations?\b|\brestaurants?\b|\bbranches\b|"
                       r"headcount|employees|\bunits?\b(?! revenue)|\bcount\b|"
@@ -8721,7 +8748,7 @@ def cmd_build(args):
         if not nums or len(nums) > 2:
             return None
         neg = re.search(r"below|lower|\bdown\b|declin|contract|decreas|compress|^\s*[-(]", t, re.I)
-        sg = "-" if neg else "+"
+        sg = "\u2212" if neg else "+"
         return " to ".join(sg + n + " bps" for n in nums)
     _rv_list = payload["guidance_check"].setdefault("revisions", [])
     _have_rv = {(r.get("ltcode"), str(r.get("target_period"))) for r in _rv_list}
@@ -8790,7 +8817,7 @@ def cmd_build(args):
                 if isinstance(_dn, str) and not re.search(r"\(ex-?\s?1x", _dn, re.I):
                     _gr["display"] = _dn
     def _mid(t):
-        xs = [float(x.replace(",", "")) for x in re.findall(r"-?\d[\d,]*\.?\d*", str(t or ""))]
+        xs = [float(x.replace(",", "")) for x in re.findall(r"-?\d[\d,]*\.?\d*", str(t or "").replace("\u2212", "-"))]
         return (sum(xs[:2]) / len(xs[:2])) if xs else None
     _gcx = payload["guidance_check"]
     _pool = [g for _bk in ("other_horizon", "forward_uncompared", "scored", "revisions")
@@ -8813,7 +8840,7 @@ def cmd_build(args):
             _m1, _m0 = _mid(_rv.get("latest_display")), _mid(_at)
             _rv["items_only"] = {"adjusted_display": _a.get("display") or display_name(_a.get("name") or ""),
                                  "adjusted_guide": _at,
-                                 "gap_display": ("$%.2f" % abs(_m0 - _m1)) if (_m0 is not None and _m1 is not None
+                                 "gap_display": ("$" + fmt_number(abs(_m0 - _m1), 2)) if (_m0 is not None and _m1 is not None
                                                                               and "$" in str(_at)) else None}
             break
     for _bk in ("other_horizon", "forward_uncompared", "scored", "delivered"):
@@ -8940,8 +8967,8 @@ def cmd_build(args):
     monitor = []
     for r in monitor_src[:MONITOR_N]:
         fb = r.get("forward_bar") or {}
-        fact = (f"{_fmt_growth(r['latest_growth'], r['unit'])} y/y, pace "
-                f"{_fmt_accel(r['latest_accel'], r['unit'])}")
+        fact = (f"{_fmt_growth(r.get('growth_printed', r['latest_growth']), r['unit'])} y/y, pace "
+                f"{_fmt_accel(r.get('accel_printed', r['latest_accel']), r['unit'])}")
         if fb.get("level_to_hold_growth") is not None:
             _bar = format_row_level(
                 fb.get("level_to_hold_display"), r.get("unit_label"),
@@ -9285,6 +9312,10 @@ def cmd_build(args):
             "year_ago": ya, "year_ago_period": ps[-5] if len(ps) >= 5 else None,
             "vs_last_q": (round(cur - prev, 6) if prev is not None else None),
             "vs_year_ago": (round(cur - ya, 6) if ya is not None else None)}
+        _d = r["rate_decimals"]
+        for _k, _o in (("vs_last_q_printed", prev), ("vs_year_ago_printed", ya)):
+            r["rate_view"][_k] = (None if _o is None
+                                  else _hu(_hu(cur, _d) - _hu(_o, _d), max(_d, 1)))
     for _k in ("rate_kpis", "deep_dive", "headline_moves", "accelerating", "decelerating",
                "primary_context", "quiet_headline"):
         for _r in payload.get(_k) or []:
@@ -10101,16 +10132,16 @@ def cmd_verify(args):
 
 
 def _unusual_word(z):
-    a = round(abs(z or 0), 1)
+    a = abs(z or 0)
     return ("very unusual" if a >= 2.5 else "unusual" if a >= 1.5
             else "notable" if a >= 0.75 else "routine")
 
 
 def _fmt_row_line(r, rank):
     return (f"  {rank}. {r.get('display') or r['name']}  |  "
-            f"{_unusual_word(r['z_display'])} for this line ({r['z_display']:+.1f})  |  "
-            f"{_fmt_accel(r['latest_accel'], r['unit'])}  |  "
-            f"Y/Y {_fmt_growth(r['latest_growth'], r['unit'])} from "
+            f"{_unusual_word(r['z_display'])} for this line ({fmt_number(r['z_display'], 1, True)})  |  "
+            f"{_fmt_accel(r.get('accel_printed', r['latest_accel']), r['unit'])}  |  "
+            f"Y/Y {_fmt_growth(r.get('growth_printed', r['latest_growth']), r['unit'])} from "
             f"{_fmt_growth(r['prev_growth'], r['unit'])}  |  {r['streak']}Q trend  |  "
             f"{r.get('implication')}"
             + (f"  |  {r['comp_flag'].replace('_', ' ')}" if r.get("comp_flag") else ""))
@@ -10155,7 +10186,7 @@ def cmd_chat(args):
         L.append("")
         L.append("Headline lines scanned and quiet: "
                  + ", ".join(f"{r['name']} "
-                             f"({_fmt_growth(r['latest_growth'], r['unit'])})"
+                             f"({_fmt_growth(r.get('growth_printed', r['latest_growth']), r['unit'])})"
                              for r in p["quiet_headline"][:6]))
     print("\n".join(L))
 
@@ -10234,7 +10265,7 @@ def cmd_check(args):
         _seen_v["references/changelog.md"] = _m.group(1) if _m else None
     except OSError:
         pass
-    _vdrift = {k: v for k, v in _seen_v.items() if v != VERSION}
+    _vdrift = {k: v for k, v in _seen_v.items() if v is not None and v != VERSION}
     out = {
         "engine_complete": not missing,
         "engine_version": VERSION,

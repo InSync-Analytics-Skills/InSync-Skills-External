@@ -110,7 +110,7 @@ reaction_basis  OPTIONAL, 'intraday' (default) or 'after_close', drives the sect
                 price column headers and the section subtitle
 ccy             OPTIONAL currency SYMBOL for the three money formats, default '$'
 ccy_label       OPTIONAL masthead Figures field, default derived from money_scale
-money_scale     OPTIONAL, 'B' (default) or 'M', the magnitude of every '$M' cell
+money_scale     OPTIONAL, 'B' or 'M'; validated only since v7.12.5 (each row picks its unit)
 prior_label     OPTIONAL, the period the section 4 comparison column names
 ```
 
@@ -122,12 +122,11 @@ large-cap USD quarterly issuer needs none of them.
 |---|---|---|
 | `ccy` | the issuer does not report in dollars | every money cell is stamped `$` |
 | `ccy_label` | as above | the masthead states the scale in dollars |
-| `money_scale` | the issuer's spine lines run below roughly `$1,000M` | every `$M` cell prints inside two decimal places of a `$B` string, rows collide, and a movement table shows no movement |
 | `prior_label` | `hist` is not four quarters | the section 4 header names `hist[0]`, two years before the target on a half-year axis, while the figure beneath it is a one-year growth rate |
 | `periodicity` | the axis is not quarterly | nothing downstream knows the grid is not four quarters |
 | `reaction_basis` | the release lands after the close, which is most US issuers | the column headed `Close on print` holds the NEXT session's close, and rule 8 calls a heading that misdescribes its table worse than a missing note |
 
-**`money_scale`, and why it is not cosmetic.** `'B'` divides a `$M` value by 1000 and prints
+**`money_scale` (superseded in v7.12.5 by one unit per row, house-format.md; kept for history).** `'B'` divides a `$M` value by 1000 and prints
 two decimals with a `B`; `'M'` prints it as held, one decimal, with an `M`. On a small
 issuer at `'B'` scale **many money cells print a string identical to another cell in the
 same row**: two consecutive quarters of `$30.0M` and `$34.0M` both print `$0.03B`, a
@@ -235,6 +234,18 @@ AND `mid` with a tolerance is kept when the two agree and dropped with a `warnin
 when they do not. `sign` is `1` when consensus sits above the guide, `-1` below, `0`
 within; the renderer colours from `sign`, never from the `pos` text.
 
+**Forward consensus (v7.12.6).** `raw_mcp.json` `forward_rows` is a list of the
+`get_estimates` HISTORY rows (`latest` disabled, update-date window) for `next_q`, `fy0`
+while open and `fy1`, as returned (`data-collection.md` section 4). When the key is present
+the builder is authoritative for those columns: `forward_consensus.py` picks one row per
+(`LTCODE`, `FISCALPERIOD`) (newest row with at least half the deepest panel's brokers), the
+forward cell takes its `VALUE`, and a forward cell with no usable row (no `BROKERCOUNT` or
+`UPDATEDATE`, or none at all) is blanked. A plan `guide_vs_cons` row may carry `code`; on a
+forward `target` its `cons` comes from the picked row, and the row is removed when that code
+has none. A tile whose `model:`/`growth:` source was dropped prints `n/a` rather than
+refusing. Every drop is a `warnings` line, never page text. Absent `forward_rows`, nothing
+changes. `fy0` is always forward: it contains the unreported target quarter.
+
 **`rev_cols[]` exists because the four canonical buckets are not always there.** Order
 the columns by real date, label them from the bucket they hold, and mark the comparison
 column with `base:true`. If the feed published nothing between the print and today, say
@@ -277,6 +288,11 @@ plan.peers      the band labels, the lens, val_metrics / growth_metrics / op_met
 raw.peers       {"<TICKER>": {the feed's own levels, plus comp_basis and any <key>_note}}
 ```
 
+`raw.peer_call_dates` (v7.12.6) holds the `get_call_date` rows for the lead and every peer. A row
+whose latest call is within 10 days of `meta.prepared` has its `cy26_*` / `cy27_*` cells blanked
+by the builder (calendarized consensus can be a partial update then) and named in the build
+notes; the row and its multiples stay.
+
 Derived here, and **refused if the raw block supplies them**, because a ratio in the raw
 file is a ratio somebody computed by hand: `rev_growth`, `eps_growth`, the lead multiple's
 `<stem>_vs_1y`, and `peg`. PEG additionally applies R17's rule at build time rather than
@@ -303,7 +319,7 @@ rows[]                 one per ticker, lead company first
 
 `fmt` is one of `money | mult | pct1 | pct100 | pctchg | ratio | raw`. `pct100` takes a
 decimal and prints a percentage; `pct1` takes percentage points. `mult` applies the house
-multiple rule per value: two decimals below `5.00x`, one above.
+multiple rule: two decimals. `money`, `pct1` and `pct100` take one unit / precision per metric row.
 
 ### Row fields
 

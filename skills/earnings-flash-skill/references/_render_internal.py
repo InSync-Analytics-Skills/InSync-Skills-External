@@ -327,7 +327,7 @@ def _validate(d):
     for i, m in enumerate(fm or []):
         if m.get("beatMiss") and m.get("deltaPercent"):
             try:
-                delta = float(re.sub(r"[+%]", "", _js_str(m["deltaPercent"])))
+                delta = float(re.sub(r"[+%]", "", _js_str(m["deltaPercent"]).replace("\u2212", "-")))
             except ValueError:
                 continue
             lb = m.get("lowerIsBetter") is True

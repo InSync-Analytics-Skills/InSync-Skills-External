@@ -1,6 +1,6 @@
 # Capital Allocation Analysis
 
-*Version 2.73.0*
+*Version 2.73.8*
 
 ## What this skill does
 

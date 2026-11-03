@@ -3,10 +3,11 @@
 Every string this module returns is byte-identical to what an earlier JavaScript formatter
 (internal edition only) returned for the same value, and function names match it.
 
-    num(v, d)        v.toLocaleString('en-US', {min/maxFractionDigits: d}), en dash for minus
-    cell(v, fmt)     the per-format cell string ('$M', '$', '$3', '%', '%2', 'x', 'k', '#B')
-    xfmt(v)          the house multiple: two decimals below 5.00x, one above
-    gcell(v, isPct)  a signed change: '+1.2%' / '–35 bps'
+    num(v, d)        v.toLocaleString('en-US', {min/maxFractionDigits: d}), U+2212 for minus, no -0
+    cell(v, fmt)     the per-format cell string ('$M', '$M:M|B|T', '$', '$3', '%', '%2', 'x', 'k', '#B')
+    rowfmt(vals, f)  house rule R3/R4: one money unit per row, a rate row under 5% at two decimals
+    xfmt(v)          the house multiple: two decimals
+    gcell(v, isPct)  a signed change: '+1.2%' / '−35 bps'
     setCcy / ccy / setScale / scale / scaleLabel / printed / record
 
 load() reads packet_computed.json and packet_narrative.json from the working directory;
@@ -385,7 +386,7 @@ def record(s):
     return s
 
 
-MINUS = '–'
+MINUS = '−'
 
 
 def _group(intpart):
@@ -410,6 +411,7 @@ def _locale_number(v, d):
     neg = s.startswith('-')
     if neg:
         s = s[1:]
+        neg = q != 0
     ip, _, fp = s.partition('.')
     return ('-' if neg else '') + _group(ip) + ('.' + fp if fp else '')
 
@@ -481,7 +483,7 @@ def scale():
 
 
 def scaleLabel():
-    return CCY + ' in millions' if SCALE == 'M' else CCY + ' in billions'
+    return CCY + ', unit (M / B / T) per row'
 
 
 def cell(v, fmt):
@@ -492,16 +494,11 @@ def _cell(v, fmt):
     if v is None or v is UNDEF:
         return '–'
     f = fmt if isinstance(fmt, str) else None
-    if f == '$M':
-        b = v if SCALE == 'M' else to_num(v) / 1000
-        d = 1 if SCALE == 'M' else 2
-        u = 'M' if SCALE == 'M' else 'B'
-        neg = js_lt(v, 0)
-        return ('(' if neg else '') + CCY + num(js_abs(b), d) + u + (')' if neg else '')
-    if f == '$':
-        return CCY + num(v, 2)
-    if f == '$3':
-        return CCY + num(v, 3)
+    if f is not None and f[:2] == '$M':
+        u = f[3:] or rowfmt([v], '$M')[3:]
+        return _money(to_num(v) / {'M': 1, 'B': 1e3, 'T': 1e6}[u], u)
+    if f == '$' or f == '$3':
+        return _money(v, '')
     if f == '%':
         return num(v, 1) + '%'
     if f == '%2':
@@ -511,14 +508,29 @@ def _cell(v, fmt):
     if f == 'k':
         return num(to_num(v) * 1000, 0)
     if f == '#B':
-        return num(v, 3) + 'B'
+        return num(v, 2) + 'B'
     return num(v, 1)
+
+
+def _money(v, u):
+    s = num(v, 2)
+    return MINUS + CCY + s[1:] + u if s[:1] == MINUS else CCY + s + u
+
+
+def rowfmt(vals, f):
+    xs = [abs(to_num(x)) for x in (vals or []) if is_num(x)]
+    top = max(xs) if xs else 0
+    if f == '$M':
+        return '$M:' + ('M' if top < 1e3 else 'B' if top < 1e6 else 'T')
+    if f in ('%', '%2'):
+        return '%2' if top < 5 else '%'
+    return f
 
 
 def xfmt(v):
     if v is None or v is UNDEF:
         return '–'
-    return record(num(v, 2 if js_lt(js_abs(v), 5) else 1) + 'x')
+    return record(num(v, 2) + 'x')
 
 
 def is_rate(fmt, name):
@@ -542,6 +554,6 @@ def gcell(v, isPct):
         return '–'
     if gzero(v, isPct):
         return record('0 bps' if jt(isPct) else '0.0%')
-    s = '+' if js_ge(v, 0) else '–'
+    s = '+' if js_ge(v, 0) else MINUS
     a = js_abs(v)
     return record(s + num(a, 0) + ' bps' if jt(isPct) else s + num(a, 1) + '%')

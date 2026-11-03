@@ -35,11 +35,11 @@ import compute_capalloc as CC
 
 _xr = CC._xr
 _sep = CC._sep
+_fx = CC._fx
 
 
 def _rsign(v, d):
-    t = _xr(v, d)
-    return t if t.startswith("-") else "+" + t
+    return _fx(v, d, signed=True)
 
 
 
@@ -1108,7 +1108,7 @@ def _score_txt(v, suffix="/10"):
 
 
 
-_NUM_RX = re.compile(r"-?\d[\d,]*\.?\d*\s*(?:%|x|pp|B|M|bn|m)?", re.I)
+_NUM_RX = re.compile(r"[-\u2212]?\d[\d,]*\.?\d*\s*(?:%|x|pp|B|M|bn|m)?", re.I)
 
 
 
@@ -1121,14 +1121,14 @@ def _as_list(v):
 
 
 def _norm_fig(v):
-    return re.sub(r"[\s,$+\-]", "", str(v)).lower()
+    return re.sub(r"[\s,$+\-\u2212]", "", str(v)).lower()
 
 
 def _drop_restatements(text, table_values):
     if not text:
         return text
     def _norm(v):
-        return re.sub(r"[\s,$+\-]", "", str(v)).lower()
+        return re.sub(r"[\s,$+\-\u2212]", "", str(v)).lower()
 
     seen = {_norm(v) for v in table_values if v not in (None, "")}
     if not seen:
@@ -1157,7 +1157,7 @@ def _reduction_legacy(s):
     if s is None:
         return "n/a"
     s = str(s).strip()
-    if s.startswith("-"):
+    if s.startswith(("-", "\u2212")):
         return s[1:]
     if s.startswith("+"):
         return s[1:] + " (increase)"
@@ -1371,7 +1371,7 @@ def render(m, out_path):
     _ocf_negative = (not _ocf_missing) and _ocf_raw is not None and _ocf_raw < 0
 
     def _pofo(x):
-        return (f"{_xr(x/_ocf_raw*100, 1)}%"
+        return (f"{_fx(CC.pct_of(x, _ocf_raw), 1)}%"
                 if not (_ocf_missing or _ocf_negative) else "n/a")
 
     def _usd(v):
@@ -1437,7 +1437,9 @@ def render(m, out_path):
     if mon.get("available"):
         subhead(doc, "Quarterly deployment monitor")
         _ocf_ratio_cols = mon.get("ocf_ratios", True)
-        _hdrs = ["Quarter", "Operating cash flow", "Capex", "Buybacks", "Dividends"]
+        _half = all(re.fullmatch(r"[12]H\d{2}", str(q.get("label", "")), re.I)
+                    for q in (mon.get("quarters") or [])) and bool(mon.get("quarters"))
+        _hdrs = ["Half-year" if _half else "Quarter", "Operating cash flow", "Capex", "Buybacks", "Dividends"]
         _keys = ("ocf", "capex", "bb", "div")
         if _ocf_ratio_cols:
             _hdrs.append("Capex / OCF")
@@ -1484,7 +1486,7 @@ def render(m, out_path):
         v = pm.get(key)
         if v is None:
             return DASH
-        return (f"{_rsign(v*100, 1)}%" if key in _SIGNED else f"{_xr(v*100, 1)}%")
+        return (f"{_rsign(v*100, 1)}%" if key in _SIGNED else f"{_fx(v*100, 1)}%")
 
     def _pcols(headers, rows, widths, drop_last=True):
         if HAS_PEERS or not drop_last:
@@ -1507,8 +1509,8 @@ def render(m, out_path):
     _bb_avgpx = DASH if _bb_nil else b["avg_rep_vs_current"]
     _pcols(["Buybacks", "Value", "Period / denominator", "Peer median"], [
         ["Repurchases, cumulative", b["total_5y"], period, DASH],
-        ["Repurchases, latest", _bb_latest, "LTM", DASH],
-        ["Buyback yield", _bb_yield, "LTM repurchases / market cap", _pm_pct("buyback_yield")],
+        ["Repurchases, latest", _bb_latest, f"FY{meta.get('period_latest', '')}", DASH],
+        ["Buyback yield", _bb_yield, f"FY{meta.get('period_latest', '')} repurchases / market cap", _pm_pct("buyback_yield")],
         ["Share count change", _sharechg(b["share_count_change"]),
          (b.get("share_count_period") or period), _pm_pct("share_count_change")],
         ["Average repurchase price vs current", _bb_avgpx, "Weighted average vs current price", DASH],
@@ -1685,9 +1687,13 @@ def render(m, out_path):
     _strategic_bridge()
 
     heading(doc, "Balance sheet and leverage", 6)
+    _lq = str((C.get("meta") or {}).get("latest_quarter") or "")
+    _lrq = ("Latest reported half-year" if re.fullmatch(r"[12]H\d{2}", _lq, re.I)
+            else "Latest reported quarter")
     _bs_rows = [
-        ["Total debt", bs.get("total_debt", "n/a"), "Latest reported quarter", DASH],
-        ["Cash and equivalents", bs["cash"], "Latest reported quarter", DASH],
+        ["Total debt", bs.get("total_debt", "n/a"), _lrq, DASH],
+        ["Cash, equivalents and marketable securities" if bs.get("cash_includes_investments")
+         else "Cash and equivalents", bs["cash"], _lrq, DASH],
     ]
     _ndb = bs.get("net_debt_bridge") or []
     if _ndb:
@@ -1699,10 +1705,10 @@ def render(m, out_path):
     if bs.get("short_term_investments") and not bs.get("net_debt_via_investments"):
         _bs_rows.append(["Memo: " + bs.get("short_term_investments_label", "short-term investments"),
                          bs["short_term_investments"],
-                         "Latest reported quarter (not netted in net debt%s)"
+                         _lrq + " (not netted in net debt%s)"
                          % ("" if bs.get("short_term_investments_liquid")
                             else "; not a liquid balance"), DASH])
-    _nd_denom = "Latest reported quarter (%s)" % (
+    _nd_denom = _lrq + " (%s)" % (
         bs.get("net_debt_formula", "total debt less cash and equivalents")
         .rstrip(".").replace("Total debt less cash and equivalents, as reported by the source",
                              "total debt less cash"))
@@ -1728,7 +1734,7 @@ def render(m, out_path):
         ]
     else:
         _bs_rows += [
-            ["Leverage", bs["leverage_nd_ebitda"], lev_label, (f"{_xr(pm.get('leverage'), 2)}x" if pm.get("leverage") is not None else DASH)],
+            ["Leverage", bs["leverage_nd_ebitda"], lev_label, (f"{_fx(pm.get('leverage'), 2)}x" if pm.get("leverage") is not None else DASH)],
             ["Interest coverage", bs["interest_coverage"], "EBIT / interest expense, LTM", DASH],
         ]
     _pcols(["Balance sheet", "Value", "Period / denominator", "Peer median"], _bs_rows,
@@ -1739,6 +1745,10 @@ def render(m, out_path):
                    "reported figure."
                    % str(bs.get("short_term_investments_label") or "short-term investments").lower())
                   if bs.get("net_debt_via_investments") else
+                  "Net debt is total debt less cash, equivalents and marketable securities; the "
+                  "source's cash line already includes the securities, so they are not shown "
+                  "separately."
+                  if bs.get("cash_includes_investments") else
                   "Net debt is total debt less cash and equivalents. Short-term investments are "
                   "shown as a memo item and are not netted, matching the source definition.",
              size=8, italic=True, color=SLATE, space=1)
@@ -1749,7 +1759,7 @@ def render(m, out_path):
 
     heading(doc, "Forward indicators as reported", 7)
     body(doc, "As published: company guidance and InSync-carried consensus. No InSync forecast.", size=9, space=2)
-    fo = _as_dict(N.get("forward_outlook"))
+    fo = _as_dict(C.get("forward_outlook"))
     rows = _as_list(fo.get("rows"))
     if rows:
         t = doc.add_table(rows=1, cols=5); _set_borders(t); _pin_plain(t, 5)
@@ -1816,10 +1826,10 @@ def render(m, out_path):
                 if v is None:
                     return "n/a"
                 if k in PCT:
-                    return (f"{_rsign(v*100, 1)}%" if k in _SIGNED else f"{_xr(v*100, 1)}%")
+                    return (f"{_rsign(v*100, 1)}%" if k in _SIGNED else f"{_fx(v*100, 1)}%")
                 if k == "roic":
-                    return f"{_xr(v, 1)}%"
-                return f"{_xr(v, 2)}x"
+                    return f"{_fx(v, 1)}%"
+                return f"{_fx(v, 2)}x"
             if tv is not None and mv is not None:
                 if k in PCT:
                     diff = _rsign(float(_xr(tv*100, 1)) - float(_xr(mv*100, 1)), 1)
@@ -1903,7 +1913,7 @@ def render(m, out_path):
               if not str(vc.get("capital_return_pct_fcf", "n/a")).lower().startswith("n/a")
               else (f"Cumulative FCF {vc.get('cumulative_fcf')}; a share-of-FCF ratio is not "
                     f"published against a negative total"
-                    if str(vc.get("cumulative_fcf") or "").startswith("-")
+                    if str(vc.get("cumulative_fcf") or "").startswith(("-", "\u2212"))
                     else f"Cumulative FCF {vc.get('cumulative_fcf') or DASH}"))],
         ], [Inches(w) for w in _fit([2.6, 1.1, 1.7, 1.8])], right_from=1,
             direction=_outcome_direction)
@@ -1950,20 +1960,11 @@ def render(m, out_path):
     _industrial_cycle = (not _regulated) and (not _commodity) and any(
         k in _idtext for k in ("industrial", "transport", "logistics", "machinery", "chemical",
                                "materials", "aerospace", "railroad", "construction"))
-    if _tc or C.get("cyclical") or _regulated:
+    if _tc or _regulated or (C.get("cyclical") and not _industrial_cycle):
         subhead(doc, "Through-cycle assessment" if not _regulated
                      else "Assessment across the regulatory and project cycle")
         if _tc:
             note(doc, _tc)
-        elif _industrial_cycle:
-            _rail = any(k in _idtext for k in ("railroad", "rail ", "transportation", "logistics"))
-            body(doc, ("Assess capital allocation across the network cycle, focusing on volumes "
-                       "(carloads and revenue ton-miles), operating ratio, network velocity and "
-                       "terminal dwell, network sustaining capital expenditure, free-cash-flow "
-                       "generation and leverage." if _rail else
-                       "Assess capital allocation across the project cycle, focusing on backlog "
-                       "conversion, contracted project returns, free-cash-flow generation, project "
-                       "execution and leverage."), size=8.5, color=DARK, space=1)
         elif _regulated:
             body(doc, "Assess capital allocation across the regulatory and project cycle, focusing on "
                       "rate-base growth, regulatory recovery, funding costs, equity requirements, "
@@ -2280,6 +2281,8 @@ def render(m, out_path):
     for _w in (C.get("warnings") or []):
         if str(_w).startswith("WITHHELD DATA:"):
             ctrl_note(doc, "Withheld data.", str(_w).split(":", 1)[1].strip(), size=7)
+        elif str(_w).startswith("DISCLOSURE: the acquisitions line is a net inflow"):
+            ctrl_note(doc, "Divestiture proceeds.", str(_w).split(":", 1)[1].strip(), size=7)
     _DATA_CURRENCY_PREFIXES = ("ADVISORY: the newest quarter in the data ends",
                                "ADVISORY: no earnings calendar was supplied")
     for _w in (C.get("warnings") or []):
@@ -2301,8 +2304,9 @@ def render(m, out_path):
            if (C.get("qc", {}).get("passed") == C.get("qc", {}).get("total")
                and _val.get("passed") == _val.get("total"))
            else "%d of %d consistency checks did not pass - see the Scorecard section. "
-                % ((C.get("qc", {}).get("total") or 0) - (C.get("qc", {}).get("passed") or 0),
-                   (C.get("qc", {}).get("total") or 0)))
+                % (((C.get("qc", {}).get("total") or 0) - (C.get("qc", {}).get("passed") or 0))
+                   + ((_val.get("total") or 0) - (_val.get("passed") or 0)),
+                   (C.get("qc", {}).get("total") or 0) + (_val.get("total") or 0)))
         + ("Score withheld - see the Scorecard section for the reason."
            % () if False else "Score withheld - see the Scorecard section for the reason."
            if (C.get("publication") or {}).get("withheld")

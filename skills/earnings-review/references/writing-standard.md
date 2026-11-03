@@ -4,7 +4,10 @@ Reader: a PM with ten minutes. Each unit says what changed, then why it matters.
 no em dashes. Reported figures stated plainly; management quoted verbatim in quotation marks; calculations named
 ("implied 4Q revenue of about … (deliveries × ASP midpoints)"); interpretation in judgment verbs ("reads as", "signals",
 "assumes"). No tags or legends, no rating, target or trade language ("we like", "compelling"). Numbers are tokens; the
-renderer formats them ($B two decimals, % one decimal, rate changes in bps, negatives in parentheses, colour = sign only).
+renderer formats them (house rule: one unit per row, $M under $1B, $B, $T; money, per-share and multiples two decimals; % one
+decimal, two for a rate row under 5%; rate changes in whole bps; negatives with a minus sign, "−$1.23B", "−1.2%"; colour = sign
+only). Every printed change is computed from the figures as printed (rounded half-up), except from full values when its base is
+under $1B or under 1.00 per share; bps between rates use the full rates.
 
 ## Sections
 - **THE PRINT** (3-5 one-liners): 1 EPS vs pre-print consensus and prior guide · 2 revenue and the Primary KPI · 3 margin and
@@ -31,7 +34,7 @@ renderer formats them ($B two decimals, % one decimal, rate changes in bps, nega
   cheap, rich or re-rating language.
 
 ## Verdicts (computed)
-IN LINE within ±1.0% (levels) or ±10 bps (rates), override with `inline_band`; else BEAT / MISS in the company's favour via
+IN LINE within ±1.0% (levels) or ±10 bps (rates) on the printed surprise, override with `inline_band`; else BEAT / MISS in the company's favour via
 `better` or the polarity registry (lower for costs, ratios, NCOs, capex as spend); an undeclared graded line is a validator error.
 No consensus, or consensus on a different line item → Not comparable; ≤2 contributors → graded with †. Sequential change is Q/Q for
 quarterly and H/H for half-year filers: write `{period.seq_label}`, never a hard-coded "Q/Q".

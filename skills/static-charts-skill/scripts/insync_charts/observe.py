@@ -61,6 +61,12 @@ def _v(value: Number, unit: Optional[str]) -> str:
     return fmt.fmt_value(value, unit, compact=(unit or "") not in EXACT_UNITS)
 
 
+def _shown(value: float, unit: Optional[str]) -> float:
+    if (unit or "") in EXACT_UNITS and abs(value) >= 1:
+        return fmt.printed(value, unit)
+    return value
+
+
 def _ordinal(n: int) -> str:
     if 10 <= n % 100 <= 20:
         return f"{n}th"
@@ -172,11 +178,11 @@ def _trend(spec, periods) -> str:
         base = actual[li - ppy]
         if _pp(s.unit):
             if base is not None:
-                parts.append(f"{lv - base:+.1f}pp YoY")
+                parts.append(f"{fmt.fmt_num(lv - base, 1, 'pp')} YoY")
         else:
             ch = _pct_change(lv, base)
             if ch is not None:
-                parts.append(f"{ch:+.1f}% YoY")
+                parts.append(f"{fmt.fmt_num(ch, 1, '%')} YoY")
 
     like_for_like = (fi is not None and li is not None and li != fi
                      and (not ppy or (li - fi) % ppy == 0))
@@ -184,18 +190,18 @@ def _trend(spec, periods) -> str:
         span = li - fi
         unit_word = {4: "quarters", 12: "months", 1: "years", 2: "halves"}.get(ppy, "periods")
         if _pp(s.unit):
-            parts.append(f"{lv - fv:+.1f}pp over {span} {unit_word}")
+            parts.append(f"{fmt.fmt_num(lv - fv, 1, 'pp')} over {span} {unit_word}")
         else:
             ch = _pct_change(lv, fv)
             if ch is not None:
-                parts.append(f"{ch:+.1f}% over {span} {unit_word}")
+                parts.append(f"{fmt.fmt_num(ch, 1, '%')} over {span} {unit_word}")
             cg = _cagr(fv, lv, span, ppy)
             if cg is not None:
-                parts.append(f"{cg:+.1f}% CAGR")
+                parts.append(f"{fmt.fmt_num(cg, 1, '%')} CAGR")
     elif fi is not None and li is not None and li != fi and _pp(s.unit):
         unit_word = {4: "quarters", 12: "months", 1: "years",
                      2: "halves"}.get(ppy, "periods")
-        parts.append(f"{lv - fv:+.1f}pp over {li - fi} {unit_word}")
+        parts.append(f"{fmt.fmt_num(lv - fv, 1, 'pp')} over {li - fi} {unit_word}")
 
     if len(actual) < len(s.values):
         ei, ev = _last(s.values)
@@ -215,12 +221,12 @@ def _band(spec, periods) -> str:
     med = fmt.median(vals)
     parts = [f"Current {_v(lv, s.unit)}"]
     if med:
-        gap = _pct_change(lv, med)
+        gap = _pct_change(_shown(lv, s.unit), _shown(med, s.unit))
         parts.append(f"median {_v(med, s.unit)}"
-                     + (f" ({gap:+.0f}%)" if gap is not None else ""))
+                     + (f" ({fmt.fmt_num(gap, 1, '%')})" if gap is not None else ""))
     pctl = _percentile_of(lv, s.values)
     if pctl is not None:
-        parts.append(f"{_ordinal(round(pctl))} percentile of the period")
+        parts.append(f"{_ordinal(int(fmt.fmt_num(pctl, 0, signed=False)))} percentile of the period")
     lo, hi = min(vals), max(vals)
     parts.append(f"range {_v(lo, s.unit)}–{_v(hi, s.unit)}")
     return _join(parts)
@@ -232,13 +238,13 @@ def _surprise(spec, periods) -> str:
     vals = [v for v in s.values if v is not None]
     if not vals:
         return ""
-    beats = sum(1 for v in vals if v >= 0)
+    beats = sum(1 for v in vals if fmt.printed(v, s.unit or "pct") > 0)
     avg = sum(vals) / len(vals)
     li, lv = _last(s.values)
     parts = [f"Beat in {beats} of {len(vals)} quarter(s)",
-             f"average {avg:+.1f}%"]
+             f"average {fmt.fmt_num(avg, 1, '%')}"]
     if lv is not None:
-        parts.append(f"latest {lv:+.1f}% in {_label(periods, li)}")
+        parts.append(f"latest {fmt.fmt_num(lv, 1, '%')} in {_label(periods, li)}")
     return _join(parts)
 
 
@@ -259,11 +265,11 @@ def _peer(spec) -> str:
             if med is not None:
                 if _pp(s.unit):
                     parts.append(f"peer median {_v(med, s.unit)} "
-                                 f"({mine - med:+.1f}pp)")
+                                 f"({fmt.fmt_num(_shown(mine, s.unit) - _shown(med, s.unit), 1, 'pp')})")
                 else:
-                    gap = _pct_change(mine, med)
+                    gap = _pct_change(_shown(mine, s.unit), _shown(med, s.unit))
                     parts.append(f"peer median {_v(med, s.unit)}"
-                                 + (f" ({gap:+.0f}%)" if gap is not None else ""))
+                                 + (f" ({fmt.fmt_num(gap, 1, '%')})" if gap is not None else ""))
         rank = sorted((v for _, v in pairs), reverse=True).index(mine) + 1
         parts.append(f"ranks {rank} of {len(pairs)}")
     else:
@@ -289,7 +295,7 @@ def _stack(spec, periods) -> str:
     parts = [f"{_label(periods, idx)} total "
              f"{fmt.fmt_value(total, spec.series[0].unit, compact=True)}"]
     if total:
-        parts.append(f"largest {top} at {tv / total * 100:.0f}%")
+        parts.append(f"largest {top} at {fmt.fmt_num(tv / total * 100, 1, '%', signed=False)}")
     return _join(parts)
 
 

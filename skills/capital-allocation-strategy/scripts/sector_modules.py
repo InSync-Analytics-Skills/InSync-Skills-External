@@ -304,8 +304,9 @@ class BankModule(SectorModule):
         if ni_last:
             tot = (bb_s[-1] or 0) + (div_s[-1] or 0) if (bb_s and div_s) else None
             payout = safe_div(tot, ni_last)
-        eps_cagr = cagr(next((v for v in ctx["eps_s"] if v is not None), None),
-                        next((v for v in reversed(ctx["eps_s"]) if v is not None), None), span)
+        eps_cagr = ctx.get("eps_cagr") if "eps_cagr" in ctx else cagr(
+            next((v for v in ctx["eps_s"] if v is not None), None),
+            next((v for v in reversed(ctx["eps_s"]) if v is not None), None), span)
         sh_red = None
         if sh_o_first and sh_o_last and sh_o_first > 0:
             sh_red = (sh_o_first - sh_o_last) / sh_o_first * 100.0

@@ -16,13 +16,19 @@ three documents quote one ticker in one scale.
    between columns could not be read across, and its delta would not close against the
    levels it is drawn from. The Flash enforces the same invariant from the other end, in
    `render_gate.magnitude_drift`.
-2. **Decimals widen, 2 dp to a cap of 4.** dp grows until the narrowest gap between two
-   distinct cells in the row survives the rounding.
-3. **A delta keeps its row's magnitude** and widens only its decimals. Re-magnituding a
-   delta on its own size puts `+$13.10B` under four cells quoted in T, and a reader cannot
-   subtract across magnitudes.
-4. **Unchanged:** counts (`#`) print in full with separators and no suffix; per-share (`$`) rows, minor-unit rows at 4 dp, percentages, multiples, bps
-   deltas, and every colour decision.
+2. **Always 2 dp, rounded once, half-up** (house rule R2/R4, v9.0.7; the 2→4 dp widening is
+   gone: two close cells may print alike, and the delta beside them says they moved).
+3. **A delta keeps its row's magnitude.** Re-magnituding a delta on its own size puts
+   `+$13.10B` under four cells quoted in T, and a reader cannot subtract across magnitudes.
+4. **Other figures:** counts (`#`) print in full below a million, else M/B at 2 dp; per-share
+   (`$`, minor-unit rows included) and multiples 2 dp; percentages and pp 1 dp, 2 dp on a rate
+   row whose largest |value| is under 5%; bps whole; negatives `−$1.20B` / `−1.2%` (U+2212).
+   Colour and sign follow the PRINTED figure (grey when it prints as zero).
+4a. **Printed changes come from printed levels** (R1, compute `_as_printed`): a Y/Y, Q/Q,
+   margin, % of revenue, revisions Δ or vs-guide % whose two levels are both on the page is
+   computed from them as printed, so the reader can re-derive it; on a base under $1bn or
+   1.00 per share the full values are used. bps come from the full rates. Beat % and the
+   beat-history credibility tests stay on full values (their levels are not printed).
 5. **The band** above a block reads `(units as stated per row)` and never names a scale —
    its cells now carry their own, and a band asserting one scale for all of them would
    contradict them.
@@ -49,24 +55,11 @@ and still wrong on the page:
 **A figure printed at a scale the reader does not expect is indistinguishable from a figure
 that is wrong.**
 
-## Why the widening is not optional
-
-A flat `v/1e6 + 'T'` at fixed 2 dp prints distinct values as one string. The
-four Earnings Revisions buckets of one line routinely differ by a tenth of a percent:
-
-| line | buckets (`$M` basis) | flat 2 dp | widened |
-|---|---|---|---|
-| A lender's Total Consumer AUM | 1,500,400 / 1,502,600 / 1,503,800 | ₹1.50T ×3 | ₹1.500T / ₹1.503T / ₹1.504T |
-| An oil producer's EBITDA | 25,000.4 / 25,001.8 | $25.00B ×2 | $25.000B / $25.002B |
-
-Identical cells beside a delta column asserting the line moved is a table at war with
-itself — the class of defect this package exists to prevent.
-
 ## Gates (regression bench, internal edition only)
 
 - **Y4a** — no rendered row mixes magnitudes (parses the rendered text of a large-cap
   control).
-- **Y4b** — a widened revision row still prints four distinct cells.
+- **Y4b** — retired in v9.0.7 (no widening); refresh the bench in the check phase.
 
 Both check the **rendered** text, because `computed.json` is right either way. They exist so
 that re-freezing the 22 render snapshots cannot bless a regression in this area: a frozen

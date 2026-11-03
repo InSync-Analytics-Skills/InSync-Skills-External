@@ -682,7 +682,7 @@ def cmd_next(d, st):
             _call("get_estimates", ticker_id=str(tid), ltcode=lt, fiscal_period=_bare(per),
                   latest={"enabled": True, "limit": 1}, limit="100"),
             _call("get_valuation", ticker_id=str(tid), mode="NTM", metrics=chain, limit="12"),
-            _call("get_guidance", ticker_id=str(tid), latest=True, limit="100", offset="0"),
+            _call("get_guidance", ticker_id=str(tid), start_date="1y", limit="100", offset="0"),
             _call("get_market_data", ticker_id=str(tid), start_date=_iso(today - _dt.timedelta(days=14)),
                   end_date=_iso(today), limit="100")])
     i = 2
@@ -693,7 +693,7 @@ def cmd_next(d, st):
     if m.get("has_more"):
         off = int(m.get("offset") or 0) + int(m.get("limit") or 100)
         return _print_call("guidance_page%d" % i, "%s guidance page %d" % (t, i),
-                           [_call("get_guidance", ticker_id=str(tid), latest=True, limit="100", offset=str(off))])
+                           [_call("get_guidance", ticker_id=str(tid), start_date="1y", limit="100", offset=str(off))])
     fx = [c["ltcode"] for c in cands if c["foreign"]]
     if fx and _resp(d, "fx_kpis") is None:
         st.setdefault("requested", []).extend(x for x in fx if x not in st["requested"])

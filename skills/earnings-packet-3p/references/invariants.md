@@ -114,17 +114,11 @@ must know while authoring:
   `house-format.md`). Removing the vertical borders blinds validator passes 2, 5 and 6, which
   find a table by them, so `validate_rules_style.py` re-derives those three from the
   horizontal rules.
-- **Dollars at ONE scale for the whole document**, `meta.money_scale`, one decimal for
-  percentages and two on a `'%2'` fine-grained rate row, two decimals for multiples below
-  5.00x and one above. The multiple rule is per value, not per column: a peer row holding
-  `21.8x` and `2.68x` is correct. Verbatim guidance text is quoted as published and never
-  re-rounded.
-  **The money scale is `B` (the default, `$M` values divided by 1000 and printed to two
-  decimals) or `M` (printed as held, one decimal).** Set `M` whenever the issuer's spine lines
-  live below roughly `$1,000M`, and it is not a preference: at `B` scale a small issuer's
-  money cells collapse into strings identical to other cells in the SAME ROW.
-  `check_contract.py` measures the largest money level and NOTES when the scale is absent.
-  One scale per packet: `Figures` in the masthead field strip states it.
+- **The house rounding rule** (v7.12.5, `house-format.md`): money in $M / $B / $T with ONE
+  unit per row, picked by the row's largest value (`fmt.rowfmt`), two decimals; per-share and
+  multiples two decimals; percentages one decimal, two on a rate row under 5%; U+2212 for a
+  negative; half-up once. `meta.money_scale` is still validated but no longer moves a cell.
+  Verbatim guidance text is quoted as published and never re-rounded.
 - **Every label carries its unit** where the values are percentages; mixed-unit columns carry
   none, because marking them would assert a unit the column does not hold.
 - **Header and body alignment match**, a right-aligned column has a right-aligned header.

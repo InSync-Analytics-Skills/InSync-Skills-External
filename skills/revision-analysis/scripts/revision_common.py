@@ -5,10 +5,11 @@ references/sanity_check.py, so the three can never disagree on these settings or
 import math
 import os
 import re
+from decimal import Decimal, ROUND_HALF_UP
 
-from jscompat import js_round, js_to_fixed
+from jscompat import js_to_fixed
 
-VERSION = "2.5.0"
+VERSION = "2.5.2"
 
 STRICT_DEFAULT = True
 _env = os.environ.get("REV_STRICT")
@@ -32,15 +33,16 @@ def cur_sym(t):
 CUR_PAT = r"(?:\$|€|£|¥|₹|₩|[A-Z]{2,3}\$?)"
 
 
+def hu_fixed(x, d=0):
+    x = float(x)
+    if not math.isfinite(x):
+        return js_to_fixed(x, d)
+    q = Decimal(repr(x)).quantize(Decimal(1).scaleb(-d), rounding=ROUND_HALF_UP)
+    return format(abs(q) if q == 0 else q, "f")
+
+
 def locale_int(v):
-    r = js_round(v)
-    if r == 0 and (v < 0 or (v == 0 and math.copysign(1.0, v) < 0)):
-        return "-0"
-    return format(int(r), ",")
-
-
-def _trim0(s):
-    return re.sub(r"\.?0+$", "", s, count=1)
+    return format(int(Decimal(hu_fixed(v, 0))), ",")
 
 
 class MoneyFmt:
@@ -53,26 +55,32 @@ class MoneyFmt:
         self.deltaHeader = ("Δ$ since print" if sym == "$" else
                             ("Δ " + sym + " since print" if code else "Δ" + sym + " since print"))
 
+    def _amt(self, a):
+        a = abs(a)
+        if a >= 999999.995:
+            return self.sym + hu_fixed(a / 1e6, 2) + "T"
+        if a >= 999.995:
+            return self.sym + hu_fixed(a / 1000, 2) + "B"
+        return self.sym + hu_fixed(a, 2) + "M"
+
     def signed(self, v):
         if v is None:
             return "n/a"
-        a, s = abs(v), ("+" if v >= 0 else "−")
-        if a >= 1000:
-            return s + self.sym + _trim0(js_to_fixed(a / 1000, 2)) + "bn"
-        return s + self.sym + locale_int(a) + "m"
+        t = self._amt(v)
+        return t if t == self.sym + "0.00M" else ("+" if v >= 0 else "−") + t
 
     def level(self, v):
         if v is None:
             return "n/a"
-        if abs(v) >= 1000:
-            return self.sym + _trim0(js_to_fixed(v / 1000, 2)) + "bn"
-        return self.sym + locale_int(v) + "m"
+        t = self._amt(v)
+        return ("−" if v < 0 and t != self.sym + "0.00M" else "") + t
 
     def perShare(self, v):
         if v is None:
             return "n/a"
         from jscompat import js_number
-        return self.sym + js_to_fixed(js_number(v), 2)
+        t = hu_fixed(js_number(v), 2)
+        return ("−" + self.sym + t[1:]) if t.startswith("-") else self.sym + t
 
 
 def money_fmt(sym=None):

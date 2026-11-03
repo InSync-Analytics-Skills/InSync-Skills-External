@@ -1,7 +1,7 @@
 """Release gate: every check, each exit code captured on its own line (no pipes, no &&: a pipe reports the LAST command's
 status and turns a red build green). Run before EVERY release; maintainer/build_client.py runs it with --pre-build.
   1 compile        every script compiles
-  2 version        scripts/version.py == SKILL.md == CHANGELOG head
+  2 version        scripts/version.py == SKILL.md (== CHANGELOG head when the file is present)
   3 registry       every documented metric code is in the polarity registry
   4 docs           tests/test_docs.py (docs vs code, docs vs docs)
   5 fixture        the bundled fixture reproduces its expected data.json; the refusal case exits 2
@@ -27,8 +27,9 @@ def main():
     step("compile", 1 if bad else 0, "; ".join(bad))
     sys.path.insert(0, SC); import version
     sk = re.search(r"^version:\s*(\S+)", open(os.path.join(ROOT, "SKILL.md"), encoding="utf-8").read(), re.M).group(1)
-    ch = re.search(r"^## (\S+)", open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8").read(), re.M).group(1)
-    step("version", 0 if version.VERSION == sk == ch else 1, f"version.py {version.VERSION}, SKILL.md {sk}, CHANGELOG {ch}")
+    cp = os.path.join(ROOT, "CHANGELOG.md")
+    ch = re.search(r"^## (\S+)", open(cp, encoding="utf-8").read(), re.M).group(1) if os.path.exists(cp) else None
+    step("version", 0 if version.VERSION == sk and ch in (None, sk) else 1, f"version.py {version.VERSION}, SKILL.md {sk}, CHANGELOG {ch or 'absent (client edition)'}")
     r = run(os.path.join(SC, "polarity.py"), "--lint"); step("registry", r.returncode, (r.stdout.splitlines() or [""])[0])
     if not (os.path.isdir(os.path.join(ROOT, "tests")) and os.path.isdir(os.path.join(ROOT, "maintainer"))):
         for n in ("docs", "fixture", "refusal", "audit classes", "corpus", "gates", "public scan", "manifest"):

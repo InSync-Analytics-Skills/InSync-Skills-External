@@ -5,7 +5,7 @@ Workdir: `raw/` · `metric_map.json` · `data.json` · `overrides.json` · `revi
 ## metric_map.json
 `{"<id>": {"label", "fmt", "kind": "level"|"rate", "ltcode": [preferred, fallback…], "unit"}}`, e.g.
 `"gm": {"label": "Gross Margin on Home Sales", "fmt": "pct1", "kind": "rate", "ltcode": ["SD_S_141", "SD_S_143"], "unit": "pct"}`.
-unit: m ($M) · b · count · k ($k per unit) · pct · num. fmt: bn m int k knum pct1 pct2 usd2 usd3 num1 num2 days x.
+unit: m ($M) · b · count · k ($k per unit) · pct · num. fmt: bn m int k knum pct1 pct2 usd2 usd3 num1 num2 days x (usd3 prints as usd2; bn/m pick $M/$B/$T per row; pct1/pct2 per row by the 5% rule).
 Optional: `guide_ltcode` (must be the same line item as the actual) · `native_yoy_ltcode` · `sign: -1` (outflows: absolute spend on
 every side) · `better: "higher" | "lower"` (REQUIRED for a graded line whose code is not declared in `assets/polarity_registry.json`, and for every
 company-specific `_S_` code of an issuer the registry entry does not list in `ticker_ids`;

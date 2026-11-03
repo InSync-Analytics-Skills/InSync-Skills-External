@@ -191,7 +191,7 @@ in `render_consensus_portal.py` are asserted against each other in `self_check.p
 "report_dates": {"3Q26":"2025-11-20", ...}  // earnings dates; guides issued on/after are excluded
 ```
 Set `currency`/`rev_unit` off mega-cap-US names (a mid-cap in millions or a non-USD reporter otherwise
-misprints). `fiscal_quarters` must be canonical `NQYY` labels in chronological order (validated).
+misprints). `fiscal_quarters` must be canonical `NQYY` labels (`NHYY` or `YYYY` for a half-yearly or annual filer, one form only) in chronological order (validated).
 
 ## consensus_asof (required in practice)
 ```
@@ -288,3 +288,6 @@ multi-year history moves to `fy_all_years: {years, raises, cuts, maintains}`.
 so a line item can never be named two different things in two cards; `revision_kpis[].label` is a fallback
 only. Carry a row for EVERY metric that has forward `next_quarter` consensus history — the old "~3 KPIs"
 cap is gone. Any metric with no trail is NAMED in the card note rather than silently omitted.
+
+## Row order (every table)
+Surprise by Quarter, Estimate Dispersion and Revision Momentum list their line items in ONE fixed order, set by the renderer: key metrics first (any code not starting `IS_`, `BS_` or `CF_`, e.g. `SD_`, `KM_`, `RT_`), then the income statement (`rev`, then `eps`, then other `IS_` lines), then the balance sheet (`BS_`), then the cash flow (`CF_`). Within a group, the order of `metrics[]`.

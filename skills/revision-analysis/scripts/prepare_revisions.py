@@ -50,9 +50,9 @@ import time
 from jscompat import (js_str, js_json, js_to_fixed, js_round, js_keys, js_sort_default,
                       js_cmp_sort, js_stdio, js_write, _js_read_json, _JSErr, _truthy,
                       _pint, _bad_const, UNDEFINED)
-from revision_common import STRICT_CHECKS, cur_sym, money_fmt
+from revision_common import STRICT_CHECKS, cur_sym, hu_fixed, money_fmt
 
-VERSION = '2.5.0'
+VERSION = '2.5.2'
 
 UNDEF = UNDEFINED
 NaN = float('nan')
@@ -318,7 +318,7 @@ def rsub(R, s, repl, count=1):
 
 
 def tf(x, d):
-    return js_to_fixed(N(x), d)
+    return hu_fixed(N(x), d)
 
 
 def insp(v):
@@ -1071,7 +1071,7 @@ def main():
             depth = depthOfLt
 
             def sig(lt):
-                return '|'.join('x' if nil(f(lt)) else tf(f(lt), 3) for f in perVals)
+                return '|'.join('x' if nil(f(lt)) else js_to_fixed(N(f(lt)), 3) for f in perVals)
             SDP = jre(r'^SD_P_')
             ranked = js_cmp_sort(pool, lambda a, b: jor((0 if SDP.search(a) else 1) - (0 if SDP.search(b) else 1), depth(b) - depth(a)))
             seen, keep = {}, []
@@ -1458,6 +1458,7 @@ def main():
     def grow(cur, base):
         return (jdiv(cur, base) - 1) if (not nil(cur) and not nil(base) and base > 1e-9 and cur >= 0) else None
     NOGROW_RE = jre(r'^IS_P_(115|116|1003|1004)$')
+    ETR_SRC = {'IS_P_121': ('IS_P_119', 'IS_P_117'), 'IS_P_122': ('IS_P_120', 'IS_P_118')}
 
     def periodData(lt, fp, key, ctx):
         arr = H(lt, fp)
@@ -1476,6 +1477,14 @@ def main():
         a['low'] = pnum(lt, last['min'])
         a['high'] = pnum(lt, last['max'])
         a['cnt'] = jnum(last['cnt']) if not nil(last['cnt']) else None
+        if lt in ETR_SRC and H(ETR_SRC[lt][0], fp) and H(ETR_SRC[lt][1], fp):
+            tx, pb, d = H(ETR_SRC[lt][0], fp), H(ETR_SRC[lt][1], fp), {}
+            for k, rt, rb in [['cur', tx[-1], pb[-1]]] + [[k, atCut(tx, cuts[k]), atCut(pb, cuts[k])] for k in ANCHORS]:
+                tv, bv = (pnum(ETR_SRC[lt][0], rt['v']) if rt else None), (pnum(ETR_SRC[lt][1], rb['v']) if rb else None)
+                if not nil(tv) and not nil(bv) and bv > 0:
+                    d[k] = jdiv(tv, bv)
+            if nil(d.get('cur')) or nil(a['low']) or nil(a['high']) or a['low'] - 1e-6 <= d['cur'] <= a['high'] + 1e-6:
+                a.update(d)
         a['stale'] = not (not slt(last['d'], PD))
         if key == 'q':
             a['actPrint'] = actOf(lt, meta['printPeriod'])
@@ -1509,7 +1518,7 @@ def main():
                 base, rb = actOf(lt, bp), revBase(bp)
                 if not nil(base) and not nil(rb) and rb > 0 and abs(base) < 0.01 * rb:
                     msg = '%s (%s): growth of %s%s%% is measured on a base of %s (under 1%% of revenue); read it with caution.' % (
-                        cleanLabel(lt), S(meta['q']) if key == 'q' else 'FY' + S(mg('fy1')), '+' if g > 0 else '', js_str(js_round(g * 100)), tf(base, 1))
+                        cleanLabel(lt), S(meta['q']) if key == 'q' else 'FY' + S(mg('fy1')), '+' if g > 0 else '', hu_fixed(g * 100, 0), tf(base, 1))
                     log('WARNING: ' + msg)
                     scaleNotes.append(msg)
         return a
@@ -2103,6 +2112,9 @@ def main():
             A = intel['attribution']
             t = A['total'] if abs(A['total']) > 1e-9 else jor(A['revTotal'], 0)
             sg = jsign(t)
+            A['unreconciled'] = bool(not nil(A['revTotal']) and abs(A['revTotal']) > 1e-9 and _truthy(sg) and jsign(A['revTotal']) != sg)
+            if A['unreconciled']:
+                sg = 0
             cand = js_cmp_sort([r for r in A['rows'] if r['dollar'] * sg > 0], lambda a, b: b['dollar'] * sg - a['dollar'] * sg) if _truthy(sg) else []
             A['dir'] = sg
             A['driver'] = cand[0] if len(cand) else None
@@ -3074,7 +3086,7 @@ def main():
         if True:
             A2 = intel.get('attribution') and intel['attribution']['driver']
             if A2 and A2['share'] is not None and abs(A2['share']) > 0.6:
-                qualityFlags.append('driver concentration: %s is %s%% of the segment move' % (A2['label'], js_str(js_round(A2['share'] * 100))))
+                qualityFlags.append('driver concentration: %s is %s%% of the segment move' % (A2['label'], hu_fixed(A2['share'] * 100, 0)))
             gm = derived.get('Gross margin')
             if gm and gm.get('q') and abs(gm['q']['bps']) >= 25:
                 qualityFlags.append('gross margin %s' % fmtBps(gm['q']['bps']))
@@ -3118,7 +3130,7 @@ def main():
                 w.append({'name': m['name'], 'why': 'strong revision momentum but dispersion is widening, the street has not converged'})
         for m in intel['metrics']:
             if m['persistence'] == 'High' and abs(N(jor(m['chg'], 0))) > 0.01:
-                w.append({'name': m['name'], 'why': 'persistent one-way revisions (%s%% of updates same direction, %s)' % (js_str(js_round(N(jor(m['pctSame'], 0)) * 100)), fmtPct(m['chg']))})
+                w.append({'name': m['name'], 'why': 'persistent one-way revisions (%s%% of updates same direction, %s)' % (hu_fixed(N(jor(m['pctSame'], 0)) * 100, 0), fmtPct(m['chg']))})
         rr = 0
         for m in intel['metrics']:
             if m['revRisk'] == 'Elevated' and rr < 2:
@@ -3141,7 +3153,7 @@ def main():
             s.append('The EPS revision is %s (revision quality: %s).' % (intel['bridge']['qNote'], intel['bridge']['quality']))
         att = intel.get('attribution')
         if att and att['driver'] and att['driver']['share'] is not None and att['driver']['share'] > 0.4 and att['driver']['share'] <= 1:
-            s.append('%s accounts for %s%% of the segment-level revenue revision.' % (att['driver']['label'], js_str(js_round(att['driver']['share'] * 100))))
+            s.append('%s accounts for %s%% of the segment-level revenue revision.' % (att['driver']['label'], hu_fixed(att['driver']['share'] * 100, 0)))
         kv = next((m for m in intel['metrics'] if m['name'] == 'Revenue'), None)
         if kv and kv['regime'] != 'stable':
             s.append('Revenue revision momentum is %s.' % kv['regime'])

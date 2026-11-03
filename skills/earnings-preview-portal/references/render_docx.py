@@ -20,7 +20,6 @@ difference in several places (`!== null` lets undefined through, `o.pol !== unde
 JSON integers load as floats, exactly as JSON.parse makes doubles. Every string concatenation
 of a data value goes through jstr() (String()), truthiness through jt() (JS rules: [] and {}
 are truthy, NaN is falsy), and regexes use explicit JS character classes (\\s, \\d, $).
-Math.pow(10, e) is V8's value (pow10), which is not always correctly rounded.
 Function names match the earlier JavaScript renderer.
 """
 import json
@@ -31,6 +30,7 @@ import struct
 import subprocess
 import sys
 import zlib
+from decimal import Decimal, ROUND_HALF_UP, Context
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from jscompat import js_str, js_to_fixed, js_round, js_number, js_stdio, UNDEFINED
@@ -41,25 +41,7 @@ _JS_WS = ('\t\n\x0b\x0c\r \xa0         '
           '       　﻿')
 _S = '[\\t\\n\\x0b\\x0c\\r \\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]'
 _RE_WS_RUN = re.compile(_S + '+')
-_EPS = 2.220446049250313e-16
 _RE_LONE_SURR = re.compile('[' + chr(0xD800) + '-' + chr(0xDFFF) + ']')
-
-_V8_POW10 = {
-    -12: '3d719799812dea11', -11: '3da5fd7fe1796495', -10: '3ddb7cdfd9d7bdbb',
-    -9: '3e112e0be826d695', -8: '3e45798ee2308c3a', -7: '3e7ad7f29abcaf48',
-    -6: '3eb0c6f7a0b5ed8d', -5: '3ee4f8b588e368f0', -4: '3f1a36e2eb1c432c',
-    -3: '3f50624dd2f1a9fc', -2: '3f847ae147ae147b', -1: '3fb999999999999a',
-}
-
-
-def pow10(e):
-    if isinstance(e, (int, float)) and not isinstance(e, bool) and math.isfinite(e) and float(e).is_integer():
-        ie = int(e)
-        if ie in _V8_POW10:
-            return struct.unpack('>d', bytes.fromhex(_V8_POW10[ie]))[0]
-        if 0 <= ie <= 22:
-            return float(10 ** ie)
-    return math.pow(10, e)
 
 
 def is_num(x):
@@ -236,13 +218,11 @@ GE, LE = '≥', '≤'
 def xlRound(n, dp=UNDEFINED):
     if nn(n) or not jisfinite(n):
         return n
-    d = 0 if dp is UNDEFINED else dp
-    x = jnum(n)
-    sign = -1.0 if x < 0 else 1.0
-    a = abs(x)
-    f = pow10(d)
-    scaled = a * f
-    return sign * float(js_round(scaled + (abs(scaled) * _EPS * 4))) / f
+    return float(_xlDec(n, 0 if dp is UNDEFINED else dp)) + 0.0
+
+
+def _xlDec(n, d):
+    return Decimal(repr(float(jnum(n)))).quantize(Decimal(1).scaleb(-int(d)), rounding=ROUND_HALF_UP, context=Context(prec=60))
 
 
 def xlFixed(n, dp=UNDEFINED):
@@ -250,10 +230,11 @@ def xlFixed(n, dp=UNDEFINED):
     r = xlRound(n, d)
     if not is_num(r):
         raise TypeError("Cannot read properties of %s (reading 'toFixed')" % jstr(r))
-    return js_to_fixed(0 if r == 0 else r, d)
+    s = '{:f}'.format(_xlDec(n, d))
+    return s[1:] if (r == 0 and s.startswith('-')) else s
 
 
-MONEY_DP_MIN, MONEY_DP_MAX = 2, 4
+MONEY_DP_MIN = 2
 MONEY_MAGS = [{'min': 1e6, 'div': 1e6, 'suf': 'T'}, {'min': 1e3, 'div': 1e3, 'suf': 'B'},
               {'min': 0, 'div': 1, 'suf': 'M'}]
 
@@ -266,16 +247,7 @@ def moneyShape(values):
         return {'div': 1, 'suf': 'M', 'dp': MONEY_DP_MIN}
     mx = max(nz)
     m = next((x for x in MONEY_MAGS if mx >= x['min']), MONEY_MAGS[-1])
-    uniq = sorted(dict.fromkeys(nums))
-    gap = math.inf
-    for i in range(1, len(uniq)):
-        d = uniq[i] - uniq[i - 1]
-        if d > 0 and d < gap:
-            gap = d
-    dp = MONEY_DP_MIN
-    while dp < MONEY_DP_MAX and math.isfinite(gap) and (gap / m['div']) < pow10(-dp):
-        dp += 1
-    return {'div': m['div'], 'suf': m['suf'], 'dp': dp}
+    return {'div': m['div'], 'suf': m['suf'], 'dp': MONEY_DP_MIN}
 
 
 def moneyRow(row, values):
@@ -287,12 +259,7 @@ def moneyRow(row, values):
 
 
 def deltaShape(shape, d):
-    sh = shape if jt(shape) else {'div': 1, 'suf': 'M', 'dp': MONEY_DP_MIN}
-    dp = sh['dp']
-    a = abs(d if (is_num(d) and math.isfinite(d)) else 0) / sh['div']
-    while dp < MONEY_DP_MAX and a > 0 and a < pow10(-dp):
-        dp += 1
-    return {'div': sh['div'], 'suf': sh['suf'], 'dp': dp}
+    return shape if jt(shape) else {'div': 1, 'suf': 'M', 'dp': MONEY_DP_MIN}
 
 
 _RE_GROUP = re.compile(r'\B(?=(\d{3})+(?!\d))', re.ASCII)
@@ -309,7 +276,7 @@ def fmtM(n, shape=UNDEFINED):
     x = jnum(n)
     parts = xlFixed(abs(x) / sh['div'], sh['dp']).split('.')
     s = CS + groupDigits(parts[0]) + '.' + parts[1] + sh['suf']
-    return '(' + s + ')' if x < 0 else s
+    return MINUS + s if x < 0 else s
 
 
 CS = '$'
@@ -323,11 +290,10 @@ def fmtEps(n, minor=UNDEFINED):
         return MDASH
     x = jnum(n)
     a = abs(x)
-    zeroDec = isinstance(CURM, str) and CURM in ZERO_DEC and not jt(minor) and not (a > 0 and a < 1)
-    dec = 0 if zeroDec else (4 if (jt(minor) or (a > 0 and a < 0.1)) else 2)
+    dec = 0 if (isinstance(CURM, str) and CURM in ZERO_DEC and not (a > 0 and a < 1)) else 2
     parts = xlFixed(a, dec).split('.')
     s = CS + groupDigits(parts[0]) + ('' if dec == 0 else '.' + parts[1])
-    return '(' + s + ')' if x < 0 else s
+    return MINUS + s if x < 0 else s
 
 
 def fmtMag(n):
@@ -354,7 +320,12 @@ def fmtPct(n, dec=UNDEFINED, signed=UNDEFINED):
 def fmtX(v):
     if nn(v) or not jisfinite(v):
         return MDASH
-    return xlFixed(v, 2 if abs(xlRound(v, 2)) < 1 else 1) + 'x'
+    return xlFixed(v, 2) + 'x'
+
+
+def rateDp(values):
+    nz = [abs(jnum(v)) for v in values if is_num(v) and math.isfinite(v)]
+    return 2 if nz and max(nz) < 5 else 1
 
 
 def fmtSignedM(n, shape=UNDEFINED):
@@ -391,18 +362,7 @@ def countShape(values):
     m = next((x for x in COUNT_MAGS if mx >= x['min']), None)
     if m is None:
         return None
-    uniq = sorted(dict.fromkeys(nums))
-    gap = math.inf
-    for i in range(1, len(uniq)):
-        d = uniq[i] - uniq[i - 1]
-        if d > 0 and d < gap:
-            gap = d
-    dp = MONEY_DP_MIN
-    while dp < MONEY_DP_MAX and math.isfinite(gap) and (gap / m['div']) < pow10(-dp):
-        dp += 1
-    while dp < MONEY_DP_MAX and (min(nz) / m['div']) < pow10(1 - dp):
-        dp += 1
-    return {'div': m['div'], 'suf': m['suf'], 'dp': dp}
+    return {'div': m['div'], 'suf': m['suf'], 'dp': MONEY_DP_MIN}
 
 
 def countRow(row, values):
@@ -422,7 +382,7 @@ def fmtCell(row, v):
     if seq(fmt, '#'):
         return fmtCount(v, G(row, '__count'))
     if seq(fmt, '%'):
-        return (MINUS + xlFixed(abs(jnum(v)), 1) if jnum(v) < 0 else xlFixed(v, 1)) + '%'
+        return fmtPct(v, jor(G(row, '__pdp'), 1))
     if seq(fmt, '$'):
         return fmtEps(v, MINOR_has(G(row, 'ltcode')))
     return fmtM(v, G(row, '__money'))
@@ -1206,7 +1166,7 @@ def valuation():
         val = G(L, 'value')
         if nn(val):
             return kv(lbl, MDASH)
-        return kv(lbl, fmtPct(val, 1) if seq(G(L, 'kind'), 'pct') else fmtX(val))
+        return kv(lbl, fmtPct(val, rateDp([val])) if seq(G(L, 'kind'), 'pct') else fmtX(val))
     bvps = G(V, 'bvps')
     rowsR = [
         kv('52-wk High', withPct(G(V, 'wk52_high'), G(V, 'pct_off_high'), False)),
@@ -1219,8 +1179,8 @@ def valuation():
             rowsR.append(lensRow(L))
     else:
         dy = G(V, 'dividend_yield')
-        rowsR.append(kv('Dividend Yield', MDASH if dy is None else fmtPct(jnum(dy) * 100, 1)))
-        rowsR.append(kv('FCF Yield (NTM)', 'NM' if jt(G(V, 'fcf_yield_nm')) else fmtPct(G(V, 'fcf_yield_ntm'), 1)))
+        rowsR.append(kv('Dividend Yield', MDASH if dy is None else fmtPct(jnum(dy) * 100, rateDp([jnum(dy) * 100]))))
+        rowsR.append(kv('FCF Yield (NTM)', 'NM' if jt(G(V, 'fcf_yield_nm')) else fmtPct(G(V, 'fcf_yield_ntm'), rateDp([G(V, 'fcf_yield_ntm')]))))
         if jt(G(V, 'ntm_row_mixed_basis')):
             mixLbl = ('NTM P/E (' + ('rep.' if seq(G(V, 'ntm_pe_basis'), 'GAAP') else 'Adj') + ') | EV/EBITDA (' +
                       ('rep.' if seq(G(V, 'ntm_ev_ebitda_basis'), 'GAAP') else 'Adj') + ')')
@@ -1330,7 +1290,7 @@ def summary():
 
         def one(v):
             if seq(f, '%'):
-                return xlFixed(v, 1) + '%'
+                return fmtPct(v, jor(G(row, '__pdp'), 1) if isinstance(row, dict) else 1)
             if seq(f, '$'):
                 return fmtEps(v, MINOR_has(ltcode))
             if seq(f, '#'):
@@ -1344,7 +1304,7 @@ def summary():
         if not nn(pt):
             return '~' + one(pt)
         if lo is not None and hi_ is not None:
-            return (xlFixed(lo, 1) + '–' + xlFixed(hi_, 1) + '%') if seq(f, '%') else (one(lo) + '–' + one(hi_))
+            return (one(lo)[:-1] if seq(f, '%') else one(lo)) + '–' + one(hi_)
         return jtrim(_RE_WS_RUN.sub(' ', jstr(G(gg, 'text'))))
 
     rows0 = G(sf, 'rows')
@@ -1370,11 +1330,13 @@ def summary():
         }, pol)
         return [tRow(yy), tRow(qq)]
 
+    COLS7 = ['py_q', 'prior_q', 'target_q', 'next_q', 'fy_prev', 'fy0', 'fy1']
     for i, r in enumerate(jarr(rows0)):
         prev = gi(rows0, i - 1) if i >= 1 else UNDEFINED
         if seq(G(r, 'group'), 'kpi') and jt(prev) and seq(G(prev, 'group'), 'fin'):
             rows.append(tRow([tdRowhead(bandLabel('kpi'), len(g), wsum)]))
         moneyRow(r, [G(r, 'py_q'), G(r, 'prior_q'), G(r, 'target_q'), G(r, 'next_q'), G(r, 'fy_prev'), G(r, 'fy0'), G(r, 'fy1')])
+        setprop(r, '__pdp', rateDp([G(r, k) for k in ['py_q', 'prior_q', 'target_q', 'next_q', 'fy_prev', 'fy0', 'fy1']]))
         if seq(G(r, 'fmt'), '#'):
             countRow(r, [G(r, 'py_q'), G(r, 'prior_q'), G(r, 'target_q'), G(r, 'next_q'), G(r, 'fy_prev'), G(r, 'fy0'), G(r, 'fy1')])
         rows.append(tRow(cellsFor(td(G(r, 'name'), g[0], {'left': True}), {
@@ -1402,7 +1364,7 @@ def summary():
             def fmtSub(v, k, s=s, NMs=NMs):
                 if nn(v):
                     return 'NM' if jt(G(NMs, k)) else MDASH
-                return fmtPct(v, 1, True) if seq(G(s, 'kind'), 'growth') else fmtPct(v, 1, False)
+                return fmtPct(v, 1, True) if seq(G(s, 'kind'), 'growth') else fmtPct(v, rateDp([G(cells_, c) for c in COLS7]), False)
             subPol = G(s, 'polarity') if seq(G(s, 'kind'), 'growth') else 'neutral'
             isYY = seq(G(s, 'kind'), 'growth') and re.search(r'^Y/Y', jstr(jor(G(s, 'label'), ''))) is not None
 
@@ -1469,7 +1431,7 @@ def setupFacts():
         if not nn(G(ES, 'pe_1yr_avg')):
             s += ' vs 1-yr avg ' + fmtX(G(ES, 'pe_1yr_avg'))
         if not nn(G(ES, 'pe_year_ago')):
-            s += ' and ' + xlFixed(G(ES, 'pe_year_ago'), 1) + 'x a year ago'
+            s += ' and ' + fmtX(G(ES, 'pe_year_ago')) + ' a year ago'
         elif not nn(G(ES, 'pe_1yr_avg')):
             s += ' (no year-ago anchor in the fetched history)'
         if nn(G(ES, 'pe_1yr_avg')) and nn(G(ES, 'pe_year_ago')):
@@ -1520,7 +1482,7 @@ def revisions():
             if jt(G(r, 'is_pct')):
                 if v is None:
                     return MDASH
-                return (MINUS + xlFixed(abs(jnum(v)), 1) if jnum(v) < 0 else xlFixed(v, 1)) + '%'
+                return fmtPct(v, rateDp(acc))
             return fmtCell(r, v)
         dtxt = MDASH
         dvp = G(r, 'delta_vs_post')
@@ -1582,7 +1544,7 @@ def evolution():
         bcols = jarr(G(b, 'cols'))
         is_pct = jt(G(b, 'is_pct'))
         isFx = re.search(r'FX', jstr(G(b, 'lineitem')), re.I | re.ASCII) is not None
-        dec = 2 if isFx else 1
+        dec = jor(G(b, 'dp'), 2 if isFx else 1)
         bf = jor(G(b, 'fmt'), '%' if is_pct else '$M')
         if is_pct or seq(bf, '$') or seq(bf, '#'):
             bShape = None
@@ -1601,12 +1563,11 @@ def evolution():
                       for c in bcols)
         rows.append(tRow([tdRowhead(jstr(G(b, 'lineitem')) + sfx, len(g), wsum)]))
 
-        def fv(v, d=UNDEFINED, is_pct=is_pct, fnum=fnum):
+        def fv(v, d=UNDEFINED, is_pct=is_pct, fnum=fnum, dec=dec):
             if v is None:
                 return MDASH
             if is_pct:
-                dd = 1 if d is UNDEFINED else d
-                return ('(' + xlFixed(abs(jnum(v)), dd) + '%)') if jnum(v) < 0 else (xlFixed(v, dd) + '%')
+                return fmtPct(v, dec if d is UNDEFINED else d)
             return fnum(v)
 
         def dataRow(lbl, get, o=UNDEFINED, bcols=bcols):
@@ -1636,7 +1597,7 @@ def evolution():
         hasCons = any(G(c, 'consensus') is not None for c in bcols)
         if hasCons:
             rows.append(dataRow('Consensus', lambda c, i: {
-                'text': (MDASH if G(c, 'consensus') is None else fmtPct(G(c, 'consensus'), 1, False)) if is_pct
+                'text': (MDASH if G(c, 'consensus') is None else fmtPct(G(c, 'consensus'), dec, False)) if is_pct
                 else fnum(G(c, 'consensus')),
                 'o': {'b': i == len(bcols) - 1 and G(c, 'consensus') is not None}}))
         rows.append(dataRow('Actual', lambda c, i: {
@@ -1648,8 +1609,9 @@ def evolution():
                 v = G(c, 'vs_guide_hi')
                 if v is None:
                     return {'text': MDASH}
-                cc = clsColor(v)
-                return {'text': (MINUS if jnum(v) < 0 else '+') + xlFixed(abs(jnum(v)), 1) + unit,
+                vd = dec if is_pct else 1
+                cc = clsColor(v, UNDEFINED, vd)
+                return {'text': (MINUS if xlRound(v, vd) < 0 else '+') + xlFixed(abs(jnum(v)), vd) + unit,
                         'o': {'i': True, 'color': COLORS[cc] if cc else UNDEFINED}}
             rows.append(dataRow('vs Guide - High', vg, {'lblO': {'i': True}}))
         if hasCons and any(G(c, 'vs_cons') is not None for c in bcols):
@@ -1657,8 +1619,9 @@ def evolution():
                 v = G(c, 'vs_cons')
                 if v is None:
                     return {'text': MDASH}
-                cc = clsColor(v)
-                return {'text': (MINUS if jnum(v) < 0 else '+') + xlFixed(abs(jnum(v)), 1) + unit,
+                vd = dec if is_pct else 1
+                cc = clsColor(v, UNDEFINED, vd)
+                return {'text': (MINUS if xlRound(v, vd) < 0 else '+') + xlFixed(abs(jnum(v)), vd) + unit,
                         'o': {'i': True, 'color': COLORS[cc] if cc else UNDEFINED}}
             rows.append(dataRow('vs Cons', vc, {'lblO': {'i': True}}))
     reactions = jarr(G(E, 'reactions'))

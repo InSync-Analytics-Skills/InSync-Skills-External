@@ -5,7 +5,11 @@ file is the full statement.
 
 5. **Sub-rows are DATABASE-FIRST:** the DB's own -Y/-Q/-M
    derived items are shown wherever InSync carries them, and their consensus values
-   are authoritative. On top, FIXED importance defaults are computed where the DB
+   are authoritative where one of the two levels is not printed (the prior-year quarter
+   behind a historical Y/Y). Where BOTH levels are printed (target-quarter, next-quarter and
+   FY Y/Y or Q/Q; every Margin and % of Total Revenue cell) the cell is computed from the
+   levels AS PRINTED (house rule R1; full values on a base under $1bn or 1.00/share), so the
+   page re-derives; the DB value fills only a cell compute cannot. On top, FIXED importance defaults are computed where the DB
    lacks them: Revenue & EPS -> Y/Y + Q/Q; EBITDA/EBIT (incl. Adj) -> Y/Y + Margin;
    every currency ($M) KPI -> Y/Y, Q/Q and "% of Total Revenue"; unit/volume KPIs
    (fmt "#": GWh, units, subscribers, deliveries...) -> Y/Y + Q/Q ONLY — a computed

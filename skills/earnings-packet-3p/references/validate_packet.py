@@ -43,13 +43,13 @@ def _ccy_alt():
 
 
 CCY_ALT = _ccy_alt()
-NUM=re.compile(r'^[+–\-]?\(?' + CCY_ALT + r'?[+–\-]?[0-9][0-9,]*(\.[0-9]+)?([%xBM])?\)?( bps)?$')
+NUM=re.compile(r'^[+–−\-]?\(?' + CCY_ALT + r'?[+–−\-]?[0-9][0-9,]*(\.[0-9]+)?([%xBMT])?\)?( bps)?$')
 
 _LEAD = '([$\u20ac\u00a3\u20b9'
 
 
 def _is_neg(t):
-    return t.startswith('(') or t.lstrip(_LEAD)[:1] in ('\u2013', '-')
+    return t.startswith('(') or t.lstrip(_LEAD)[:1] in ('\u2013', '\u2212', '-')
 
 def _near(c,t,tol=0.02):
     r=((c>>16)&255)/255,((c>>8)&255)/255,(c&255)/255
@@ -76,13 +76,14 @@ def _negok_forms():
         a = abs(v)
         if fmt == '$M':
             out.update(_forms(a / 1000.0, 2))
-            out.update(_forms(a, 1))
+            out.update(_forms(a / 1e6, 2))
+            out.update(_forms(a, 2))
         elif fmt == '$':
             out.update(_forms(a, 2))
         elif fmt == '$3':
-            out.update(_forms(a, 3))
+            out.update(_forms(a, 2))
         elif fmt == '%':
-            out.update(_forms(a, 1))
+            out.update(_forms(a, 1) | _forms(a, 2))
         elif fmt == '%2':
             out.update(_forms(a, 2))
         elif fmt == 'x':
@@ -90,7 +91,7 @@ def _negok_forms():
         elif fmt == 'k':
             out.update(_forms(a * 1000, 0))
         elif fmt == '#B':
-            out.update(_forms(a, 3))
+            out.update(_forms(a, 2))
         else:
             out.update(_forms(a, 1))
 
@@ -161,14 +162,14 @@ def pass_prose():
                            f'directory, the one holding packet_computed.json')], 'not run')
     hay=json.dumps(C)
     FIG=set(C.get('narrative_figures') or [])
-    _NUMPART = re.compile(r'^[+–-]?' + CCY_ALT + r'?\s*(\d[\d,]*(?:\.\d+)?)')
+    _NUMPART = re.compile(r'^[+–−-]?' + CCY_ALT + r'?\s*(\d[\d,]*(?:\.\d+)?)')
 
     def _norm(x):
         m = _NUMPART.match(str(x).strip())
         if m:
             return m.group(1).replace(',', '')
         t = str(x).strip().lower()
-        return t.lstrip('+–-($ ').rstrip('%x)b .,').replace(',', '')
+        return t.lstrip('+–−-($ ').rstrip('%x)b .,').replace(',', '')
     DOC={_norm(x) for x in (N.get('document_figures') or [])}
     DOC.discard('')
     PRN = set()
@@ -181,15 +182,15 @@ def pass_prose():
     _MONEY_SCALE = ((C.get('meta') or {}).get('money_scale') or 'B')
 
     def _bare(t):
-        t = str(t).strip().lstrip('+–-').lstrip('$€£¥')
-        return t.rstrip('%xXbB) ').rstrip('.,').replace(',', '')
+        t = str(t).strip().lstrip('+–−-').lstrip('$€£¥')
+        return t.rstrip('%xXbBmMtT) ').rstrip('.,').replace(',', '')
 
     def _unit(t):
         t = str(t).strip()
         if t.endswith('%'): return '%'
         if t.endswith('x') or t.endswith('X'): return 'x'
-        if t.endswith('B') or t.endswith('M'): return '$scale'
-        if t.lstrip('+–-')[:1] in ('$', '€', '£', '¥'): return '$'
+        if t[-1:] in ('B', 'M', 'T'): return '$scale'
+        if t.lstrip('+–−-')[:1] in ('$', '€', '£', '¥'): return '$'
         return ''
 
     PRN_BARE = {}
@@ -240,13 +241,13 @@ def pass_prose():
         return None
 
     def known_strict(tok):
-        core=tok.lstrip('+–-($').rstrip('%x)B ').rstrip('.,').replace(',','')
+        core=tok.lstrip('+–−-($').rstrip('%x)B ').rstrip('.,').replace(',','')
         if not core: return True
         if core in DOC or _norm(tok) in DOC: return True
         if re.fullmatch(r'(19|20|21)\d\d', core): return True
         return core in FIG or core.lstrip('0') in FIG or ('0'+core) in FIG
     def known_legacy(tok):
-        core=tok.lstrip('+–-($').rstrip('%x)B ').replace(',','')
+        core=tok.lstrip('+–−-($').rstrip('%x)B ').replace(',','')
         if not core or core in ('0','1','2','3','4','5'): return True
         if core in hay: return True
         try: v=float(core)
@@ -268,7 +269,7 @@ def pass_prose():
     NOISE=re.compile(r'S&P\s+500|\b[A-Z]{2}_[A-Z]_\d+|\b[A-Z]{2}_[A-Z]{1,2}_\d+'
                      r'|\b\d{1,2}\s+' + MONTH + r'\b'
                      r'|\b' + MONTH + r'\s+\d{1,2}\b')
-    TOKEN=re.compile(r'[+–-]?\$?\d[\d,]*\.?\d*(?:%|x)?')
+    TOKEN=re.compile(r'[+–−-]?\$?\d[\d,]*\.?\d*(?:%|x)?')
     def scan(txt):
         return TOKEN.findall(NOISE.sub(' ', str(txt)))
     bad=[]; advisory=[]; precision=[]

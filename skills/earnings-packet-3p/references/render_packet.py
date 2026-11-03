@@ -35,7 +35,7 @@ import fmt as F
 from fmt import (JSError, type_error, nn, is_num, is_nan, jt, jor, jnc, jstr, to_num, js_lt,
                  js_ge, js_gt, js_eq, js_abs, G, need, jiter, set_items, JSSet,
                  js_sort_strings, read_json_module, u16slice, utf16len, num, cell, gcell, gzero, is_rate, xfmt,
-                 setCcy, ccy, setScale, scaleLabel, printed, record, UNDEF)
+                 rowfmt, setCcy, ccy, setScale, scaleLabel, printed, record, UNDEF)
 from jscompat import js_round, js_str, js_to_fixed
 from fmt import js_json_wf as js_json
 
@@ -1008,8 +1008,9 @@ def main():
                 continue
             _sc = (lambda v: DK) if jt(G(r, 'neg_ok')) else sc
             cells = [TC(sp['n'], {'w': GWs[0], 'b': True})]
+            rf = rowfmt([G(G(r, 'cells'), k) for k in GK], G(r, 'fmt'))
             for i, k in enumerate(GK):
-                s = cell(G(G(r, 'cells'), k), G(r, 'fmt'))
+                s = cell(G(G(r, 'cells'), k), rf)
                 cells.append(TC(s, {'w': ix(GWs, i + 1), 'al': RIGHT, 'c': _sc(G(G(r, 'cells'), k)), 'i': ESTQ.has(k)}))
             res.append(R(cells))
             if js_eq(sp['sub'], 'yoy'):
@@ -1026,9 +1027,10 @@ def main():
                         m = x
                         break
                 cells = [TC(sp['sl'], {'w': GWs[0], 'i': True, 'sz': 10, 'c': GY})]
+                mf = rowfmt([G(G(m, 'cells'), k) for k in GK] if jt(m) else [], '%')
                 for i, k in enumerate(GK):
                     mv = G(G(m, 'cells'), k) if jt(m) else None
-                    cells.append(TC(record(num(mv, 1) + '%') if not nn(mv) else '–',
+                    cells.append(TC(cell(mv, mf) if not nn(mv) else '–',
                                     {'w': ix(GWs, i + 1), 'al': RIGHT, 'sz': 10,
                                      'c': GY if nn(mv) else (GN if js_ge(mv, 0) else RD)}))
                 res.append(R(cells))
@@ -1064,13 +1066,14 @@ def main():
         gr = [HR(['Guided item', 'Target', 'Guide as published', 'Guide low–high', EW, 'Position'], gw, [AL, AC, AC, AC, AC, AC])]
         for x in jiter(g, 'C.guide_vs_cons'):
             cons = G(x, 'cons')
-            ct = '–' if nn(cons) else cell(G(x, 'cons'), G(x, 'unit'))
+            gu = rowfmt([G(x, 'lo'), G(x, 'hi'), cons], G(x, 'unit'))
+            ct = '–' if nn(cons) else cell(G(x, 'cons'), gu)
             if nn(G(x, 'lo')):
                 bd = '–'
             elif jt(G(x, 'approx')) or js_eq(G(x, 'lo'), G(x, 'hi')):
-                bd = cell(G(x, 'lo'), G(x, 'unit'))
+                bd = cell(G(x, 'lo'), gu)
             else:
-                bd = cell(G(x, 'lo'), G(x, 'unit')) + ' – ' + cell(G(x, 'hi'), G(x, 'unit'))
+                bd = cell(G(x, 'lo'), gu) + ' – ' + cell(G(x, 'hi'), gu)
             c1 = TC(G(x, 'item'), {'w': gw[0]})
             c2 = TC(G(x, 'target'), {'w': gw[1], 'al': CENTER})
             c3 = TC(G(x, 'text'), {'w': gw[2], 'al': CENTER})
@@ -1100,7 +1103,7 @@ def main():
             if js_includes(need(DISP_KEEP, 'includes', 'DISP_KEEP.includes'), G(y, 'code')):
                 kept.append(y)
         for x in kept:
-            f = G(x, 'fmt')
+            f = rowfmt([G(x, 'mean'), G(x, 'min'), G(x, 'max')], G(x, 'fmt'))
             _sc = (lambda v: DK) if jt(G(x, 'neg_ok')) else sc
             c1 = TC(NM(G(x, 'name')), {'w': w[0]})
             c2 = TC(cell(G(x, 'mean'), f), {'w': w[1], 'al': RIGHT, 'b': True, 'c': _sc(G(x, 'mean'))})
@@ -1125,8 +1128,9 @@ def main():
         def segRows(lst, mg):
             for x in jiter(lst, 'list'):
                 cells = [TC(G(x, 'name'), {'w': sgw[0], 'b': True})]
+                rf = rowfmt([G(G(x, 'cells'), k) for k in QK], '$M')
                 for i, k in enumerate(QK):
-                    s = cell(G(G(x, 'cells'), k), '$M')
+                    s = cell(G(G(x, 'cells'), k), rf)
                     cells.append(TC(s, {'w': ix(sgw, i + 1), 'al': AR, 'c': sc(G(G(x, 'cells'), k)), 'i': js_eq(k, TGT)}))
                 sg.append(R(cells))
                 if not mg:
@@ -1138,9 +1142,10 @@ def main():
                     sg.append(R(cells))
                 if mg:
                     cells = [TC(G(C, 'seg_margin_label'), {'w': sgw[0], 'i': True, 'sz': 10, 'c': GY})]
+                    mf = rowfmt([G(G(x, 'margin'), k) for k in QK], '%')
                     for i, k in enumerate(QK):
                         mk_ = G(G(x, 'margin'), k)
-                        txt = '–' if nn(mk_) else record(num(G(G(x, 'margin'), k), 1) + '%')
+                        txt = '–' if nn(mk_) else cell(G(G(x, 'margin'), k), mf)
                         mk2 = G(G(x, 'margin'), k)
                         cells.append(TC(txt, {'w': ix(sgw, i + 1), 'al': AR, 'sz': 10,
                                               'c': GY if nn(mk2) else (GN if js_ge(mk2, 0) else RD)}))
@@ -1177,7 +1182,8 @@ def main():
         note = jstr(G(G(N, 'notes'), 'segment')) + bandNote + dropNote('segment')
         if corpMatters:
             note += (' Corporate & eliminations: '
-                     + '  ·  '.join((jstr(TGT) + 'E' if js_eq(k, TGT) else jstr(k)) + ' ' + cell(G(cr, k), '$M') for k in corpPick)
+                     + '  ·  '.join((jstr(TGT) + 'E' if js_eq(k, TGT) else jstr(k)) + ' '
+                                    + cell(G(cr, k), rowfmt([G(cr, q) for q in corpPick], '$M')) for k in corpPick)
                      + '.')
         o.append(NT(note))
 
@@ -1186,8 +1192,9 @@ def main():
         GROWTH_SUB = JSSet(set_items(jor(G(C, 'kpi_growth_sub'), [])))
         for k in jiter(G(C, 'kpis'), 'C.kpis'):
             cells = [TC(NM(G(k, 'name')), {'w': kw[0], 'b': True})]
+            rf = rowfmt([G(G(k, 'cells'), q) for q in QK], G(k, 'fmt'))
             for i, q in enumerate(QK):
-                txt = '–' if nn(G(G(k, 'cells'), q)) else cell(G(G(k, 'cells'), q), G(k, 'fmt'))
+                txt = '–' if nn(G(G(k, 'cells'), q)) else cell(G(G(k, 'cells'), q), rf)
                 cells.append(TC(txt, {'w': ix(kw, i + 1), 'al': RIGHT, 'c': sc(G(G(k, 'cells'), q)), 'i': js_eq(q, TGT)}))
             kr.append(R(cells))
             if GROWTH_SUB.has(G(k, 'code')):
@@ -1228,9 +1235,10 @@ def main():
         for r in revs:
             isP = is_rate(G(r, 'fmt'), G(r, 'name'))
             cells = [TC(G(r, 'name'), {'w': w[0]})]
+            rf = rowfmt([G(r, G(c, 'key')) for c in RC], G(r, 'fmt'))
             for i, c in enumerate(RC):
                 v = G(r, G(c, 'key'))
-                txt = 'n/a' if nn(v) else cell(G(r, G(c, 'key')), G(r, 'fmt'))
+                txt = 'n/a' if nn(v) else cell(G(r, G(c, 'key')), rf)
                 bold = js_eq(G(c, 'key'), 'latest')
                 v2 = G(r, G(c, 'key'))
                 col = GY if nn(v2) else (DK if jt(G(r, 'neg_ok')) else sc(G(r, G(c, 'key'))))
@@ -1309,20 +1317,25 @@ def main():
 
         xmul = xfmt
         PF = {
-            'money': lambda v: {'t': record(cell(v, '$M')), 'c': DK if js_ge(v, 0) else RD},
-            'mult': lambda v: {'t': record(xmul(v)), 'c': DK if js_ge(v, 0) else RD},
-            'pct1': lambda v: {'t': record(num(v, 1) + '%'), 'c': DK if js_ge(v, 0) else RD},
-            'pct100': lambda v: {'t': record(num(to_num(v) * 100, 1) + '%'), 'c': DK if js_ge(v, 0) else RD},
-            'pctchg': lambda v: {'t': record(gcell(v, False)), 'c': GY if gzero(v, False) else (GN if js_ge(v, 0) else RD)},
-            'ratio': lambda v: {'t': record(num(v, 2)), 'c': DK if js_ge(v, 0) else RD},
-            'raw': lambda v: ({'t': record(num(v, 2)), 'c': DK if js_ge(v, 0) else RD} if is_num(v)
-                              else {'t': record(jstr(v)), 'c': DK}),
+            'money': lambda v, u: {'t': record(cell(v, u)), 'c': DK if js_ge(v, 0) else RD},
+            'mult': lambda v, u: {'t': record(xmul(v)), 'c': DK if js_ge(v, 0) else RD},
+            'pct1': lambda v, u: {'t': record(cell(v, u)), 'c': DK if js_ge(v, 0) else RD},
+            'pct100': lambda v, u: {'t': record(cell(to_num(v) * 100, u)), 'c': DK if js_ge(v, 0) else RD},
+            'pctchg': lambda v, u: {'t': record(gcell(v, False)), 'c': GY if gzero(v, False) else (GN if js_ge(v, 0) else RD)},
+            'ratio': lambda v, u: {'t': record(num(v, 2)), 'c': DK if js_ge(v, 0) else RD},
+            'raw': lambda v, u: ({'t': record(num(v, 2)), 'c': DK if js_ge(v, 0) else RD} if is_num(v)
+                                 else {'t': record(jstr(v)), 'c': DK}),
         }
+        PU = {'money': '$M', 'pct1': '%', 'pct100': '%'}
 
         def runBand(label, lst):
             band(label)
             for m in jiter(lst, 'list'):
-                def fn(r, m=m):
+                mf = G(m, 'fmt') if isinstance(G(m, 'fmt'), str) else ''
+                u = rowfmt([to_num(G(r, G(m, 'key'))) * (100 if mf == 'pct100' else 1)
+                            for r in G(PR, 'rows') if is_num(G(r, G(m, 'key')))], PU.get(mf, ''))
+
+                def fn(r, m=m, u=u):
                     v = G(r, G(m, 'key'))
                     if nn(v):
                         why = G(r, jstr(G(m, 'key')) + '_note')
@@ -1330,7 +1343,7 @@ def main():
                     f = PF.get(G(m, 'fmt')) if isinstance(G(m, 'fmt'), str) else None
                     if f is None:
                         raise type_error('PF[m.fmt] is not a function')
-                    return f(v)
+                    return f(v, u)
                 metric(G(m, 'label'), fn, {'b': jt(G(m, 'lead'))})
 
         runBand(jstr(G(PR, 'val_label')) + '  ·  as of ' + jstr(G(PR, 'asof_val')), G(PR, 'val_metrics'))

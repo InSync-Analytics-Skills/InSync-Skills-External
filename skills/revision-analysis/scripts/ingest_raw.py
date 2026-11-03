@@ -25,7 +25,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from jscompat import UNDEFINED, _JSErr, _js_read_json, js_keys, js_stdio, js_str
 
-VERSION = '2.5.0'
+VERSION = '2.5.2'
 
 
 def _pj(*parts):

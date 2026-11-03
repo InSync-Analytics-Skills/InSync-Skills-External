@@ -347,7 +347,7 @@ def main(argv=None) -> int:
     from insync_charts.spec import parse as _build
 
     check("compact labels honour the unit's magnitude",
-          _fmt.fmt_value(20543, "usd_mn", compact=True) == "$20.5B"
+          _fmt.fmt_value(20543, "usd_mn", compact=True) == "$20.54B"
           and _fmt.axis_label("usd_mn", peak=20543) == "US$",
           _fmt.fmt_value(20543, "usd_mn", compact=True))
 
@@ -615,7 +615,7 @@ def main(argv=None) -> int:
 
     from insync_charts import fmt as _f
     check("non-US currencies format with their own symbol or code",
-          _f.fmt_value(1234, "gbp_mn") == "£1,234" and _f.fmt_value(4.5, "chf_ps") == "CHF 4.50",
+          _f.fmt_value(1234, "gbp_mn") == "£1,234.00" and _f.fmt_value(4.5, "chf_ps") == "CHF 4.50",
           f"{_f.fmt_value(1234, 'gbp_mn')} {_f.fmt_value(4.5, 'chf_ps')}")
 
     ok = all(r["ok"] for r in results)

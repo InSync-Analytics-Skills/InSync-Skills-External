@@ -16,6 +16,7 @@ CF = {
     "CF_P_102": "Share Repurchase (#)",
     "CF_P_103": "Average Repurchase Price",
     "CF_P_104": "Dividends Paid ($)",
+    "CF_P_105": "Dividends per Share",
     "CF_P_107": "Dividend Payout Ratio (%)",
     "CF_P_129": "Acquisitions (CFI)",
     "CF_P_130": "Purchases of Investments (CFI)",

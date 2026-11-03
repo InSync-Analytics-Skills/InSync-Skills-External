@@ -26,6 +26,7 @@ import math
 import os
 import re
 import sys
+from decimal import Decimal, ROUND_HALF_UP, Context
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from jscompat import js_str, js_number, js_parse_float, js_to_fixed, js_round, js_keys, js_cmp_sort, \
@@ -38,7 +39,6 @@ _WSC = "\t\n\x0b\x0c\r    -     　﻿"
 _S = "[" + _WSC + "]"
 _TRIM = "\t\n\x0b\x0c\r   " + "".join(chr(c) for c in range(0x2000, 0x200b)) + \
         "    　﻿"
-EPSILON = 2.0 ** -52
 
 
 def _finite(v):
@@ -117,6 +117,7 @@ N = _read_json(narr_path)
 allowed = _NumSet()
 b_allowed = _NumSet()
 m_allowed = _NumSet()
+pct_text = None
 pct_allowed = _NumSet()
 count_allowed = _NumSet()
 guide_prior = _NumSet()
@@ -247,6 +248,8 @@ if CIT is not None:
     for r in _vals(_get(_or(_get(C, "revisions"), {}), "rows")):
         if isinstance(r, dict) and r.get("fmt") == "#" and not r.get("is_pct"):
             _count_row([r.get(k) for k in ("pre", "post", "interq", "latest")])
+    if isinstance(_get(CIT, "pct_text"), list):
+        pct_text = set(_get(CIT, "pct_text"))
     for v in _vals(_or(_get(CIT, "pct"), CIT["values"])):
         pct_allowed.add(v)
         pct_allowed.add(_abs(v))
@@ -326,11 +329,7 @@ def xlr(n, dp):
     x = _num(n)
     if not math.isfinite(x):
         return x if _is_num(n) else None
-    sign = -1 if x < 0 else 1
-    a = abs(x)
-    f = 10.0 ** dp
-    sc = a * f
-    return (sign * js_round(sc + abs(sc) * EPSILON * 4)) / f
+    return float(Decimal(repr(float(x))).quantize(Decimal(1).scaleb(-int(dp)), rounding=ROUND_HALF_UP, context=Context(prec=60))) + 0.0
 
 
 for s_ in strings:
@@ -372,16 +371,19 @@ for s_ in strings:
         is_pct = unit == "%"
         is_phys = bool(PHYS_RE.search(unit))
         in_tone = bool(TONE_PATH.search(path))
-        hit = ((eq(pct_allowed) if is_pct else eq(count_allowed) if is_phys
+        hit = ((((raw.replace(",", "").lstrip("-") in pct_text) if pct_text is not None else eq(pct_allowed)) if is_pct else eq(count_allowed) if is_phys
                 else (eq(allowed) or (is_b and eq(b_allowed)) or (is_m and eq(m_allowed))))
                or (in_tone and len(guide_prior) > 0 and eq(guide_prior)))
         near_hint = ""
         if not hit and is_pct:
             near = [a for a in pct_allowed if abs(_abs(a) - abs(val)) < 0.5]
             near = js_cmp_sort(near, lambda a, b: abs(_abs(a) - abs(val)) - abs(_abs(b) - abs(val)))
+            near = [js_to_fixed(xlr(a, 1), 1) for a in near[:3]]
+            if pct_text is not None:
+                near = sorted((t for t in pct_text if abs(float(t) - abs(val)) < 0.5), key=lambda t: abs(float(t) - abs(val)))[:3]
             if near:
                 near_hint = (" The document prints " +
-                             " and ".join(dict.fromkeys(js_to_fixed(xlr(a, 1), 1) + "%" for a in near[:3])) +
+                             " and ".join(dict.fromkeys(t + "%" for t in near)) +
                              " - cite the printed figure, or put the quantity you mean on the page.")
         if not hit:
             flag("NUMBER", path, '"' + tok.strip(_TRIM) + '" appears in the prose but is not a number ' +
@@ -438,6 +440,18 @@ for s_ in strings:
     if tc:
         flag("COVERAGE", path, '"' + tc.group(0) + '": the document does not comment on how many brokers ' +
              'cover a line - a consensus from one broker is a consensus. Remove the remark.')
+
+_blocks = (C.get("guidance_evolution") or {}).get("blocks") if isinstance(C, dict) else None
+CVG = [(str(b.get("lineitem") or "").lower(), (b.get("cols") or [{}])[-1].get("cons_vs_guide"))
+       for b in (_blocks if isinstance(_blocks, list) else []) if isinstance(b, dict)]
+CVG = [(n_, w_) for n_, w_ in CVG if w_]
+AT_TOP = re.compile(r"\b(?:at|equals?|matches|in line with) the (?:top|high end|upper end)\b", _I)
+for s_ in strings:
+    m_ = AT_TOP.search(outside_quotes(s_["text"]))
+    words = [w_ for n_, w_ in CVG if n_ and n_ in s_["text"].lower()] or [w_ for n_, w_ in CVG]
+    if m_ and words and all(w_ == "above" for w_ in words):
+        flag("GUIDE-WORDING", s_["path"], '"' + m_.group(0) + '": consensus sits ABOVE the guide on the printed ' +
+             'figures (cons_vs_guide), so say "above the guide", never at its top.')
 
 for k in RETIRED_KEYS:
     if _get(N, k) is not UNDEFINED:

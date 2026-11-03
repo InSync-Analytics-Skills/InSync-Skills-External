@@ -24,7 +24,6 @@ import shutil
 import subprocess
 import sys
 import zipfile
-from decimal import Decimal, ROUND_HALF_UP
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -116,15 +115,6 @@ def js_max(vals):
     if any(isinstance(v, float) and math.isnan(v) for v in vals):
         return float('nan')
     return max(vals)
-
-
-def js_min(vals):
-    vals = list(vals)
-    if not vals:
-        return float('inf')
-    if any(isinstance(v, float) and math.isnan(v) for v in vals):
-        return float('nan')
-    return min(vals)
 
 
 def err(msg):
@@ -276,6 +266,7 @@ except (OSError, TypeError):
     err('Note: logo image not found (%s); using text wordmark only' % LOGO_PATH)
 
 _CTRL = re.compile('[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+_NEG = re.compile('(?<![\\w.\\-])-(?=\\.?\\d|[A-Z]{0,3}\\$|[€£¥₹₩])')
 
 
 def sanitize(inp):
@@ -285,7 +276,7 @@ def sanitize(inp):
         inp = ' '.join('' if nn(e) else jstr(e) for e in inp)
     if not isinstance(inp, str):
         inp = jstr(inp)
-    return _CTRL.sub('', inp)
+    return _NEG.sub('−', _CTRL.sub('', inp))
 
 
 _ESC = {'&': '&amp;', '"': '&quot;', "'": '&apos;', '<': '&lt;', '>': '&gt;'}
@@ -464,7 +455,9 @@ goldLeftBorder = {'top': {'style': NONE}, 'bottom': {'style': NONE},
 
 def NEUTRAL_CELL(t):
     s = jtrim(jstr('' if nn(t) else t)).lower()
-    return s in ('', '—', '–', '-', 'n/m', 'n/a', 'nm', 'na', 'unavail')
+    return (s in ('', '—', '–', '-', 'n/m', 'n/a', 'nm', 'na', 'unavail') or s.startswith('in-line')
+            or (re.search('\\d', s) is not None and re.search('[1-9]', s) is None
+                and re.search('beat|miss', s) is None))
 
 
 PAGE_W = 12240
@@ -868,55 +861,18 @@ def buildMarketBar():
     return Table(CONTENT_W, cols, [TableRow(cells)])
 
 
-FIN_MAG = {'M': 1e6, 'B': 1e9, 'T': 1e12}
-_MONEY_RE = re.compile('^(' + _DOT + '*?)(-?[\\d,]+(?:\\.\\d+)?)' + _S + '*([MBT])\\Z', re.ASCII)
-
-
-def _locale_fixed(v, dp):
-    if math.isnan(v):
-        return 'NaN'
-    if math.isinf(v):
-        return '∞'
-    q = Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-dp), rounding=ROUND_HALF_UP)
-    ip, _, fp = format(q, 'f').partition('.')
-    ip = '{:,}'.format(int(ip))
-    return ip + ('.' + fp if dp > 0 else '')
+_MONEY_RE = re.compile('^(-?)(' + _DOT + '*?)([\\d,]+(?:\\.\\d+)?)' + _S + '*([MBT])\\Z', re.ASCII)
 
 
 def resolveFinUnit(rows):
-    parsed = []
-    for r in rows:
-        m = _MONEY_RE.match(jtrim(jstr(jor(G(r, 'value'), ''))))
-        if not m:
-            parsed.append(None)
-            continue
-        parsed.append({'sym': m.group(1),
-                       'abs': js_parse_float(m.group(2).replace(',', '')) * FIN_MAG[m.group(3)]})
-    money = [x for x in parsed if x is not None]
-    if not money:
+    ms = [_MONEY_RE.match(jtrim(jstr(jor(G(r, 'value'), '')))) for r in rows]
+    units = {m.group(4) for m in ms if m}
+    if len(units) != 1:
         return {'header': 'Latest', 'values': [jor(G(r, 'value'), '') for r in rows]}
-    mx = js_max(abs(x['abs']) for x in money)
-    unit = 'T' if mx >= 1e12 else ('B' if mx >= 1e11 else 'M')
-    smallAbs = js_min(abs(x['abs']) for x in money if jt(x['abs']))
-    STEPS = ['T', 'B', 'M']
-    while unit != 'M' and smallAbs / FIN_MAG[unit] < 0.001:
-        unit = STEPS[STEPS.index(unit) + 1]
-    div = FIN_MAG[unit]
-    if unit == 'M':
-        dp = 0
-    else:
-        small = js_min(abs(x['abs']) / div for x in money if jt(x['abs']))
-        intDigits = len(js_str(float(math.floor(small)) if math.isfinite(small) else small)) if small >= 1 else 0
-        dp = max(1, min(3, 3 - intDigits))
-    sym = next((x['sym'] for x in money if x['sym']), '')
-
-    def fmt(v):
-        return ('-' if v < 0 else '') + _locale_fixed(abs(v / div), dp)
-    st = jtrim(sym)
+    st = jtrim(next((m.group(2) for m in ms if m and m.group(2)), ''))
     return {
-        'header': 'Latest (%s%s%s)' % (st, ' ' if utf16len(st) > 1 else '', unit),
-        'values': [fmt(parsed[i]['abs']) if parsed[i] is not None else jor(G(r, 'value'), '')
-                   for i, r in enumerate(rows)],
+        'header': 'Latest (%s%s%s)' % (st, ' ' if utf16len(st) > 1 else '', units.pop()),
+        'values': [m.group(1) + m.group(3) if m else jor(G(r, 'value'), '') for m, r in zip(ms, rows)],
     }
 
 

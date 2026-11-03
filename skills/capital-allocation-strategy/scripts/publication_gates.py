@@ -147,6 +147,7 @@ _APPENDIX_MARKER = "scores high when"
 
 
 def check_metric_consistency(text, registry=None):
+    text = str(text).replace("\u2212", "-")
     low = " ".join(str(text).lower().split())
     _cut = low.find(_APPENDIX_MARKER)
     body = low[:_cut] if _cut > 0 else low
@@ -276,6 +277,7 @@ def run_gates(text, *, registry=None, routing=None, required=None, strict=True):
     import sector_router as SR
 
     manifest = {}
+    text = str(text).replace("\u2212", "-")
     manifest["G3_metric_consistency"] = check_metric_consistency(text, registry)
     manifest["G9_missing_not_zero"] = check_missing_not_zero(text)
     manifest["G18_score_narratives"] = check_score_narratives(text)

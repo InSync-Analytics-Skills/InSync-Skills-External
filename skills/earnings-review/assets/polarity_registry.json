@@ -7,6 +7,12 @@
    "source": "data-collection.md §2 financial spine",
    "reason": "a balance: direction depends on context; declare in metric_map if graded"
   },
+  "BS_P_101": {
+   "better": null,
+   "label": "Cash & Cash Equivalents",
+   "source": "data-collection.md §2 financial spine",
+   "reason": "a balance: direction depends on context; declare in metric_map if graded"
+  },
   "BS_P_141": {
    "better": null,
    "label": "Cash",

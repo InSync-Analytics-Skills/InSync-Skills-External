@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SKILL VERSION: 9.0.5
+"""SKILL VERSION: 9.0.8
 
 check_invariants.py - DOCUMENT-LEVEL INVARIANTS.
 
@@ -17,6 +17,7 @@ import math
 import os
 import re
 import sys
+from decimal import Decimal, ROUND_HALF_UP, Context
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from jscompat import js_str, js_number, js_to_fixed, js_round, js_stdio, UNDEFINED
@@ -26,7 +27,6 @@ _A = re.ASCII
 _I = re.I | re.ASCII
 _WSC = "\t\n\x0b\x0c\r    -     　﻿"
 _S = "[" + _WSC + "]"
-EPSILON = 2.0 ** -52
 
 
 def _s(v):
@@ -90,12 +90,8 @@ def xl_fix(n, dp):
     x = _num(n)
     if not math.isfinite(x):
         return _s(n)
-    sign = -1 if x < 0 else 1
-    a = abs(x)
-    f = 10.0 ** dp
-    sc = a * f
-    r = (sign * js_round(sc + abs(sc) * EPSILON * 4)) / f
-    return js_to_fixed(0.0 if r == 0 else r, dp)
+    s = '{:f}'.format(Decimal(repr(float(x))).quantize(Decimal(1).scaleb(-int(dp)), rounding=ROUND_HALF_UP, context=Context(prec=60)))
+    return s[1:] if (s.startswith('-') and float(s) == 0) else s
 
 
 _PE1 = re.compile(r"(^|[^A-Z])P" + _S + r"*/" + _S + r"*(NTM" + _S + r"*)?(Adj" + _S + r"*)?E\b", _I)

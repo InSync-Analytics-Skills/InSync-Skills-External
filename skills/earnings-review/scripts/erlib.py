@@ -137,6 +137,13 @@ def parse_guide(text, unit, _plain=False):
     if text is None: return None
     return parse_doc_range(str(text), unit, scale="display")
 
+_FLOOR = re.compile(r"\b(?:at\s+least|no\s+less\s+than|minimum(?:\s+of)?|or\s+(?:more|better|higher|above))\b|>=|≥|\d\s*%?\s*\+", re.I)
+_CEIL = re.compile(r"\b(?:up\s+to|at\s+most|no\s+more\s+than|maximum(?:\s+of)?|or\s+(?:less|lower|below))\b|<=|≤", re.I)
+QUAL_WORD = {"floor": "at least ", "ceiling": "up to "}
+def guide_qualifier(text):
+    if not text: return None
+    return "floor" if _FLOOR.search(str(text)) else "ceiling" if _CEIL.search(str(text)) else None
+
 GROWTH_WORDS = [
     ("low single to mid single digit", (1, 6)), ("mid single to high single digit", (4, 9)), ("low single to high single digit", (1, 9)), ("low to high single digit", (1, 9)),
     ("low-to-mid single digit", (1, 6)), ("mid-to-high single digit", (4, 9)), ("low-to-mid teens", (10, 16)), ("mid-to-high teens", (14, 19)),
@@ -157,7 +164,7 @@ def parse_growth_words(text):
         def _end(w, n): return 0.0 if w == "flat" else (None if n is None else (float(n) if w == "up" else -float(n)))
         a_, b_ = _end(mf.group(1), mf.group(2)), _end(mf.group(3), mf.group(4))
         if a_ is not None and b_ is not None: return (min(a_, b_), max(a_, b_))
-    for raw_cl in re.split(r"[;,.]|\bbut\b|\bwhile\b|\bwith\b", str(text).lower()):
+    for raw_cl in re.split(r"[;,]|\.(?!\d)|\bbut\b|\bwhile\b|\bwith\b", str(text).lower()):
         cl = _norm_words(raw_cl)
         if not cl: continue
         hits = []
@@ -178,6 +185,12 @@ def parse_growth_words(text):
             lo, hi = float(m.group(1)), float(m.group(2))
             neg = any(w in _NEG for w in raw_cl[:m.start()].split()[-3:])
             return (-hi, -lo) if neg else (lo, hi)
+        m = re.search(r"(-?\d+(?:\.\d+)?)\s*%", raw_cl)
+        if m:
+            v = float(m.group(1)); neg = any(w in _NEG for w in raw_cl[:m.start()].split()[-5:])
+            q = guide_qualifier(raw_cl)
+            if neg: v, q = -v, {"floor": "ceiling", "ceiling": "floor"}.get(q, q)
+            return (v, None) if q == "floor" else (None, v) if q == "ceiling" else (v, v)
     t = _norm_words(str(text))
     neg = any(re.search(rf"\b{w}\b", t) for w in _NEG)
     if re.search(r"\b(growth|grow|higher|up|increase|increases)\b", t): return (0, None) if not neg else (None, 0)

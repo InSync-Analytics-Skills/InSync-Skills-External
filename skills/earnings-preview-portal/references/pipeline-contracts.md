@@ -59,7 +59,8 @@ populated example of any file, run the pipeline once and read what it writes.
   }
  },
  "mcp": {
-  "estimates_latest": [rows],   // targetQ/nextQ/FY0/FY1 for metricset codes + FCF ltcode
+  "estimates_latest": [rows],   // FY0 (unreported)/FY1 HISTORY rows, several per code/period (data-collection §4);
+                                // targetQ/nextQ come from revision_series; compute picks one row per code/period
   "revision_series": [rows],
   "preprint_snapshots": [rows], // last-6-print windows for every Summary Financials code, newest row per code per window is enough
   "actuals": [rows], "guidance": [rows],
@@ -100,7 +101,9 @@ guidance_target_q + guidance_fy + show_fy_guide_column), `revisions`, `beat_hist
 `setup_summary[2-3]` — THE SETUP bar: short factual bullets, major things ONLY,
 KPI-DRIVEN: bullet 1 = the KPI swing factor(s) the print turns on (comp sales,
 segment revenue, operational metric vs its guide); revenue/EPS consensus vs guide
-comes second; beat/reaction record + stock position third. A small summary, not a
+comes second, worded exactly as the setup column's `cons_vs_guide` says (`above` / `within`
+/ `at` / `below` the guide, on the printed figures; never "at the top" when it is above);
+beat/reaction record + stock position third. A small summary, not a
 grid or thesis, and driven by KPIs, not revenue/EPS.
 `thesis` (one-paragraph fallback if setup_summary absent; keep both),
 `summary_bullets[]`, `setup_bullets[]`, `expectations_bullets[]` (split ideas into
@@ -235,10 +238,9 @@ a data figure in quotation marks and borrow the transcript-quote exemption.
 a rounded citation passes because the rounded form of a stored figure is compared numerically,
 so for a MONEY or a COUNT citation both precisions still validate. **Cite at the precision the
 document shows.** **For a PERCENTAGE that is ENFORCED:**
-a `%` citation is compared at a MINIMUM of 1 dp, the precision the renderer prints. Comparing
-at the CITATION's own precision would let a percentage written at 0 dp collapse the index into
-101 buckets, so a fabricated figure lands in one far more often. The cost is that idiomatic
-rounding does not pass: "up 98% year over year" is refused when the page prints 98.2%. The
+a `%` citation must be the table's PRINTED text, at the same precision (`citable.pct_text`):
+"1.0%" where the table shows 1.0%, never "1.04%" or "1%". Idiomatic rounding does not pass:
+"up 98% year over year" is refused when the page prints 98.2%. The
 refusal NAMES the printed neighbour, so the fix is one edit. A figure that is genuinely management's
 words rather than a cell - a guided tax rate, a gross-margin framing - belongs in quotation
 marks, which is what Step 4 requires of a transcript quote anyway.** Adding

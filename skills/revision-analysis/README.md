@@ -1,6 +1,6 @@
 # Consensus Revision Analysis
 
-*Version 2.5.0*
+*Version 2.5.2*
 
 ## What this skill does
 

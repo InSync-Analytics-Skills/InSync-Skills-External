@@ -12,7 +12,7 @@ Symptoms and fixes: `traps.md`.
 - Each call has its own ~180 s ceiling; batching two slow calls does not share it, it just adds risk. A timed-out call
   rerun unchanged fails the same way: change the argument (see §1, §9).
 - Nine periods only for metrics that get a Y/Y row; five for the rest (two `get_actuals` calls).
-- Estimates: as-of window = cut-off − 21 days to cut-off. Older snapshots come only through the probe (§4).
+- Estimates: the printed period is the plain call (§4); forward lines use the as-of window = cut-off − 21 days to cut-off.
 - Post-print estimates: forward lines plus guided metrics only.
 - Saving: keep the payload shape; fields the scripts read are `TICKER_ID, LTCODE, LINEITEM, FISCALPERIOD, VALUE, MIN, MAX,
   BROKERCOUNT, UPDATEDATE, GUIDE_TEXT, SOURCE_PERIOD, metric, value, DATE, meta, notes` (others may be dropped to save typing).
@@ -36,7 +36,7 @@ Symptoms and fixes: `traps.md`.
 - Financial spine, adjusted + reported together (the basis lock picks ONE code per metric for every side): revenue `IS_P_101`
   (`IS_P_102` has no working series); gross profit `IS_P_106,IS_P_105`; EBIT `IS_P_110,IS_P_109`; EBITDA `IS_P_114,IS_P_113`;
   net income `IS_P_124,IS_P_123`; EPS `IS_P_128,IS_P_127`; shares `IS_P_126,IS_P_125`; ETR `IS_P_122,IS_P_121`; OCF `CF_P_108`;
-  FCF `CF_P_110`; capex `CF_P_109`; cash `BS_P_141`; debt `BS_P_114`; buyback `CF_P_101`. Native revenue growth `IS_P_101-Y`
+  FCF `CF_P_110`; capex `CF_P_109`; cash `BS_P_101,BS_P_141` (cash & equivalents first; cash only is the fallback); debt `BS_P_114`; buyback `CF_P_101`. Native revenue growth `IS_P_101-Y`
   (not across a basis change; an override on a period clears it).
 
 ## 3. Actuals → `raw/insync_actuals_<n>.json`
@@ -47,13 +47,33 @@ parses them by the metric's unit and keeps the currency. Half-year filers: `1H25
 
 ## 4. Consensus: InSync only
 - **Cut-off** `--frozen` = day before the print is incorporated (pre-market: day before release; after-close: release day).
-- Printed period, every metric-map code → `raw/insync_estimates_pre.json`: `get_estimates {ticker_id, ltcode, fiscal_period:"3Q26",
-  latest:{enabled:false}, updatedate_start:"<cut-off − 21d>", updatedate_end:"<cut-off>", calendarize:false, limit:"100"}`
-  (page with `offset` while `has_more`; `latest` and update-date windows are mutually exclusive). Defaults you must not rely on:
-  `updatedate_start` defaults to 90 days before TODAY (not the cut-off); `latest` defaults to `{enabled:true, limit:1}`.
-- Forward lines (`forward: true`; revenue and EPS unless `forward: false`) → `raw/insync_estimates_pre_fwd.json`: same call,
-  `fiscal_period:"<next>,<fy0>,<fy1>"` (years as `2026`, never `FY26`).
-- Post-print → `raw/insync_estimates_post.json`: `latest:{enabled:true}`, next period + both fiscal years.
+  It dates the forward lines and the probe; the printed period takes none.
+- Printed period, every metric-map code → `raw/insync_estimates_pre.json`: the PLAIN call, `get_estimates {ticker_id, ltcode,
+  fiscal_period:"3Q26", calendarize:false, limit:"100"}`, no `latest` and no update-date window. A closed quarter's consensus
+  freezes at the print, so its one row per code IS the last pre-print mark (the same row earnings-flash grades against).
+- Forward lines (`forward: true`; revenue and EPS unless `forward: false`) → `raw/insync_estimates_pre_fwd.json`:
+  `get_estimates {…, fiscal_period:"<next>,<fy0>,<fy1>", latest:{enabled:false}, updatedate_start:"<cut-off − 21d>",
+  updatedate_end:"<cut-off>", calendarize:false, limit:"100"}` (years as `2026`, never `FY26`; page with `offset` while `has_more`, one file per page;
+  `latest` and update-date windows are mutually exclusive). Defaults you must not rely on: `updatedate_start` defaults to 90 days
+  before TODAY (not the cut-off); `latest` defaults to `{enabled:true, limit:1}`.
+- Post-print (forward periods only: next period + both fiscal years) → `raw/insync_estimates_post.json`: the HISTORY call, never
+  the plain or `latest` call (around a print those can return a 1-2 broker partial update): `get_estimates {…,
+  fiscal_period:"<next>,<fy0>,<fy1>", latest:{"enabled":false}, updatedate_start:"<cut-off + 1 day, YYYY-MM-DD>",
+  updatedate_end:"<today>", calendarize:false, limit:"100"}`: the snapshots AFTER the print only (the pre-print panel is
+  already in `insync_estimates_pre_fwd.json` and sets the full panel). Page with `offset` until `has_more` is false and save each
+  page as its own file (`insync_estimates_post_p1.json`, `_p2`, ...): the build accepts a page marked `has_more` when its next
+  page is saved.
+  This is the standalone InSync form; the FactSet wrapper takes the flat form `"latest_enabled": false` instead, and the
+  standalone MCP rejects that flat form: if one form is rejected, retry with the other. A code+period with no rows after the print
+  is simply not yet revised: do not widen the window. Save every row as returned; do NOT choose a row yourself.
+  `scripts/forward_consensus.py` picks one row per (LTCODE, period): the deepest panel across the pre-print and post-print rows is
+  the full panel, rows
+  with at least 40% of that many brokers are adequate (`POST_MIN_SHARE`; other skills keep 50%), and the newest adequate row
+  dated after the cut-off wins. No adequate post-print row = not yet revised: the post-print value is left out (never a
+  pre-print stand-in), the guidance table's next-period consensus column is removed, and the line is named in the build
+  warnings. A
+  line item whose rows lack BROKERCOUNT or UPDATEDATE is removed (never a stop) and listed in the build warnings as
+  `[forward consensus dropped]`; broker counts never go on the page beyond the existing "(n)" cells.
 - Probe (codes with no pre-print row), saved WITH the request so the absence is provable:
   `raw/insync_probe_wide.json` = `{"request": {"tool_name": "get_estimates", "tool_arguments": {…}}, "response": <payload>}` for the same
   codes, window period start − 90d to cut-off; `raw/insync_probe_latest.json` the same with `latest:{enabled:true}`. An error response,

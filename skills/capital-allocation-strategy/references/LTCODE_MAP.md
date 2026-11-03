@@ -25,7 +25,7 @@ of provenance and the sourcing rules the compute layer assumes.
 | Acquisitions (net) | CF_P_129 | event-driven; null quarter = 0 if line carried |
 | Debt issuance (proceeds) / Δcash | CF_P_133 / CF_P_135 | CF_P_133 is "Proceeds from Issuance of Debt - CFF", graded industry_kpi for every issuer checked. Used ONLY when positive: for some issuers the line turns negative from one year to the next, so the feed carries a NET figure in it for some issuers, and a net number in a gross column is refused and disclosed |
 | Debt repaid (gross) | *none* | there is no primary gross-repayment code. One issuer carries CF_S_528 ("Repayments of Debt - CFF") and CF_S_1070 ("Net Repayment of Debt"), another carries CF_S_666 - all company-specific. Left unbound, so the funding bridge stays unavailable and the report says gross issuance and repayment are not reported |
-| Cash / Cash&equiv | BS_P_141 / BS_P_101 | BS_P_141 sometimes empty -> fallback |
+| Cash / Cash&equiv | BS_P_101 / BS_P_141 | BS_P_101 = cash + equivalents + short-term investments; BS_P_141 (cash only) is the fallback |
 | Total debt / Net debt | BS_P_114 / BS_P_115 | ex-operating-lease; leverage inputs |
 | Total equity / assets / intangibles | BS_P_113 / BS_P_103 / BS_P_127 | invested capital, tangible book |
 | Revenue / EBIT / EBITDA(adj,rep) | IS_P_101 / IS_P_109 / IS_P_114,IS_P_113 | ROIC, leverage denominators |

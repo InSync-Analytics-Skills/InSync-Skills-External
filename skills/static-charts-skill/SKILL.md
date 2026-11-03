@@ -5,7 +5,7 @@ description: "Makes finance charts and graphs in the InSync house style: revenue
 
 # Static Charts — the InSync chart engine
 
-*Version 1.9.1*
+*Version 1.9.4*
 
 ## What this skill does, and only this
 
@@ -153,6 +153,7 @@ straight into Word (`word`, `word_half`, `word_wide`, `word_tall`), PowerPoint
 Colour is never the only channel carrying meaning: line styles, markers, hatches
 and a monotonic-luminance ramp keep every chart readable when printed in
 greyscale. `references/design-standard.md` states the rules and the reasons.
+Data labels and the Key Observation follow the house number rule (half-up, money/x 2dp, % 1dp, U+2212 minus); axis ticks stay compact (`references/chart-spec.md`).
 
 ## Handling the data you are given
 

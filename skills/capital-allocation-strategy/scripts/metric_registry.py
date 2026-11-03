@@ -255,7 +255,8 @@ def _same(a, b, tol=1e-9):
 
 
 def _xr(v, d):
-    return str(Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-d), rounding=ROUND_HALF_UP))
+    t = str(Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-d), rounding=ROUND_HALF_UP))
+    return t[1:] if t.startswith("-") and not t.strip("-0.") else t
 
 
 def _sep(t):
@@ -265,24 +266,31 @@ def _sep(t):
     return ("-" if neg else "") + i + ("." + frac if frac else "")
 
 
+MINUS = "\u2212"
+
+
+def _fx(v, d, pre="", signed=False):
+    t = _sep(_xr(v, d))
+    if t.startswith("-"):
+        return MINUS + pre + t[1:]
+    return ("+" if signed and t.strip("0.,") else "") + pre + t
+
+
 def _render(v, unit, decimals=None):
+    d = decimals
     if unit == "x":
-        return _xr(v, 2 if decimals is None else decimals) + "x"
+        return _fx(v, 2 if d is None else d) + "x"
     if unit == "%":
-        return _xr(v, 1 if decimals is None else decimals) + "%"
+        return _fx(v, 1 if d is None else d) + "%"
     if unit == "pp":
-        _t = _xr(v, 1 if decimals is None else decimals)
-        return (_t if _t.startswith("-") else "+" + _t) + "pp"
+        return _fx(v, 1 if d is None else d, signed=True) + "pp"
     if unit == "shares":
-        return _sep(_xr(v, 1)) if abs(v) < 1e3 else _sep(_xr(v, 0))
+        return _fx(v, 2)
     if unit == "$":
         a = abs(v)
-        if a >= 1e9:
-            return "$" + _xr(v / 1e9, 2) + "B"
-        if a >= 1e6:
-            return "$" + _xr(v / 1e6, 1) + "M"
-        return "$" + _sep(_xr(v, 0))
-    return _xr(v, 2 if decimals is None else decimals)
+        s, u = (1e12, "T") if a >= 1e12 else (1e9, "B") if a >= 1e9 else (1e6, "M")
+        return _fx(v / s, 2, "$") + u
+    return _fx(v, 2 if d is None else d)
 
 
 

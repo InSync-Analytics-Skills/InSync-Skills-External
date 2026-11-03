@@ -1,6 +1,6 @@
 ---
 name: inflection-monitor
-version: 4.59.0
+version: 4.59.5
 argument-hint: <TICKER> [QUARTER]
 description: "An inflection monitor that scans everything a company reports and flags only what changed: the lines where growth is accelerating or slowing. It shows whether each shift looks lasting or one-off and what to watch next quarter, in a two to four page PDF. No metric needs to be named first."
 ---

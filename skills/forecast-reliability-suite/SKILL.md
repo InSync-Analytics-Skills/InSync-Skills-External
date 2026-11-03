@@ -1,13 +1,13 @@
 ---
 name: forecast-reliability-suite
-version: 7.12.1
+version: 7.12.4
 argument-hint: "[TICKER]"
 description: "A Forecast Reliability Suite, also called the Consensus Suite, that checks how far you can trust consensus for a company: how accurate analyst estimates and management guidance have been over the last eight quarters. It shows which numbers the Street usually gets too high or too low, whether management guides cautiously, and how much analysts disagree. Delivered as an interactive page and a PDF; it looks back and does not predict results."
 ---
 
 # Forecast Reliability Suite (Consensus Suite)
 
-**Version: 7.12.1**  ·  Requires `python3`, plus `reportlab` for the PDF (`--nopdf` skips it).
+**Version: 7.12.4**  ·  Requires `python3`, plus `reportlab` for the PDF (`--nopdf` skips it).
 
 > **Installed copies ship without the test bench** (self_check.py, check_gates.py, the frozen
 > fixtures; internal edition only). Producing a suite needs none of it. Never edit an installed copy.
@@ -61,8 +61,9 @@ can inject markup.
 - **No em dashes in output.** Section headers use a colon, prose a semicolon or period;
   not-applicable cells read `n/a`. Em/en dashes in pulled labels are normalized to a hyphen at load
   (en dashes in numeric ranges and the minus sign are kept).
-- **Number format:** percentages and pp deltas ONE decimal, per-share figures TWO, every figure
-  rounded HALF-UP like Excel `ROUND()` (the renderer does this; never round yourself).
+- **Number format:** % and pp ONE decimal (TWO on a rate-level row under 5%, never a growth row), per-share and money TWO in
+  $M/$B/$T with one unit per row, minus as U+2212, all HALF-UP like Excel `ROUND()`; a printed surprise or
+  net move is taken from the two figures as printed (the renderer does all this; never round yourself).
 - **Currency and scale:** set `currency` (default `$`) and `rev_unit` (default `B`) off
   mega-cap-US names. Surprise sizes are magnitude-absolute, not comparable across sectors.
 - **Broker counts are never DISPLAYED.** Dispersion comes from the MIN/MAX range. A "thin panel" ⚠
@@ -144,6 +145,7 @@ catch it. Branch on what comes back:
 
 Never resolve by company name alone when the user gave a symbol. Derive the 8-quarter window
 ending at `latest_fiscal_quarter`; the next, not-yet-reported quarter is `next_quarter`.
+**Half-yearly or annual filer** (labels `1H26`/`2H26` or a bare year, or profit reported only by half): use 8 halves (or years) in that form for every pull; `next_quarter` is the next one (`2H26` -> `1H27`).
 
 **SANITY-CHECK THE WINDOW BEFORE YOU PULL ANYTHING.** The field can be wrong (e.g.
 `latest_fiscal_quarter: "4Q22"` with `latest_quarter_end_date: "2222-12-31"` while estimates run
@@ -408,10 +410,10 @@ full-panel snapshots (drop 1-2-broker partial updates).
   EVERY metric: `{"min","max","cons","asof"}`. Without it the card falls back to a past-quarter band
   that sits below every forward value on a growing issuer. `asof` is never printed.
 - **Revision trail (REQUIRED anchoring).** **Tp** = the latest date in `report_dates`; **Tc** = the
-  scheduled `next_quarter` date from `get_call_date` (if unscheduled, `Tp + ~91 days`, noted as
+  scheduled `next_quarter` date from `get_call_date` (if unscheduled, `Tp + ~91 days`, ~182 for halves, noted as
   estimated). Pull once:
   `get_estimates(ticker_id, ltcode=<eps, rev, AND every KPI code with forward consensus>, fiscal_period=next_quarter,
-  latest={"enabled":false}, updatedate_start=<Tp−10d>, updatedate_end="today")`.
+  latest={"enabled":false}, updatedate_start=<Tp−10d; Tp−90d for halves or years>, updatedate_end="today")`.
   Then build the TWO snapshot columns with `references/tools/build_revision_trail.py` (do NOT pick
   them by eye). A full panel is a snapshot with 6 or more analysts; a snapshot stamped ON a print
   date is never used; each metric is picked independently:

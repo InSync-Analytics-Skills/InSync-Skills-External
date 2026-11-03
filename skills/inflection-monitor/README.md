@@ -1,6 +1,6 @@
 # Inflection Monitor
 
-*Version 4.59.0*
+*Version 4.59.5*
 
 ## What this skill does
 

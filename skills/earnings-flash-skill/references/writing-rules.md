@@ -29,12 +29,12 @@ Do not add any other field. Do not add `financialMetrics` or any number table: P
 ## Numbers
 
 - **Copy every number from the fact sheet exactly as printed** - same value, same rounding, same
-  unit. If the table says `+$0.06B`, write `$0.06B`, never `$0.1B` or `$60M`.
-- A delta is the difference of the printed, rounded cells. Never work out a number yourself.
+  unit. If the table says `+$0.06B`, write `$0.06B`, never `$0.1B` or `$60M`. Never work out a number.
 - Every observation has three parts: the value, what it is compared with, and the change.
-  Not `margin improved`. Write `adjusted EBITDA margin was 46.3% vs 48.5% a year ago (-220bps)`.
-- `bps` is for changes in a rate. `%` is for growth. Percentages take one decimal, `$B` numbers
-  two, multiples are written `7.0x` (never `7 times`).
+  Not `margin improved`. Write `adjusted EBITDA margin was 46.3% vs 48.5% a year ago (−220bps)`.
+- `bps` is for changes in a rate, `%` for growth. Percentages: one decimal, two for a rate under
+  5% (`2.45%`); money, per-share and multiples: two (`$1.23B`, `$0.46`, `7.00x`, never `7 times`);
+  one unit per row ($M under $1B, $B, $T). Negatives: true minus before the currency (`−$1.23B`, `−1.2%`).
 - A **bench** KPI (no consensus) may be quoted with its level and Y/Y only. Never call it a beat
   or a miss.
 - A row marked with `†` has a model-sourced actual. Never describe it as company-reported.

@@ -35,7 +35,7 @@ def _dash_vocabulary():
     return set(_DASH_FALLBACK)
 DASHES = _dash_vocabulary()
 import re
-NUM = re.compile(r'^[+–\-]?\(?[$€£₹]?[0-9][0-9,]*(\.[0-9]+)?([%xBM])?\)?( bps)?$')
+NUM = re.compile(r'^[+–−\-]?\(?[$€£₹]?[0-9][0-9,]*(\.[0-9]+)?([%xBMT])?\)?( bps)?$')
 TOPGAP = 12
 FOOTGAP = 70
 

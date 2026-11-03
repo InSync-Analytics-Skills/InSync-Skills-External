@@ -238,7 +238,7 @@ def main(argv):
            + ('' if status == 0 else '  ->  pip install ' + mod))
     for f in ('fmt.py', 'render_packet.py', 'validate_packet.py', 'check_contract.py',
               'validate_rules_style.py', 'verify_delivered.py', 'check_table_widths.py',
-              'check_masthead.py', 'compute.py', 'jscompat.py'):
+              'check_masthead.py', 'compute.py', 'jscompat.py', 'forward_consensus.py'):
         ok(os.path.exists(P(HERE, f)), 'bundled: references/' + f)
     ok(os.path.exists(P(HERE, '..', 'assets', 'insync-logo.jpg')), 'bundled: assets/insync-logo.jpg')
 
@@ -616,7 +616,7 @@ def main(argv):
        + '14.57x beside a table cell reading 14.6x')
     ok(not S('num\\(v, 2 if js_lt\\(js_abs\\(v\\), 5\\) else 1\\)', rp4),
        'multiples: the renderer holds no second copy of the multiple rule')
-    ok(S('2 if abs\\(v\\) < 5 else 1', bc4), 'multiples: a from-spec tile formats at the same rule the tables use')
+    ok(S('return _signed\\(_fixed\\(v, 2\\)\\) \\+ "x"', bc4), 'multiples: a from-spec tile formats at the same rule the tables use')
     ok(S('^PRINTED = JSSet\\(\\)', fm4, re.M) and S('def record\\(s\\)', fm4),
        'printed set: collected inside the formatter, so it is what went on the page rather '
        + 'than a second implementation of it')
@@ -813,17 +813,17 @@ def main(argv):
     cc2 = rd(P(HERE, 'check_contract.py'))
     ok(S("^SCALE = 'B'$", fmt, re.M) and S('def setScale', fmt) and S('must be "B" or "M"', fmt),
        'B1: fmt.py carries the money scale as a setting and setScale throws on an unknown value')
-    ok(S("v if SCALE == 'M' else to_num\\(v\\) / 1000", fmt),
-       "B1: the '$M' case reads the scale rather than dividing by 1000 unconditionally")
+    ok(S('def rowfmt\\(vals, f\\)', fmt) and S("u = f\\[3:\\] or rowfmt", fmt),
+       "B1/R3: the '$M' case takes ONE unit per row (rowfmt), else the value's own")
     ok(len(re.findall('setScale\\(', rp2)) == 1 and S("setScale\\(G\\(M, 'money_scale'\\)\\)", rp2),
        'B1: the renderer arms the scale once, from meta, beside the currency symbol')
     ok(S("cl = G\\(M, 'ccy_label'\\)", rp2) and S('scaleLabel\\(\\) if nn\\(cl\\) else cl', rp2),
        'B1: the masthead Figures field derives from the scale, so it cannot assert the wrong one')
-    ok(S('money_scale', bc2) and S('fmt_value\\(v, f, ccy, money_scale\\)', bc2),
-       'B1: a tile derived through a `from` spec formats at the packet scale')
-    ok(S("MONEY_SCALE = \\['B', 'M'\\]", cc2) and S('money_scale is absent', cc2),
-       'B1: check_contract validates a supplied scale and notes an absent one on a small-cap spine')
-    ok(S('no two values in one row print the same string at money_scale', cc2),
+    ok(S('def row_fmt\\(f, vals\\)', bc2) and S('fmt_value\\(v, row_fmt\\(f, rv\\), ccy\\)', bc2),
+       'B1/R3: a tile derived through a `from` spec formats at its source row\'s unit')
+    ok(S("MONEY_SCALE = \\['B', 'M'\\]", cc2),
+       'B1: check_contract validates a supplied scale')
+    ok(S("no two values in one row print the same string at the row's unit", cc2),
        'B1: check_contract FAILS a collapsed money column, the symptom no other gate can see')
     ok(S('def pct_change\\(cur, base\\)', bc2) and S('def pct_change\\(cur, base\\)', cp2),
        'B2: builder and audit each hold their own pct_change, so the audit imports nothing')

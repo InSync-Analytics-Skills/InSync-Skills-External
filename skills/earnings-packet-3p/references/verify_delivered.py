@@ -84,11 +84,11 @@ def _ccy_alt():
 
 CCY = _ccy_alt()
 MONEY = re.compile(
-    r"^\(?(?:"
+    r"^\(?\u2212?(?:"
     + CCY + r"[+\u2013-]?([0-9][0-9,]*(?:\.[0-9]+)?)([BMTk])?"
     + r"|[+\u2013-]?([0-9][0-9,]*(?:\.[0-9]+)?)([BMTk])"
     + r")\)?$")
-PCT = re.compile(r"^[+–-]?([0-9][0-9,]*(?:\.([0-9]+))?)%$")
+PCT = re.compile(r"^[+–−-]?([0-9][0-9,]*(?:\.([0-9]+))?)%$")
 MULT = re.compile(r"^([0-9][0-9,]*\.?[0-9]*)x$")
 EMPTY = {"", "\u2013", "\u2014", "-", "n/a", "none", "not guided", "no history"}
 
@@ -113,11 +113,11 @@ def num(s):
     if not s or s.lower() in EMPTY:
         return None
     neg = ((s.startswith("(") and s.endswith(")"))
-           or s[0] in "\u2013-" or s.lstrip("($")[:1] in ("\u2013", "-"))
+           or s[0] in "\u2013\u2212-" or s.lstrip("($")[:1] in ("\u2013", "-"))
     for pat in (MONEY, PCT, MULT):
         m = pat.match(s)
         if m:
-            v = float(m.group(1).replace(",", ""))
+            v = float((m.group(1) or m.group(3)).replace(",", ""))
             return -v if neg else v
     try:
         v = float(s.replace(",", "").lstrip("+"))

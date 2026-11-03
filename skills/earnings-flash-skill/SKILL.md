@@ -1,13 +1,13 @@
 ---
 name: earnings-flash-skill
-version: 11.3.0
+version: 11.3.2
 description: "A one-page earnings flash written minutes after a company reports: the quick first read, or TL;DR, on the print. It shows what beat or missed, what matters, how guidance changed and what to watch next, in Word and PDF. Use it for any short or quick request about a reported quarter. For the full story of a quarter use Earnings Wrap; before results use Earnings Preview."
 ---
 
 # Earnings Flash
 
-**SKILL VERSION: v11.3.0 (InSync Analytics library)**. If asked "what version is this skill",
-reply exactly: `earnings-flash version v11.3.0`.
+**SKILL VERSION: v11.3.2 (InSync Analytics library)**. If asked "what version is this skill",
+reply exactly: `earnings-flash version v11.3.2`.
 
 A one-page first read on a company's quarter: what printed, what beat or missed, what matters
 next. Output is `{TICKER}_DOC_EARNINGS_FLASH_{YYMMDD_HHMMSS}.docx` plus a `.pdf` when LibreOffice
@@ -169,7 +169,7 @@ skill's code: numbers were not machine-checked.`
 3. Fetch the spine codes `IS_P_101, IS_P_114, IS_P_113, IS_P_276, IS_P_210, IS_P_209, IS_P_406,
    IS_P_110, IS_P_109, IS_P_118, IS_P_117, IS_P_124, CF_P_209, CF_P_202, CF_P_203, IS_P_128,
    IS_P_127, IS_P_123` with `get_actuals` (both periods), `get_estimates` (`latest:{enabled:true,limit:1}`),
-   plus `get_guidance(latest=true)`, `get_valuation` and `get_market_data`. Use `limit=100`.
+   plus `get_guidance(start_date="1y")`, `get_valuation` and `get_market_data`. Use `limit=100`.
 4. Rows: Total Revenue; the first profit code in the list above with an actual and an estimate;
    its margin (profit / revenue); the first EPS code with both, else Net Income (not the profit code), else EPS ungraded.
 5. KPIs: `search_lineitem(queries="all", filter="top_kpi")`, in the order returned. Keep only
@@ -177,9 +177,8 @@ skill's code: numbers were not machine-checked.`
    qualify, else four.
 6. Beat if the actual is 0.5% or more above consensus, Miss if 0.5% or more below, else
    In-Line (0.25 points for % rows; reversed for costs).
-7. Copy values exactly as returned. Round each cell first ($ to 2 decimals in its unit, % to
-   1 decimal), then work out Delta, Delta % and Y/Y from the ROUNDED cells, as the table
-   prints them. Guidance tags: compare with the previous `SOURCE_PERIOD`. At most 5 guides; a guide
+7. Copy values exactly as returned. Round each cell first (half-up, as in writing-rules), then work out
+   Delta, Delta % and Y/Y from the ROUNDED cells (full values on a base under $1B or $1.00; bps from full rates); the verdict follows the printed %. Guidance tags: compare with the previous `SOURCE_PERIOD`. At most 5 guides; a guide
    with no consensus is written alone.
 8. Same sections, writing rules (`references/writing-rules.md`) and rules that never bend.
 

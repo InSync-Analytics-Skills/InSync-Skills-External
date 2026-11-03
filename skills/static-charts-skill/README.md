@@ -1,6 +1,6 @@
 # Static Charts
 
-*Version 1.9.1*
+*Version 1.9.4*
 
 ## What this skill does
 
@@ -16,7 +16,7 @@ every unit format from $4.73 per pound to $230bn to 25 basis points.
 It deliberately does not write narrative, draw conclusions, rate a stock or recommend
 anything. If a request needs analysis, that belongs in the calling skill; only the picture
 is made here. The one sentence written under each chart is a computed statement of fact
-("Revenue $20.5B in 2Q26; +18.0% YoY"), never an interpretation. The caller knows the
+("Revenue $20.54B in 2Q26; +18.0% YoY"), never an interpretation. The caller knows the
 context, the engine knows the house style, and neither does the other's job.
 
 ## How to use it

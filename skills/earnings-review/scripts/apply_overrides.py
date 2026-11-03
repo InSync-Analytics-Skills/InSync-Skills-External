@@ -95,12 +95,18 @@ for o in O.get("guides", []):
     mid_, f = o["metric"], o["field"]
     if mid_ not in M: ERR.append(f"guides: unknown metric {mid_}"); continue
     u = unit_of(mid_, o) or "num"
+    _pct_lvl = "%" in str(o["text"]) and u != "pct"
+    if _pct_lvl and not f.startswith("guide_fy_"):
+        ERR.append(f"guides {mid_} {f}: '{o['text']}' is a growth % on a level line; give it as a full-year growth guide (guide_fy_*) with a guide_vs_frozen growth entry"); continue
+    if _pct_lvl: u = "pct"
     try: r = parse_doc_range(o["text"], u, o.get("scale"))
     except ValueError as e: ERR.append(f"guides {mid_} {f}: {e}"); continue
     if r: r = sorted(abs(x) if sign_of(mid_) == -1 else x for x in r)
-    old = M[mid_].get(f); M[mid_][f] = r
-    M[mid_][f + "_text"] = None if r else o["text"]
-    if o.get("display"): M[mid_][f + "_text"] = o["display"]
+    old = M[mid_].get(f)
+    if not _pct_lvl:
+        M[mid_][f] = r
+        M[mid_][f + "_text"] = None if r else o["text"]
+        if o.get("display"): M[mid_][f + "_text"] = o["display"]
     log("guide", mid_, f, r if r else o["text"], old, o)
     if f.startswith("guide_fy_"):
         side = f.replace("guide_fy_", "")
@@ -108,7 +114,8 @@ for o in O.get("guides", []):
         if row is None:
             row = {"label": f"{M[mid_]['label']} ({d['period']['fy_label']})", "fmt": M[mid_]["fmt"], "metric": mid_, "prior": None, "new": None, "ytd_text": "—"}
             FYL.append(row)
-        row[side] = r; row[side + "_text"] = None if r else o["text"]
+        row[side] = r; row[side + "_text"] = None if r else o["text"]; row[side + "_raw"] = o["text"]
+        if _pct_lvl and not o.get("fmt"): row["fmt"] = "pct1"
         if o.get("display"): row[side + "_text"] = o["display"]
         if o.get("tag"): row[side + "_tag"] = o["tag"]
         for kk in ("label", "fmt", "ytd_text"):

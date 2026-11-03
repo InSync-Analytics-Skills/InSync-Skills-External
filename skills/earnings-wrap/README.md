@@ -1,6 +1,6 @@
 # Earnings Wrap
 
-*Version 7.13.1*
+*Version 7.13.5*
 
 ## What this skill does
 

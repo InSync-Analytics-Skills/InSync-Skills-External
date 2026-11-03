@@ -18,7 +18,7 @@ import datetime as _wdt
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 
-VERSION="7.12.1"
+VERSION="7.12.4"
 
 def _brand_colors():
     _fb={"orange":"E8850C","orangeDk":"B25E08","ink":"1A1A1A","calloutBg":"F6F3EE",
@@ -145,6 +145,9 @@ for _m in D.get("metrics", []) or []:
         _m["variant"] = _clean(_m["variant"]).strip().strip("[]")[:8] or None
 
 def _isnum(x): return isinstance(x,(int,float)) and not isinstance(x,bool)
+_GROW=re.compile(r'grow|\bcomps?\b|comp_|comparable|same.?store|\bsss|organic|y/y|yoy|q/q|_chg\b|\bchange\b|-[YQ]$',re.I)
+def _isgr(*t): return any(_GROW.search(str(x or "")) for x in t)
+def _grref(ref,pct,*t): return max(ref or 0,5) if (pct and _isgr(*t)) else ref
 def _parse_date(s):
     if not isinstance(s,str): return None
     for _f in ("%d-%b-%y","%d-%b-%Y","%Y-%m-%d"):
@@ -189,7 +192,7 @@ def validate(D):
     qs=D.get("fiscal_quarters",[]) or []
     _wy=[]
     for _q in qs:
-        _m=re.match(r"^[1-4]Q(\d{2})$",str(_q).strip())
+        _m=re.match(r"^(?:[1-4]Q|[12]H)(\d{2})$",str(_q).strip(),re.I)
         if _m: _wy.append(2000+int(_m.group(1)))
         else:
             _m2=re.match(r"^(\d{4})$",str(_q).strip())
@@ -411,17 +414,16 @@ def _currency_gate(D, cur_declared):
 def eps_fmt(v):
     if v is None: return "n/a"
     v=_xrf(v,2)
-    return f"{CUR}{v:.2f}"
-def _mb(v,suf):
-    s=str(suf or "").upper()
-    if s=="M" and abs(v)>=1000: return v/1000.0,"B"
-    if s=="B" and abs(v)>=1000: return v/1000.0,"T"
-    return v,suf
+    return mnum(f"{CUR}{v:.2f}")
+def _mb(v,suf,ref=None):
+    s=str(suf or "").upper(); r=abs(v if ref is None else ref)
+    while s in ("M","B") and r>=1000: v,r,s=v/1000.0,r/1000.0,("B" if s=="M" else "T")
+    return v,(suf if s==str(suf or "").upper() else s)
 def rev_fmt(v):
     if v is None: return "n/a"
     v,_s=_mb(v,REVU)
     v=_xrf(v,2)
-    return f"{CUR}{v:,.2f}{_s}"
+    return mnum(f"{CUR}{v:,.2f}{_s}")
 
 def esc(s): return str(s).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 def surprise(a,c,pct):
@@ -437,28 +439,42 @@ def mnum(t):
 def _xr(v, d):
     return str(Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-d), rounding=ROUND_HALF_UP))
 def _xrf(v, d):
-    return float(_xr(v, d))
-def sgn(v,dp=1):
+    return float(_xr(v, d))+0.0
+def _r1chg(a,b,u,pct=False,dp=1,ref=None):
+    if pct: return _xrf(b,dp)-_xrf(a,dp)
+    if not a: return None
+    m=re.match(r'^[$€£¥]\s*(mm|MM|[KkMmBbTt])?$',str(u or "").strip())
+    r=max(abs(a),abs(b)) if ref is None else abs(ref)
+    if m and not m.group(1):
+        if abs(a)>=1: a,b=_xrf(a,2),_xrf(b,2)
+    elif m:
+        f={"K":1e3,"M":1e6,"B":1e9,"T":1e12}[m.group(1).upper()[0]]
+        if abs(a)*f>=1e9:
+            g=(1e12 if r*f>=1e12 else 1e9)/f; a,b=_xrf(a/g,2)*g,_xrf(b/g,2)*g
+    else:
+        d=0 if r>=10000 else 2; a,b=_xrf(a,d),_xrf(b,d)
+    return (b-a)/abs(a)*100.0 if a else None
+def sgn(v,dp=1,tol=0.0):
     v=_xrf(v,dp)
     if v==0: return f"{0:.{dp}f}","mut"
-    return mnum(f"{v:+.{dp}f}"), ("g" if v>0 else "r")
-def _usd(v):
-    v=_xrf(v,2)
-    if v==0: return f"{CUR}0.00B","mut"
-    return (("+" if v>0 else MINUS)+f"{CUR}{abs(v):,.2f}B"), ("g" if v>0 else "r")
-def fmt_s(v,pct):
+    return mnum(f"{v:+.{dp}f}"), ("mut" if abs(v)<=tol else ("g" if v>0 else "r"))
+def _usd(v,ref=None):
+    _m=abs(v if ref is None else ref)<1; v=_xrf(v*1000 if _m else v,2); _u="M" if _m else "B"
+    if v==0: return f"{CUR}0.00{_u}","mut"
+    return (("+" if v>0 else MINUS)+f"{CUR}{abs(v):,.2f}{_u}"), ("g" if v>0 else "r")
+def fmt_s(v,pct,dp=1,ref=None):
     if v is None: return "n/a"
-    if pct=="usd": return _usd(v)[0]
-    t,_=sgn(v); return f"{t}{' ppt' if pct else '%'}"
+    if pct=="usd": return _usd(v,ref)[0]
+    t,_=sgn(v,dp); return f"{t}{' ppt' if pct else '%'}"
 def span(t,c): return f'<span class="{c}">{t}</span>' if c else t
-def col_s(v,pct,lb=False,neu=False):
+def col_s(v,pct,lb=False,neu=False,tol=0.0,dp=1,ref=None):
     if v is None: return "n/a"
     if pct=="usd":
-        t,c=_usd(v)
+        t,c=_usd(v,ref)
         if neu: return f'<span style="color:#1e3a8a">{t}</span>'
         if lb and c in ("g","r"): c="r" if c=="g" else "g"
         return span(t,c)
-    t,c=sgn(v)
+    t,c=sgn(v,dp,tol)
     if lb and c in ("g","r"): c="r" if c=="g" else "g"
     return span(f"{t}{' ppt' if pct else '%'}",c)
 def avg(l): return sum(l)/len(l) if l else None
@@ -486,6 +502,10 @@ def analyze(m):
     _dg=(m.get("gap_mode")=="dollar")
     surs={q:(surprise(acts.get(q),cons.get(q),pct) if not _dg else
              ((acts.get(q)-cons.get(q)) if (acts.get(q) is not None and cons.get(q) is not None) else None)) for q in QS}
+    _lv=[abs(x) for x in list(acts.values())+list(cons.values()) if _isnum(x)]
+    sdp=2 if (pct and _lv and max(_lv)<5 and not _isgr(m.get("key"),m.get("label"),m.get("ltcode"))) else 1
+    _ru="$" if m["key"]=="eps" else ("$"+str(REVU or "") if m["key"]=="rev" else str(m.get("unit") or ""))
+    psurs={q:(_r1chg(cons[q],acts[q],_ru,pct,sdp) if (surs[q] is not None and not _dg) else surs[q]) for q in QS}
     _cabs=[abs(cons.get(q)) for q in QS if cons.get(q) not in (None,0)]
     _cmed=statistics.median(_cabs) if _cabs else None
     _asr=(CONFIG.get("anom_surprise") or {}).get("pct" if pct else "val")
@@ -547,7 +567,7 @@ def analyze(m):
         if _pre and str(_suf).upper() in ("M","B"):
             _v2,_s=_mb(ref,_suf); _f=(ref/_v2) if _v2 else 1.0
         return _f,_s
-    def _drd(ref): return 1 if pct else (0 if (not _pre and abs(ref)>=10000) else 2)
+    def _drd(ref): return sdp if pct else (0 if (not _pre and abs(ref)>=10000) else 2)
     def _dband(lo,hi):
         _f,_s=_dsc(max(abs(lo),abs(hi))); lo,hi=lo/_f,hi/_f; _r=_drd(max(abs(lo),abs(hi)))
         _sg=lambda x: (MINUS if _xrf(x,_r)<0 else "")+_pre+f"{abs(_xrf(x,_r)):,.{_r}f}"
@@ -555,8 +575,8 @@ def analyze(m):
         if lo<0 and _pre: return f"{_sg(lo)}{_s} to {_sg(hi)}{_s}"
         return f"{_pre}{_a}{_s} to {_pre}{_b}{_s}" if lo<0 else f"{_pre}{_a}–{_b}{_s}"
     def _pt(v):
-        _f,_s=_dsc(abs(v)); v=v/_f; _r=_drd(v)
-        return f"{_pre}{mnum(f'{_xrf(v,_r):,.{_r}f}')}{_s}"
+        _f,_s=_dsc(abs(v)); v=v/_f; _r=_drd(v); _a=_xrf(abs(v),_r)
+        return f"{chr(0x2212) if (v<0 and _a) else ''}{_pre}{_a:,.{_r}f}{_s}"
     rlo=statistics.median(mins) if mins else None
     rhi=statistics.median(maxs) if maxs else None
     if rlo is not None and rhi is not None:
@@ -567,7 +587,7 @@ def analyze(m):
     if wmed is None: disagree="n/a"
     elif pct: disagree="High" if wmed>=dp["high"] else ("Moderate" if wmed>=dp["mod"] else "Low")
     else: disagree="High" if wmed>=dv["high"] else ("Moderate" if wmed>=dv["mod"] else ("Low–Moderate" if wmed>=dv["lomod"] else ("Low" if wmed>=dv["low"] else "Very low")))
-    w_str=(mnum(f"~{_xrf(wmed,1):.1f} ppt") if (pct and wmed is not None) else (mnum(f"~{_xrf(wmed,1):.1f}%") if wmed is not None else "n/a"))
+    w_str=(mnum(f"~{_xrf(wmed,sdp):.{sdp}f} ppt") if (pct and wmed is not None) else (mnum(f"~{_xrf(wmed,1):.1f}%") if wmed is not None else "n/a"))
     thin=(rangedq>0 and zerowidth>=rangedq/2)
     _bk=[rng[q].get("brokers") for q in QS if rng.get(q) and rng[q].get("brokers") is not None]
     brokers=statistics.median(_bk) if _bk else None
@@ -583,11 +603,12 @@ def analyze(m):
         _n0,_n1,_nc=_nr["min"],_nr["max"],_nr["cons"]
         d_rng=_dband(_n0,_n1)
         _nw=abs(_n1-_n0) if pct else abs(_n1-_n0)/abs(_nc)*100.0
-        d_width=(mnum(f"~{_xrf(_nw,1):.1f} ppt") if pct else mnum(f"~{_xrf(_nw,1):.1f}%"))
+        d_width=(mnum(f"~{_xrf(_nw,sdp):.{sdp}f} ppt") if pct else mnum(f"~{_xrf(_nw,1):.1f}%"))
         if pct: d_disp="High" if _nw>=dp["high"] else ("Moderate" if _nw>=dp["mod"] else "Low")
         else: d_disp="High" if _nw>=dv["high"] else ("Moderate" if _nw>=dv["mod"] else ("Low–Moderate" if _nw>=dv["lomod"] else ("Low" if _nw>=dv["low"] else "Very low")))
         no_disp=False
-    return dict(sfmt=("usd" if _dg else pct),neu=bool(m.get("neutral")),lb=_lib_of(m),pct=pct,surs=surs,anom=anom,beats=beats,misses=misses,inline=inline,n=nn,avg=av,rel=rel,direction=direction,
+    return dict(sfmt=("usd" if _dg else pct),neu=bool(m.get("neutral")),lb=_lib_of(m),pct=pct,surs=surs,anom=anom,
+                psurs=psurs,sdp=sdp,tol=tol,uref=max([abs(v) for v in surs.values() if v is not None] or [0]),beats=beats,misses=misses,inline=inline,n=nn,avg=av,rel=rel,direction=direction,
                 disagree=disagree,thin=thin,width=w_str,wide_q=_wide,wmed_pct=wmed,wnum=wmed,rng_str=rng_str,rlo=rlo,rhi=rhi,label=m["label"],key=m["key"],variant=(m.get("variant") or None),
                 brokers=brokers,no_disp=no_disp,d_rng=d_rng,d_width=d_width,d_disp=d_disp,
                 headline=m.get("headline",False),basis=m.get("basis","adjusted"),zerocross=zerocross)
@@ -674,37 +695,38 @@ def _gscale(ref,u):
     while sc in steps[:-1] and abs(ref/f)>=1000:
         f*=1000.0; sc=steps[steps.index(sc)+1]
     return f,sym+sc
-def _gfix(v,u):
-    u=(u or "").strip()
-    if u in ("%","pp","ppt"): return mnum(f"{_xrf(v,1):.1f}")
+def _gfix(v,u,ref=None):
+    u=(u or "").strip(); r=abs(v if ref is None else ref)
+    if u in ("%","pp","ppt"): _d=2 if r<5 else 1; return mnum(f"{_xrf(v,_d):.{_d}f}")
     if u in ("bp","bps"):     return mnum(f"{_xrf(v,0):,.0f}")
-    if abs(v)>=10000 and not re.match(r'^['+_CURSYM+r']',u):
+    if r>=10000 and not re.match(r'^['+_CURSYM+r']',u):
         return mnum(f"{_xrf(v,0):,.0f}")
     return mnum(f"{_xrf(v,2):,.2f}")
-def gval(v,u):
+def gval(v,u,ref=None):
     if v is None: return "n/a"
-    f,u=_gscale(v,u); v=v/f
+    f,u=_gscale(v if ref is None else ref,u); v=v/f; ref=None if ref is None else ref/f
     u=(u or "").strip()
-    if u in _PCTU: return f"{_gfix(v,u)}{u}"
+    if u in _PCTU: return f"{_gfix(v,u,ref)}{u}"
     m=re.match(r'^(['+_CURSYM+r'])\s*(mm|MM|[KkMmBbTt])?$',u)
     if m:
-        sym=m.group(1); scale=(m.group(2) or "").upper().replace("MM","M")
-        return f'{"−" if v<0 else ""}{sym}{_gfix(abs(v),u)}{scale}'
-    return f"{_gfix(v,u)} {u}" if u else _gfix(v,u)
-def grange(lo,hi,u):
+        sym=m.group(1); scale=(m.group(2) or "").upper().replace("MM","M"); v=_xrf(v,2)
+        return f'{"−" if v<0 else ""}{sym}{_gfix(abs(v),u,ref)}{scale}'
+    return f"{_gfix(v,u,ref)} {u}" if u else _gfix(v,u,ref)
+def grange(lo,hi,u,ref=None):
     if lo is None and hi is None: return "n/a"
-    f,u=_gscale(max([abs(x) for x in (lo,hi) if x is not None]),u)
+    if ref is None: ref=max([abs(x) for x in (lo,hi) if x is not None])
+    f,u=_gscale(ref,u); ref=ref/f
     lo=None if lo is None else lo/f; hi=None if hi is None else hi/f
-    if lo is None or hi is None or lo==hi: return gval(lo if lo is not None else hi,u)
-    if lo<0 or hi<0: return f"{gval(lo,u)} to {gval(hi,u)}"
-    a,b=gval(lo,u),gval(hi,u)
+    if lo is None or hi is None or lo==hi: return gval(lo if lo is not None else hi,u,ref)
+    if lo<0 or hi<0: return f"{gval(lo,u,ref)} to {gval(hi,u,ref)}"
+    a,b=gval(lo,u,ref),gval(hi,u,ref)
     m=re.match(r'^(['+_CURSYM+r'])(.*?)([KMBT]?)$',a)
     if m:
         m2=re.match(r'^(['+_CURSYM+r'])(.*?)([KMBT]?)$',b)
         if m2 and m.group(1)==m2.group(1) and m.group(3)==m2.group(3):
             return f"{m.group(1)}{m.group(2)}–{m2.group(2)}{m.group(3)}"
-    if u in _PCTU: return f"{_gfix(lo,u)}–{_gfix(hi,u)}{u}"
-    if u: return f"{_gfix(lo,u)}–{_gfix(hi,u)} {u}"
+    if u in _PCTU: return f"{_gfix(lo,u,ref)}–{_gfix(hi,u,ref)}{u}"
+    if u: return f"{_gfix(lo,u,ref)}–{_gfix(hi,u,ref)} {u}"
     return f"{a}–{b}"
 _MK={m.get("key") for m in D.get("metrics",[])}
 _MC={str(c) for m in D.get("metrics",[]) for c in (m.get("ltcode"),m.get("uic")) if c}
@@ -839,16 +861,18 @@ if len(_rt)>=2:
     if r0 and r1: _dr.append(abs((r1-r0)/r0*100))
     if _dr: _pc["revision"]=_clampf(100-CONFIG["pred_k"]["revision"]*(sum(_dr)/len(_dr)))
 _W=CONFIG["pred_w"]; _ws=sum(_W[k] for k in _pc)
-PRED=round(sum(_pc[k]*_W[k] for k in _pc)/_ws) if _ws>0 else None
+PRED=sum(_pc[k]*_W[k] for k in _pc)/_ws if _ws>0 else None
 PRED_BAND=(None if PRED is None else ("High" if PRED>=CONFIG["pred_high"] else ("Moderate" if PRED>=CONFIG["pred_mod"] else "Low")))
+PRED=None if PRED is None else int(_xrf(PRED,0))
 PRED_N=len(_pc)
 def fmt_money(v,unit):
     if v is None: return "n/a"
-    if unit in ("%","pp","ppt"): return f"{_xrf(v,1):+.1f} pp"
-    sign="−" if v<0 else "+"; cur="$" if "$" in (unit or "") else ""
+    if unit in ("%","pp","ppt"): return mnum(f"{_xrf(v,1):+.1f}")+" pp"
+    cur=CUR if re.match(r'^['+_CURSYM+r']',(unit or "").strip()) else ""
     suf="M" if (unit or "").endswith("M") else ("B" if (unit or "").endswith("B") else "")
-    v=_xrf(v,2)
-    return f"{sign}{cur}{abs(v):.2f}{suf}"
+    v,suf=_mb(v,suf); v=_xrf(v,2)
+    sign="−" if v<0 else ("+" if v>0 else "")
+    return f"{sign}{cur}{abs(v):,.2f}{suf}"
 def fmt_delta(v_abs,v_pct,unit=None):
     if v_abs is None: return "n/a"
     if unit is None:
@@ -955,9 +979,10 @@ def fy_current_grid(max_cols=CONFIG.get("chg_max_cols",4)):
         if not ents: continue
         u=fy_unit.get(mk,"") or ""
         valmap={}; chg={}; prev=None; nchg=0
+        _rf=_grref(max([abs(x) for g in ents for x in (g.get("low"),g.get("high"),_acts.get(mk)) if _isnum(x)] or [0]) or None,u.strip() in ("%","pp","ppt"),mk,fy_label.get(mk),ents[0].get("ltcode"))
         for g in ents:
             d=str(g.get("guide_date")); lo,hi=g.get("low"),g.get("high"); mid=((lo or 0)+(hi or 0))/2
-            valmap[d]=(("n/a" if lo is None else grange(lo,hi,u)),mid)
+            valmap[d]=(("n/a" if lo is None else grange(lo,hi,u,_rf)),mid)
             _c2=("mut" if prev is None else ("g" if mid>prev+1e-9 else ("r" if mid<prev-1e-9 else "mut")))
             if _c2 in ("g","r"): nchg+=1
             chg[d]=_c2; prev=mid
@@ -975,11 +1000,11 @@ def fy_current_grid(max_cols=CONFIG.get("chg_max_cols",4)):
         av=_acts.get(mk); acell=None
         if _isnum(av):
             _last=ents[-1]; _lo,_hi=_last.get("low"),_last.get("high")
-            if _lo is None or _hi is None: acell=(gval(av,u),"mut")
+            if _lo is None or _hi is None: acell=(gval(av,u,_rf),"mut")
             else:
                 _cls="g" if av>_hi+1e-9 else ("r" if av<_lo-1e-9 else "mut")
                 _mk2="▲ " if _cls=="g" else ("▼ " if _cls=="r" else "")
-                acell=(_mk2+gval(av,u),_cls)
+                acell=(_mk2+gval(av,u,_rf),_cls)
         if not kmids and acell is None: continue
         rows.append(dict(m=fy_label.get(mk,mk),cells=cells,net=net,ncls=ncls,nchg=nchg,act=acell))
     if not rows: return None
@@ -999,11 +1024,16 @@ def fy_year_split():
     except Exception: cur=CUR_FY
     if cur is None: return None
     prev=cur-1
+    if CADENCE!="quarterly" and FY_FALLBACK and CUR_FY is not None and CUR_FY<prev: prev=CUR_FY
     _rev={str(v):k for k,v in report_dates.items()}
     def _col(g): return g.get("source_period") or _rev.get(str(g.get("guide_date")))
-    cols_prev=[_qlab(4,prev-1)]+[_qlab(i,prev) for i in (1,2,3)]
+    def _pcols(yp,yr):
+        if CADENCE=="half_yearly": return [f"2H{yp%100:02d}",f"1H{yr%100:02d}"]
+        if CADENCE=="annual": return [str(yp)]
+        return [_qlab(4,yp)]+[_qlab(i,yr) for i in (1,2,3)]
+    cols_prev=_pcols(prev-1,prev)
     _last=QS[-1] if QS else None
-    cols_cur=[_qlab(4,prev)]+[_qlab(i,cur) for i in (1,2,3)]
+    cols_cur=_pcols(cur-1,cur)
     _ci=[c for c in cols_cur if c in set(QS) or c==_last]
     if _last in cols_cur: cols_cur=cols_cur[:cols_cur.index(_last)+1]
     else: cols_cur=_ci
@@ -1016,6 +1046,8 @@ def fy_year_split():
         u=fy_unit.get(mk,"") or ""
         if not u and _mkey(mk)=="eps": u=CUR
         _lb=bool(_LB_GUIDE.get(str(mk), _LB_BY_NAME.get(str(fy_label.get(mk,mk)).strip().lower(),False)))
+        _rf=max([abs(x) for yr,cols in ((prev,cols_prev),(cur,cols_cur)) for g in fy if g.get("metric")==mk and _fy_year(g.get("fiscal_period"))==yr and _col(g) in cols for x in (g.get("low"),g.get("high"))]+[abs(x) for x in [(FY_ACT.get(str(prev),{}) or {}).get(str(mk))] if _isnum(x)] or [0]) or None
+        _rf=_grref(_rf,u.strip() in ("%","pp","ppt"),mk,fy_label.get(mk))
         blocks=[]
         for yr,cols in ((prev,cols_prev),(cur,cols_cur)):
             ents=sorted([g for g in fy if g.get("metric")==mk and _fy_year(g.get("fiscal_period"))==yr],key=lambda x:str(x.get("guide_date","")))
@@ -1031,7 +1063,7 @@ def fy_year_split():
                 lo,hi=g.get("low"),g.get("high"); mid=((lo or 0)+(hi or 0))/2
                 d=("" if prevmid is None else ("up" if mid>prevmid+1e-9 else ("dn" if mid<prevmid-1e-9 else "")))
                 cls=("mut" if not d else (("r" if _lb else "g") if d=="up" else ("g" if _lb else "r")))
-                _txt=grange(lo,hi,u) if (lo is None or hi is None or lo==hi) else (gval(lo,u)+"–\n"+gval(hi,u))
+                _txt=grange(lo,hi,u,_rf) if (lo is None or hi is None or lo==hi) else (gval(lo,u,_rf)+"–\n"+gval(hi,u,_rf))
                 cells.append((_txt,cls if d else "",d)); prevmid=mid
             act=None
             if yr==prev:
@@ -1040,8 +1072,8 @@ def fy_year_split():
                     lg=at[max(at,key=lambda c:cols.index(c))]; lo,hi=lg.get("low"),lg.get("high")
                     beat=(av<lo-1e-9) if _lb else (av>hi+1e-9); miss=(av>hi+1e-9) if _lb else (av<lo-1e-9)
                     arrow="▲ " if av>hi+1e-9 else ("▼ " if av<lo-1e-9 else "")
-                    act=(arrow+gval(av,u),"g" if beat else ("r" if miss else ""))
-                elif _isnum(av): act=(gval(av,u),"")
+                    act=(arrow+gval(av,u,_rf),"g" if beat else ("r" if miss else ""))
+                elif _isnum(av): act=(gval(av,u,_rf),"")
             blocks.append(dict(year=yr,cols=cols,cells=cells,act=act,has=bool(at)))
         if not any(b["has"] for b in blocks): continue
         _m=by_key.get(_mkey(mk)); lab=(_m["label"] if _m else str(fy_label.get(mk,mk)).replace("FY ","",1))
@@ -1130,7 +1162,7 @@ for _a in METR:
         _qs=", ".join(f'{q} ({_xrf(w,1):,.1f}% wide)' for q,w in _a["wide_q"])
         defs.append({"level":"warn","msg":f'{_a["label"]}: estimate range on {_qs} is more than '
                      f'{CONFIG.get("range_outlier_mult",8.0):g}x this metric\'s median width '
-                     f'({_a["wmed_pct"]:,.0f}%) — likely one bad broker row. '
+                     f'({_xrf(_a["wmed_pct"],0):,.0f}%) — likely one bad broker row. '
                      +('Dispersion for this metric is reported unscored rather than from a corrupted band.'
                        if _a.get("disagree")=="n/a" else
                        'Treat the dispersion read on this metric with care.')})
@@ -1264,7 +1296,7 @@ def _nocons(a): return not (a and a.get("n"))
 def _rel_cell(a): return "no consensus" if _nocons(a) else None
 def _conf_cell(a): return "" if _nocons(a) else None
 _EXQ=[(a["label"],list(a["anom"])) for a in METR if a.get("anom")]
-_BIG=[(a["label"],q,a["surs"][q]) for a in METR if not a["pct"] and a["sfmt"]!="usd" for q in QS
+_BIG=[(a["label"],q,a["psurs"][q]) for a in METR if not a["pct"] and a["sfmt"]!="usd" for q in QS
       if a["surs"].get(q) is not None and abs(a["surs"][q])>CONFIG["big_surprise"]]
 _big_note=("" if not _BIG else
            " Surprises above "+f'{CONFIG["big_surprise"]:.0f}%'+": "
@@ -1276,7 +1308,16 @@ _exq_note=("" if not _EXQ else
            +". The rating for those rows rests on the remaining quarters only.")
 
 relorder={"High":0,"Medium":1,"Low":2,"n/a":3}
-sc=sorted(METR,key=lambda a:(relorder.get(a["rel"],9),-(abs(a["avg"]) if a["avg"] else 0)))
+_MIDX={str(m.get("key")):i for i,m in enumerate(D.get("metrics",[]) or [])}
+def _row_rank(key):
+    k=str(key)
+    if k=="rev": return (1,0,0)
+    if k=="eps": return (1,1,0)
+    m=raw_by_key.get(key) or {}
+    c=str(m.get("ltcode") or "").upper()
+    g=1 if c.startswith("IS_") else (2 if c.startswith("BS_") else (3 if c.startswith("CF_") else 0))
+    return (g,2,_MIDX.get(k,999))
+sc=sorted(METR,key=lambda a:_row_rank(a["key"]))
 def _bias_txt(a):
     if _nocons(a): return "no consensus"
     tol=0.005 if a.get("sfmt")=="usd" else (CONFIG["beat_tol"]["pct"] if a["pct"] else CONFIG["beat_tol"]["val"])
@@ -1288,7 +1329,7 @@ def _bias_txt(a):
     if a.get("conf") not in (None,"High"): t+=" · limited data"
     return t
 CONF={"High":span("High","g"),"Medium":span("Medium","y"),"Low":span("Low","mut"),"n/a":span("n/a","mut")}
-sc_rows=[[esc(a["label"])+star(a),str(a["n"])+_exq(a),(f'{a["beats"]} above / {a["misses"]} below' if a["neu"] else f'{a["beats"]}B / {a["misses"]}M / {a["inline"]}I'),col_s(a["avg"],a["sfmt"],a["lb"],a["neu"]),
+sc_rows=[[esc(a["label"])+star(a),str(a["n"])+_exq(a),(f'{a["beats"]} above / {a["misses"]} below' if a["neu"] else f'{a["beats"]}B / {a["misses"]}M / {a["inline"]}I'),col_s(a["avg"],a["sfmt"],a["lb"],a["neu"],0.0,a["sdp"],a["uref"]),
           dirspan(a["direction"],a["rel"] in RATED),
           (_rel_cell(a) or REL.get(a["rel"],a["rel"])),
           (_conf_cell(a) if _conf_cell(a) is not None else CONF.get(a["conf"],a["conf"]))] for a in sc]
@@ -1304,7 +1345,7 @@ _usd_note=("" if not _USDL else " "+(_USDL[0] if len(_USDL)==1 else ", ".join(_U
            +(" "+", ".join(_neuL)+" is shown as direction only (blue): spending more is not good or bad by itself." if _neuL else ""))
 sc_note='<div class="note">Surprise = actual − pre-print consensus (% for value metrics, ppt for % metrics); green = good for holders, red = bad. '+' '.join(notes)+esc(_usd_note)+_exq_note+'</div>'
 
-def series(a): return [_xrf(a["surs"].get(q),1) if (a["surs"].get(q) is not None and q not in a["anom"]) else None for q in QS]
+def series(a): return [_xrf(a["psurs"].get(q),a["sdp"]) if (a["psurs"].get(q) is not None and q not in a["anom"]) else None for q in QS]
 ch=[]
 if epsa: ch.append((f"{HEAD_SHORT} surprise (%)",_bc("beatGreen"),"bar",series(epsa)))
 rev=by_key.get("rev") or next((a for a in METR if a["headline"] and a is not epsa),None)
@@ -1315,8 +1356,8 @@ _surp_rows=[]
 for a in sc:
     _r=[esc(a["label"])+star(a)]
     for q in QS:
-        _r.append('<span class="mut">⚠</span>' if q in a["anom"] else (col_s(a["surs"].get(q),a["sfmt"],a["lb"],a["neu"]) if a["surs"].get(q) is not None else '<span class="mut">n/a</span>'))
-    _r.append(col_s(a["avg"],a["sfmt"],a["lb"],a["neu"]))
+        _r.append('<span class="mut">⚠</span>' if q in a["anom"] else (col_s(a["psurs"].get(q),a["sfmt"],a["lb"],a["neu"],a["tol"],a["sdp"],a["uref"]) if a["psurs"].get(q) is not None else '<span class="mut">n/a</span>'))
+    _r.append(col_s(a["avg"],a["sfmt"],a["lb"],a["neu"],0.0,a["sdp"],a["uref"]))
     _surp_rows.append(_r)
 _surp_table=table(["Metric"]+[esc(q) for q in QS]+["Avg"],_surp_rows,numcols=tuple(range(1,len(QS)+2)))
 _chart_toggle=('<div class="toggle"><button class="tgl active" data-t="chart">▮ Chart</button>'
@@ -1421,6 +1462,7 @@ if q_rows:
     for g in gmed:
         ml,un=g["m"],g["unit"]
         rs={r["fp"]:r for r in q_rows if r["m"]==ml and r["unit"]==un}
+        _rf=max(abs(x) for q in _qcols if q in rs for x in (rs[q]["lo"],rs[q]["hi"],rs[q]["act"])) if any(q in rs for q in _qcols) else None; _rf=_grref(_rf,un in ("%","pp","ppt"),ml)
         _tag=' <span class="mut">· comparability</span>' if g["kind"]=="comparability" else ''
         row=[esc(ml)+(f' <span class="mut">({esc(un)})</span>' if un else '')+_tag]
         for q in _qcols:
@@ -1429,9 +1471,9 @@ if q_rows:
             beat=_gbeat(r); miss=_gmiss(r)
             cls="g" if beat else ("r" if miss else "mut")
             mark="▲ " if r["act"]>r["hi"] else ("▼ " if r["act"]<r["lo"] else "")
-            _actcell=(span(esc(mark+_gfmt(r["act"],un))+(" ⚠" if r["outlier"] else ""),cls) if cls in ("g","r")
-                      else esc(_gfmt(r["act"],un))+(" ⚠" if r["outlier"] else ""))
-            row.append(_actcell+f'<div class="mut" style="font-size:9px;line-height:1.15">g {esc(grange(r["lo"],r["hi"],un))}</div>')
+            _actcell=(span(esc(mark+_gfmt(r["act"],un,_rf))+(" ⚠" if r["outlier"] else ""),cls) if cls in ("g","r")
+                      else esc(_gfmt(r["act"],un,_rf))+(" ⚠" if r["outlier"] else ""))
+            row.append(_actcell+f'<div class="mut" style="font-size:9px;line-height:1.15">g {esc(grange(r["lo"],r["hi"],un,_rf))}</div>')
         row.append(f'{g["exceed"]} of {g["n"]}' if g["kind"]=="outcome"
                    else f'<span class="mut">in range</span> {g["inrange"]} of {g["n"]}')
         _qbody.append(row)
@@ -1448,7 +1490,7 @@ if _grid and FY_FALLBACK: gc_note+=(f'FY{str(_fy_live)} guidance has only just b
 if _grid: gc_note+=(f'"Net vs first" compares the latest FY{str(CUR_FY)} guide midpoint to its initial one. ')
 if guide_skipped: gc_note+=' Skipped (unresolvable metric/actual): '+esc(", ".join(guide_skipped))+'.'
 if outliers:
-    ol=", ".join(f'{esc(r["m"])} {r["fp"]} ({r["bh"]:+.2f})' for r in outliers)
+    ol=", ".join(f'{esc(r["m"])} {r["fp"]} ({sgn(r["bh"],2)[0]})' for r in outliers)
     gc_note+=f' <b>⚠ Extreme surprise flagged</b> (&gt;{CONFIG["outlier_mult"]:g}× the median): {ol}; verify against the filing for a restatement/reclassification before relying on it.'
 gc_note+='</div>'
 if _grid and nq: _gc_sub="Does the guide move, and does it prove conservative?"
@@ -1466,10 +1508,7 @@ else:
     _gc_inner=gc_table+_quant+qual_detail+gc_note
 guidecard=card("Guidance Track Record",_gc_sub,_gc_inner,col=1)
 
-_fixed=["eps","rev"]+[str(m.get("key")) for m in D.get("metrics",[]) if m.get("key") not in ("eps","rev")]
-_rk=[str(k.get("key")) for k in (D.get("revision_kpis") or [])]
-_fixed=["eps","rev"]+_rk+[k for k in _fixed if k not in _rk and k not in ("eps","rev")]
-dis=sorted(sc,key=lambda a:(_fixed.index(a["key"]) if a.get("key") in _fixed else 99))
+dis=list(sc)
 dis_rows=[[esc(a["label"])+star(a)+(" ⚠" if (a["thin"] and not a["no_disp"]) else ""),
            a.get("d_rng","n/a"),a["d_width"],DIS.get(a["d_disp"],a["d_disp"])] for a in dis]
 _NXR=any((m.get("next_range") or {}).get("max") is not None for m in D.get("metrics",[]))
@@ -1495,24 +1534,25 @@ def _revpol(net,key):
     if a.get("neu"): return (t,"mut")
     if a.get("lb"): return (t,"r" if c=="g" else "g")
     return net
-def _revnet(vals,pct,unit):
+def _revnet(vals,pct,unit,ref=None):
     xs=[v for v in vals if _isnum(v)]
     if len(xs)<2: return ("n/a","mut")
-    a,b=xs[0],xs[-1]
+    a,b=xs[0],xs[-1]; _r=max(abs(x) for x in xs) if ref is None else ref; _d=2 if (pct and _r<5) else 1
     if pct:
-        t,c=sgn(b-a); return (f'{t} ppt',c)
+        t,c=sgn(_r1chg(a,b,unit,True,_d),_d); return (f'{t} ppt',c)
     if a==0: return ("n/a","mut")
-    t,c=sgn((b-a)/abs(a)*100); return (f'{t}%',c)
-def _revfmt(v,pct,unit):
+    t,c=sgn(_r1chg(a,b,unit,ref=_r)); return (f'{t}%',c)
+def _revfmt(v,pct,unit,ref=None):
     if not _isnum(v): return '<span class="mut">·</span>'
-    if pct: return mnum(f'{_xrf(v,1):.1f}%')
+    if ref is None: ref=v
+    if pct: _d=2 if abs(ref)<5 else 1; return mnum(f'{_xrf(v,_d):.{_d}f}%')
     u=(unit or "")
     if u.upper() in ("$T","T"): v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}T')
     if u.upper() in ("$M","M"):
-        v,_s=_mb(v,"M"); v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}{_s}')
-    if u.upper().endswith("B") or u.upper()=="$B": v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}B')
+        v,_s=_mb(v,"M",ref); v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}{_s}')
+    if u.upper().endswith("B") or u.upper()=="$B": v,_s=_mb(v,"B",ref); v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}{_s}')
     if u and u not in ("$","€","£","¥"):
-        return mnum(f'{_xrf(v,2):,.2f} {esc(u)}' if abs(v)<1000 else f'{_xrf(v,0):,.0f} {esc(u)}')
+        return mnum(f'{_xrf(v,2):,.2f} {esc(u)}' if abs(ref)<1000 else f'{_xrf(v,0):,.0f} {esc(u)}')
     v=_xrf(v,2)
     return mnum(f'{CUR}{v:.2f}')
 if rt:
@@ -1520,23 +1560,24 @@ if rt:
     heads=[(r.get("label") or r.get("date",""))+(" ⚠" if r.get("thin") else "") for r in rt]
     _rthin=any(r.get("thin") for r in rt)
     def _revrow(label,getv,pct,unit,key=None):
-        vals=[getv(r) for r in rt]
-        cells=[_revfmt(v,pct,unit) for v in vals]
-        net,ncls=_revpol(_revnet(vals,pct,unit),key)
+        vals=[getv(r) for r in rt]; _rf=_grref(max([abs(v) for v in vals if _isnum(v)] or [0]),pct,label,key)
+        cells=[_revfmt(v,pct,unit,_rf) for v in vals]
+        net,ncls=_revpol(_revnet(vals,pct,unit,_rf),key)
         return [esc(label)]+cells+[span(net,ncls)]
     def _rlab(key,fallback):
         m=raw_by_key.get(key)
         return (m.get("label")+star(m)) if m else fallback
-    _rr=[_revrow(_rlab("eps",HEAD_SHORT),lambda r:r.get("eps"),False,"$"),
-         _revrow(_rlab("rev","Revenue"),lambda r:r.get("rev"),False,"$"+str(REVU))]
+    _rr=[("eps",_revrow(_rlab("eps",HEAD_SHORT),lambda r:r.get("eps"),False,"$")),
+         ("rev",_revrow(_rlab("rev","Revenue"),lambda r:r.get("rev"),False,"$"+str(REVU)))]
     for k in rkpis:
         _kk=k.get("key")
-        _rr.append(_revrow(_rlab(_kk,k.get("label",_kk or "?")),(lambda kk:(lambda r:(r.get("kpis") or {}).get(kk)))(_kk),k.get("pct",False),k.get("unit",""),_kk))
+        _rr.append((_kk,_revrow(_rlab(_kk,k.get("label",_kk or "?")),(lambda kk:(lambda r:(r.get("kpis") or {}).get(kk)))(_kk),k.get("pct",False),k.get("unit",""),_kk)))
+    _rr=[_x for _k,_x in sorted(_rr,key=lambda t:_row_rank(t[0]))]
     _rmiss=[a["label"] for a in METR if a["key"] not in ("eps","rev") and a["key"] not in {k.get("key") for k in rkpis}]
     _rmheads=[f"Metric ({esc(NEXTQ)}E)"]+[esc(x) for x in heads]+["Net move"]
     rmtab=table(_rmheads,_rr,numcols=tuple(range(1,len(_rmheads))))
     e0,e1=rt[0].get("eps"),rt[-1].get("eps"); r0,r1=rt[0].get("rev"),rt[-1].get("rev")
-    edir=(f'{_xrf((e1-e0)/e0*100,1):+.1f}%' if e0 and e1 else "n/a"); rdir=(f'{_xrf((r1-r0)/r0*100,1):+.1f}%' if r0 and r1 else "n/a")
+    edir=(_revnet([r.get("eps") for r in rt],False,"$")[0] if e0 and e1 else "n/a"); rdir=(_revnet([r.get("rev") for r in rt],False,"$"+str(REVU))[0] if r0 and r1 else "n/a")
     _asof=(" · ".join(f'{esc(h)}: {esc(d)}' for h,d in zip(heads,dates)) if any(r.get("label") for r in rt) else f'{esc(dates[0])} → {esc(dates[-1])}')
     rmcard=card("Revision Momentum",f"How the {esc(NEXTQ)} Street consensus has moved, by print",col=1,inner=
         rmtab+f'<div class="note"><b>Street consensus, not company guidance.</b> Net move = last vs first ({NEXTQ} {HEAD_SHORT} {edir}, revenue {rdir}).'
@@ -1587,11 +1628,13 @@ if _dw:
     _w,_l=max(_dw)
     _extra.append(f'Street most split on {esc(_l)} for {esc(NEXTQ)} (range ~{_xrf(_w,1):.1f}% of consensus).')
 if rt and len(rt)>=2:
-    def _mv(a,b): return None if not (_isnum(a) and _isnum(b)) or a==0 else (b-a)/abs(a)*100.0
-    _ev=_mv(rt[0].get("eps"),rt[-1].get("eps")); _rv2=_mv(rt[0].get("rev"),rt[-1].get("rev"))
+    def _mv(a,b,u="",ref=None): return None if not (_isnum(a) and _isnum(b)) or a==0 else _r1chg(a,b,u,ref=ref)
+    _rref=lambda g: max([abs(g(r)) for r in rt if _isnum(g(r))] or [0])
+    _ev=_mv(rt[0].get("eps"),rt[-1].get("eps"),"$"); _rv2=_mv(rt[0].get("rev"),rt[-1].get("rev"),"$"+str(REVU),_rref(lambda r:r.get("rev")))
+    _ku={str(k.get("key")):k.get("unit","") for k in (D.get("revision_kpis") or [])}
     _pctk={str(k.get("key")) for k in (D.get("revision_kpis") or []) if k.get("pct")}
     _pctk|={m["key"] for m in D["metrics"] if m.get("pct_metric")}
-    _km=[(abs(v),k,v) for k in (rt[0].get("kpis") or {}) if k not in _pctk for v in [_mv(rt[0]["kpis"].get(k),(rt[-1].get("kpis") or {}).get(k))] if v is not None]
+    _km=[(abs(v),k,v) for k in (rt[0].get("kpis") or {}) if k not in _pctk for v in [_mv(rt[0]["kpis"].get(k),(rt[-1].get("kpis") or {}).get(k),_ku.get(k,""),_rref(lambda r,k=k:(r.get("kpis") or {}).get(k)))] if v is not None]
     _t=[]
     if _ev is not None: _t.append(f"{HEAD_SHORT} {mnum(sgn(_ev)[0])}%")
     if _rv2 is not None: _t.append(f"revenue {mnum(sgn(_rv2)[0])}%")
@@ -1866,10 +1909,11 @@ if not NOPDF:
     strip=lambda s:_re.sub('<[^>]+>','',str(s)).replace('&amp;','&').replace('&lt;','<').replace('&gt;','>').replace('&#160;',' ')
     cell=S("cell",fontSize=7.4,leading=8.7); cc=S("cc",fontSize=7.4,leading=8.7,alignment=1)
     hd=S("hd",fontName=BODYB,fontSize=7,leading=8.5,textColor=_c.HexColor(INK)); hdc=S("hdc",fontName=BODYB,fontSize=7,leading=8.5,alignment=1,textColor=_c.HexColor(INK))
-    def scol(v,pct,lb=False,neu=False):
+    def scol(v,pct,lb=False,neu=False,tol=0.0,dp=1,ref=None):
         if v is None:return Paragraph("n/a",cc)
-        t=fmt_s(v,pct); _good=(v<-1e-9) if lb else (v>1e-9); _bad=(v>1e-9) if lb else (v<-1e-9)
-        if pct=="usd" and abs(_xrf(v,2))==0: _good=_bad=False
+        t=fmt_s(v,pct,dp,ref); v=_xrf(v,dp) if pct!="usd" else v
+        if abs(v)<=tol or (pct=="usd" and t.startswith(CUR+"0.00")): v=0.0
+        _good=(v<-1e-9) if lb else (v>1e-9); _bad=(v>1e-9) if lb else (v<-1e-9)
         col=GN if _good else (RD if _bad else GY)
         if neu: col="#1e3a8a"
         return Paragraph(f'<font color="{col}">{t}</font>',cc)
@@ -1987,7 +2031,7 @@ if not NOPDF:
     left+= [_mh_co_para(_mhl1,_mhco,_CO_LEAD)] + ([_mh_co_para(_mhl2,_mhco,_CO_LEAD)] if _mhtwo else [])
     right=Paragraph(f'<font name="{SERB}" size="16" color="{INK}">Forecast Reliability Suite</font><br/>'
                     f'<font name="{BODYB}" size="8" color="{OR}">Prepared:</font><font size="8"> {ASOF}</font>&#160;&#160;'
-                    f'<font name="{BODYB}" size="8" color="{OR}">Coverage:</font><font size="8"> {N} qtrs ({esc(QLO)}\u2013{esc(QHI)})</font>',
+                    f'<font name="{BODYB}" size="8" color="{OR}">Coverage:</font><font size="8"> {N} {"qtrs" if CADENCE=="quarterly" else PER_N} ({esc(QLO)}\u2013{esc(QHI)})</font>',
                     S("r",alignment=TA_RIGHT,leading=15))
     _MPAD=6
     _lgw=_MARK_W+0.195*inch+_MPAD
@@ -2017,7 +2061,7 @@ if not NOPDF:
     if [d for d in defs if d["level"]=="critical"]:
         story.append(Spacer(1,6)); story.append(_qc_db)
     scr=[[P(a["label"]+(" *" if a.get("basis")=="reported" else "")),P(str(a["n"])+_exq(a),cc),
-          P((f'{a["beats"]} above/{a["misses"]} below' if a["neu"] else f'{a["beats"]}B/{a["misses"]}M/{a["inline"]}I'),cc),scol(a["avg"],a["sfmt"],a["lb"],a["neu"]),
+          P((f'{a["beats"]} above/{a["misses"]} below' if a["neu"] else f'{a["beats"]}B/{a["misses"]}M/{a["inline"]}I'),cc),scol(a["avg"],a["sfmt"],a["lb"],a["neu"],0.0,a["sdp"],a["uref"]),
           P(a["direction"],cc),
           P(_rel_cell(a) or ("None detected" if a["rel"]=="n/a" else REL_WORD.get(a["rel"],a["rel"])),cc),
           P(_conf_cell(a) if _conf_cell(a) is not None else a["conf"],cc)] for a in sc]
@@ -2025,8 +2069,8 @@ if not NOPDF:
     sqrows=[]
     for a in sc:
         row=[P(a["label"]+star(a),cell)]
-        for q in QS: row.append(Paragraph(f'<font color="{GY}">⚠</font>',cc) if q in a["anom"] else scol(a["surs"].get(q),a["sfmt"],a["lb"],a["neu"]))
-        row.append(scol(a["avg"],a["sfmt"],a["lb"],a["neu"])); sqrows.append(row)
+        for q in QS: row.append(Paragraph(f'<font color="{GY}">⚠</font>',cc) if q in a["anom"] else scol(a["psurs"].get(q),a["sfmt"],a["lb"],a["neu"],a["tol"],a["sdp"],a["uref"]))
+        row.append(scol(a["avg"],a["sfmt"],a["lb"],a["neu"],0.0,a["sdp"],a["uref"])); sqrows.append(row)
     cwq=[1.85*inch]+[0.56*inch]*len(QS)+[0.56*inch]
     story+=[sec(f"Surprise by {PER_1.title()}: Where the Street Has Been Over / Under"),tbl(sqhead,sqrows,cwq,numc=tuple(range(1,len(sqhead)))),
             Paragraph("Surprise = actual − pre-print consensus (% for value metrics, ppt for % metrics); green = good for holders, red = bad."
@@ -2132,6 +2176,7 @@ if not NOPDF:
             _cw=(4.85/max(1,len(_qcols)))*inch
             for g in gmed:
                 ml,un=g["m"],g["unit"]; rs={r["fp"]:r for r in q_rows if r["m"]==ml and r["unit"]==un}
+                _rf=max(abs(x) for q in _qcols if q in rs for x in (rs[q]["lo"],rs[q]["hi"],rs[q]["act"])) if any(q in rs for q in _qcols) else None; _rf=_grref(_rf,un in ("%","pp","ppt"),ml)
                 row=[P(ml+(f' ({un})' if un else '')+(' · comparability' if g["kind"]=="comparability" else ''))]
                 for q in _qcols:
                     r=rs.get(q)
@@ -2139,17 +2184,17 @@ if not NOPDF:
                     beat=_gbeat(r); miss=_gmiss(r)
                     col=GN if beat else (RD if miss else INK)
                     mk=mark("▲ ") if r["act"]>r["hi"] else (mark("▼ ") if r["act"]<r["lo"] else "")
-                    _gr=xesc(grange(r["lo"],r["hi"],un))
-                    if _pm.stringWidth("g "+grange(r["lo"],r["hi"],un),cc.fontName,6)>(_cw-8.5):
+                    _gr=xesc(grange(r["lo"],r["hi"],un,_rf))
+                    if _pm.stringWidth("g "+grange(r["lo"],r["hi"],un,_rf),cc.fontName,6)>(_cw-8.5):
                         _gr=_gr.replace("–","–<br/>",1)
-                    row.append(Paragraph(f'<font color="{col}">{mk}{xesc(_gf(r["act"],un))}</font>{mark(" ⚠") if r["outlier"] else ""}'
+                    row.append(Paragraph(f'<font color="{col}">{mk}{xesc(_gf(r["act"],un,_rf))}</font>{mark(" ⚠") if r["outlier"] else ""}'
                                          f'<br/><font color="{GY}" size="6">g {_gr}</font>',cc))
                 row.append(P(f'{g["exceed"]} of {g["n"]}' if g["kind"]=="outcome"
                              else f'in range {g["inrange"]} of {g["n"]}',cc)); _qbody.append(row)
             gd=tbl(_qh,_qbody,[1.5*inch]+[_cw]*len(_qcols)+[1.0*inch],numc=tuple(range(1,len(_qcols)+1)))
             extra=""
             if _qdrop_p: extra+=f' Not shown as columns: {strip(", ".join(_qdrop_p))} (still counted).'
-            if outliers: extra+=f" ⚠ Extreme surprise (>{CONFIG['outlier_mult']:g}× median): "+", ".join(f'{strip(r["m"])} {r["fp"]} ({r["bh"]:+.2f})' for r in outliers)+"; verify filing for reclassification."
+            if outliers: extra+=f" ⚠ Extreme surprise (>{CONFIG['outlier_mult']:g}× median): "+", ".join(f'{strip(r["m"])} {r["fp"]} ({sgn(r["bh"],2)[0]})' for r in outliers)+"; verify filing for reclassification."
             story+=[Spacer(1,3),Paragraph(f"<b>{PER_ADJ} Guide vs Actual</b>",S("bh2",fontName=SERB,fontSize=8.5,leading=11,textColor=_c.HexColor(INK))),_qintro,Spacer(1,2),gd,
                     Paragraph("Each row is one guided metric; "+mark("▲ ")+"above the guided high end, "+mark("▼ ")+"below the low end; green = good for holders, red = bad (for a cost or tax line, above the guide is red). Rows tagged comparability are scored on landing inside the range and excluded from the conservatism read."+extra,S("n",fontSize=6.6,leading=8,textColor=_c.HexColor(GY)))]
         if _qual_pdf:
@@ -2185,29 +2230,31 @@ if not NOPDF:
     if rt:
         _clr={"g":GN,"r":RD,"mut":GY}
         _rdates=[r.get("date","") for r in rt]
-        def _revfmt_pdf(v,pct,unit):
+        def _revfmt_pdf(v,pct,unit,ref=None):
             if not _isnum(v): return "·"
-            if pct: return mnum(f'{_xrf(v,1):.1f}%')
+            if ref is None: ref=v
+            if pct: _d=2 if abs(ref)<5 else 1; return mnum(f'{_xrf(v,_d):.{_d}f}%')
             u=(unit or "")
             if u.upper() in ("$T","T"): v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}T')
-            if u.upper() in ("$M","M"): v,_s=_mb(v,"M"); v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}{_s}')
-            if u.upper().endswith("B") or u.upper()=="$B": v,_s=_mb(v,"B"); v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}{_s}')
-            if u and u not in ("$","€","£","¥"): return mnum(f'{_xrf(v,0):,.0f} {strip(u)}')
+            if u.upper() in ("$M","M"): v,_s=_mb(v,"M",ref); v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}{_s}')
+            if u.upper().endswith("B") or u.upper()=="$B": v,_s=_mb(v,"B",ref); v=_xrf(v,2); return mnum(f'{CUR}{v:,.2f}{_s}')
+            if u and u not in ("$","€","£","¥"): return mnum(f'{_xrf(v,2):,.2f} {strip(u)}' if abs(ref)<1000 else f'{_xrf(v,0):,.0f} {strip(u)}')
             v=_xrf(v,2)
             return mnum(f'{CUR}{v:.2f}')
         def _revrow_pdf(label,getv,pct,unit,key=None):
-            vals=[getv(r) for r in rt]
-            row=[P(label)]+[P(_revfmt_pdf(v,pct,unit),cc) for v in vals]
-            net,ncls=_revpol(_revnet(vals,pct,unit),key)
+            vals=[getv(r) for r in rt]; _rf=_grref(max([abs(v) for v in vals if _isnum(v)] or [0]),pct,label,key)
+            row=[P(label)]+[P(_revfmt_pdf(v,pct,unit,_rf),cc) for v in vals]
+            net,ncls=_revpol(_revnet(vals,pct,unit,_rf),key)
             row.append(Paragraph(f'<font color="{_clr.get(ncls,GY)}">{net}</font>',cc))
             return row
         _rheads=[(r.get("label") or r.get("date",""))+(" ⚠" if r.get("thin") else "") for r in rt]
         _rthin_pdf=any(r.get("thin") for r in rt)
-        _rr2=[_revrow_pdf(_rlab("eps",HEAD_SHORT),lambda r:r.get("eps"),False,"$"),
-              _revrow_pdf(_rlab("rev","Revenue"),lambda r:r.get("rev"),False,"$"+str(REVU))]
+        _rr2=[("eps",_revrow_pdf(_rlab("eps",HEAD_SHORT),lambda r:r.get("eps"),False,"$")),
+              ("rev",_revrow_pdf(_rlab("rev","Revenue"),lambda r:r.get("rev"),False,"$"+str(REVU)))]
         for k in rkpis:
             _kk2=k.get("key")
-            _rr2.append(_revrow_pdf(_rlab(_kk2,k.get("label",_kk2 or "?")),(lambda kk:(lambda r:(r.get("kpis") or {}).get(kk)))(_kk2),k.get("pct",False),k.get("unit",""),_kk2))
+            _rr2.append((_kk2,_revrow_pdf(_rlab(_kk2,k.get("label",_kk2 or "?")),(lambda kk:(lambda r:(r.get("kpis") or {}).get(kk)))(_kk2),k.get("pct",False),k.get("unit",""),_kk2)))
+        _rr2=[_x for _k,_x in sorted(_rr2,key=lambda t:_row_rank(t[0]))]
         _rh=[f"Metric ({NEXTQ}E)"]+[h for h in _rheads]+["Net move"]
         _nd=len(_rheads)
         _rw=[1.55*inch]+[ (4.0/max(1,_nd))*inch ]*_nd+[0.85*inch]

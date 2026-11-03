@@ -611,12 +611,12 @@ def compute_variance(actual: Optional[float], estimate: Optional[float],
         if estimate != 0 and not is_pct:
             out["delta_pct"] = (actual - estimate) / abs(estimate) * 100.0
         if is_pct:
-            diff = (actual - estimate)
+            diff = float(_r(actual - estimate, 2))
             out["beat_miss"] = ("Beat" if diff >= PCT_BEAT_MISS_THRESHOLD_PPT
                                 else ("Miss" if diff <= -PCT_BEAT_MISS_THRESHOLD_PPT else "In-Line"))
         else:
             if estimate != 0 and out["delta_pct"] is not None:
-                dp = out["delta_pct"]
+                dp = float(_r(out["delta_pct"], 1))
                 out["beat_miss"] = "Beat" if dp >= BEAT_MISS_THRESHOLD * 100 else ("Miss" if dp <= -BEAT_MISS_THRESHOLD * 100 else "In-Line")
     if actual is not None and prior is not None:
         if is_pct:
@@ -672,7 +672,7 @@ def learn_shape(raw: Any) -> Optional[Dict[str, Any]]:
     _has_frac = "." in str(raw)
     _floor = 2 if (cur_out or _has_frac) else 0
     return {"cur": cur_out, "mag": mag, "pct": pct,
-            "dec": (dec if pct else max(_floor, min(4, dec)))}
+            "dec": (1 if pct else (_floor or (2 if mag else 0)))}
 
 
 NOT_APPLICABLE = "\u2014"
@@ -693,32 +693,23 @@ def _sep(t: str) -> str:
 def fmt(val: Optional[float], shape: Optional[Dict[str, Any]], is_delta: bool = False) -> str:
     if val is None or shape is None:
         return "N/A"
-    if is_delta:
-        sign = "+" if val >= 0 else "-"
-        v = abs(val)
-    else:
-        sign = ""
-        v = val
+    body = _fmt_abs(abs(val), shape, is_delta)
+    if val < 0 and any(ch in "123456789" for ch in body):
+        return "\u2212" + body
+    return ("+" if is_delta else "") + body
+
+
+def _fmt_abs(v: float, shape: Dict[str, Any], is_delta: bool = False) -> str:
     if shape["pct"]:
-        _d = 1 if not shape.get("_widened") else int(shape.get("dec") or 1)
-        return f"{sign}{_r(v, _d)}ppt" if is_delta else f"{sign}{_r(v, _d)}%"
-    cur = shape["cur"]
-    mag = shape["mag"]
-    _dm = int(shape.get("dec_mag") or 2)
-    if shape.get("_mag_switched"):
-        _c = lambda x: "{:,}".format(int(x.split(".")[0])) + ("." + x.split(".")[1] if "." in x else "")
-        return f"{sign}{cur}{_c(_r(v / (1e9 if mag == 'B' else 1e6), _dm))}{mag}"
-    if mag == "T":
-        return f"{sign}{cur}{_r(v/1e12, _dm)}T"
-    if mag == "B":
-        return f"{sign}{cur}{_r(v/1e9, _dm)}B"
-    if mag == "M":
-        return f"{sign}{cur}{_r(v/1e6, _dm)}M"
-    if mag == "K":
-        return f"{sign}{cur}{_r(v/1e3, _dm)}K"
+        _d = int(shape.get("dec") or 1)
+        return f"{_r(v, _d)}ppt" if is_delta else f"{_r(v, _d)}%"
+    cur, mag = shape["cur"], shape["mag"]
+    _div = {"T": 1e12, "B": 1e9, "M": 1e6, "K": 1e3}.get(mag)
+    if _div:
+        return f"{cur}{_sep(_r(v / _div, int(shape.get('dec_mag') or 2)))}{mag}"
     dec = shape.get("dec", 2)
     dec = 2 if dec is None else int(dec)
-    return f"{sign}{cur}{_sep(_r(v, dec))}" if cur else f"{sign}{_sep(_r(v, dec))}"
+    return f"{cur}{_sep(_r(v, dec))}"
 
 
 def quantize(val: Optional[float], shape: Optional[Dict[str, Any]]) -> Optional[float]:
@@ -747,10 +738,6 @@ def _merge_row_shape(cur: Optional[Dict[str, Any]],
     return out
 
 
-_MAX_DISPLAY_DEC = 2
-_MAX_PCT_DEC = 2
-
-
 def _verdict_at(a: Optional[float], e: Optional[float], is_pct: bool) -> Optional[str]:
     if a is None or e is None:
         return None
@@ -770,56 +757,31 @@ def _row_shape(shape: Optional[Dict[str, Any]],
                prior: Optional[float], is_pct: bool = False) -> Optional[Dict[str, Any]]:
     if not shape:
         return shape
-    gaps = [(a, b) for a, b in ((actual, estimate),)
-            if a is not None and b is not None and a != b]
     sh = dict(shape)
-    is_pct = bool(sh.get("pct"))
-    key = "dec" if (is_pct or not sh.get("mag")) else "dec_mag"
-    cap = _MAX_PCT_DEC if is_pct else _MAX_DISPLAY_DEC
-    _per_share = bool(sh.get("cur")) and not sh.get("mag") and not is_pct
-    if is_pct:
-        dec = 1
-    elif _per_share:
-        dec = 2
-    else:
-        _cur_dec = sh.get(key)
-        dec = int(_cur_dec) if _cur_dec is not None else 2
-    sh[key] = dec
-    _house = dec
-    if not gaps:
-        return sh
-    while dec < cap and any(quantize(a, sh) == quantize(b, sh) for a, b in gaps):
-        dec += 1
-        sh[key] = dec
-    want = _verdict_at(actual, estimate, is_pct)
-    if want is not None:
-        while dec < cap and _verdict_at(quantize(actual, sh), quantize(estimate, sh), is_pct) != want:
-            dec += 1
-            sh[key] = dec
-    if dec != _house:
-        sh["_widened"] = dec
-    def _hidden():
-        return (any(quantize(a, sh) == quantize(b, sh) for a, b in gaps)
-                or (want is not None and _verdict_at(quantize(actual, sh), quantize(estimate, sh), is_pct) != want))
-    while key == "dec_mag" and sh.get("mag") in ("T", "B") and _hidden():
-        sh["mag"] = {"T": "B", "B": "M"}[sh["mag"]]
+    mx = max([abs(x) for x in (actual, estimate, prior) if x is not None] or [0.0])
+    if sh.get("pct"):
+        sh["dec"] = 2 if mx < 5 else 1
+    elif sh.get("mag"):
+        if sh.get("cur") and sh["mag"] in ("T", "B", "M"):
+            sh["mag"] = "T" if mx >= 1e12 else ("B" if mx >= 1e9 else "M")
         sh["dec_mag"] = 2
-        sh["_mag_switched"] = True
-    if _hidden():
-        sh["_verdict_hidden"] = True
+    else:
+        sh["dec"] = 2 if (sh.get("cur") or int(sh.get("dec") or 0) > 0) else 0
     return sh
 
 
 def fmt_pct(p: Optional[float]) -> str:
     if p is None:
         return "N/A"
-    return f"{'+' if p >= 0 else ''}{_r(p, 1)}%"
+    s = _r(abs(p), 1)
+    return ("\u2212" if (p < 0 and s != "0.0") else "+") + s + "%"
 
 
 def fmt_yoy(var: Dict[str, Any]) -> str:
     if var.get("yoy_bps") is not None:
         bps = var["yoy_bps"]
-        return f"{'+' if bps >= 0 else ''}{bps:.0f}bps"
+        s = _r(abs(bps), 0)
+        return ("\u2212" if (bps < 0 and s != "0") else "+") + s + "bps"
     if var.get("yoy_pct") is not None:
         return fmt_pct(var["yoy_pct"])
     if var.get("yoy_nm"):
@@ -1192,7 +1154,7 @@ def build_market_prices(mcp_md: Dict[str, Any], call_date_iso: str = "") -> Dict
             pmap[d] = v
     if not pmap:
         return out
-    out["lastClosePrice"] = f"{sym}{pmap[max(pmap)]:,.2f}"
+    out["lastClosePrice"] = f"{sym}{_sep(_r(pmap[max(pmap)], 2))}"
     if _unknown_ccy:
         out["unknown_currency"] = sorted(_unknown_ccy)
     return out
@@ -1341,7 +1303,6 @@ def page_basis(fin_ltcodes, names) -> str:
     return "Mixed basis (Adjusted and GAAP)"
 
 
-ROUNDING_NOTES: List[str] = []
 
 
 def build_metric_row(name: str, ltcode: str, actual: Optional[float],
@@ -1353,14 +1314,17 @@ def build_metric_row(name: str, ltcode: str, actual: Optional[float],
     _reg_pct = _registry_pct(ltcode, name)
     is_pct = _reg_pct if _reg_pct is not None else bool(shape and shape.get("pct"))
     shape = _row_shape(shape, actual, estimate, prior, is_pct)
-    if shape and shape.get("_verdict_hidden"):
-        ROUNDING_NOTES.append(f"ROUNDING - '{name}' ({ltcode}): at two decimals the printed figures do "
-                              f"not carry this row's real surprise (actual {actual!r} vs consensus "
-                              f"{estimate!r}); the verdict follows the printed numbers. Check it by hand.")
-    actual   = quantize(actual,   shape)
-    estimate = quantize(estimate, shape)
-    prior    = quantize(prior,    shape)
-    var = compute_variance(actual, estimate, prior, is_pct=is_pct)
+    qa, qe, qp = (quantize(x, shape) for x in (actual, estimate, prior))
+    var = compute_variance(qa, qe, qp, is_pct=is_pct)
+    _small = lambda b: (b is not None and not is_pct and bool(shape and shape.get("cur"))
+                        and abs(b) < (1e9 if shape.get("mag") else 1.0))
+    if _small(estimate) or _small(prior) or (is_pct and actual is not None and prior is not None):
+        full = compute_variance(actual, estimate, prior, is_pct=is_pct)
+        if _small(estimate):
+            var.update({k: full.get(k) for k in ("delta_abs", "delta_pct", "beat_miss")})
+        if _small(prior) or is_pct:
+            var.update({k: full.get(k) for k in ("yoy_pct", "yoy_bps", "yoy_nm")})
+    actual, estimate, prior = qa, qe, qp
     if (ltcode.startswith(KPI_TIER_PREFIXES) and var.get("beat_miss") in ("Beat", "Miss", "In-Line")
             and not _polarity_declared(name, ltcode)):
         var["beat_miss"] = NOT_APPLICABLE
@@ -1635,9 +1599,6 @@ def main(in_path: str, out_dir: str, require_estimate: bool = False,
             warnings.append(f"INSYNC VS COMPANY - {names.get(_lt, _lt)} ({_lt}): InSync's figure is "
                             f"{_ins:,.4g}, the company reported {_co:,.4g} ({(_ins - _co) / abs(_co) * 100:+.1f}%). "
                             f"The page prints InSync's. Check which is right before sending.")
-    _on_page = [r["name"] for r in financial_metrics + operating_metrics]
-    warnings.extend(n for n in ROUNDING_NOTES if any(p.startswith(n.split("'")[1]) for p in _on_page))
-    ROUNDING_NOTES.clear()
 
     bench_metrics = []
     _table_lts = {r.get("ltcode") for r in operating_metrics}
@@ -2320,16 +2281,13 @@ def _format_valuation(mcp_val: Dict[str, Any], _suppressed=None) -> Dict[str, st
                     f"a percentage or a bad row. SUPPRESSED from the anchor line — confirm the "
                     f"unit before quoting a yield.")
                 continue
-            _yd = 1
-            while _yd < 3 and pct != 0 and round(pct, _yd) == 0:
-                _yd += 1
-            out[m] = f"{pct:.{_yd}f}%"
+            out[m] = _r(pct, 2 if abs(pct) < 5 else 1).replace("-", "\u2212") + "%"
             continue
         _w = valuation_sanity(m, fv)
         if _w:
             _suppressed.append(_w)
             continue
-        out[m] = f"{fv:.1f}x"
+        out[m] = _r(fv, 2).replace("-", "\u2212") + "x"
     return out
 
 

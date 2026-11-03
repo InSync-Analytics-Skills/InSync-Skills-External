@@ -3,11 +3,13 @@ Everything the review takes from InSync estimates and tagging, from saved raw pa
   - BASIS LOCK: one line item (LTCODE) per metric for actual, consensus, guide, forward pre and post (audit classes 5, 15)
   - pre-print consensus for the printed period (latest dated snapshot on or before the cut-off)
   - the consensus PROBE audit trail, where an absence counts only if a successful probe covered that code and period (class 27)
-  - forward consensus (next period, FY0, FY1) before and after the print, pre and post on the SAME code
+  - forward consensus (next period, FY0, FY1) before and after the print, pre and post on the SAME code; the post-print
+    side is picked from the history pull by forward_consensus.py (deepest panel = full, newest row with >= half of it)
   - full-year consensus snapshots, the KPI universe and Primary KPI pick, valuation versus own history
   - the reported-quarter guard: not reported (exit 2) and a LATER period already reported (exit 3, class 18)
 InSync is the ONLY consensus source. Used by build_dataset.py and refresh_insync.py."""
-import json, os, glob, re
+import json, os, glob, re, datetime as _dt
+from forward_consensus import pick_forward_consensus, drop_notes
 from erlib import parse_value, fix_suffix, payload_rows, classify, currency_of, load_json
 import periods as PER
 
@@ -24,6 +26,7 @@ def load(RAW, pattern, issues=None): return rows_of(sorted(glob.glob(os.path.joi
 def pk(p): return PER.norm_period(p)
 def codes_of(spec): return [c for c in (spec["ltcode"] if isinstance(spec["ltcode"], list) else [spec["ltcode"]]) if c and not str(c).startswith("_")]
 def _d(x): return str(x or "")[:10]
+def _plain(r): f = r.get("_file", ""); return f.startswith("insync_estimates_pre") and "_fwd" not in f
 
 def best_row(rows, codes, date_cap=None, undated=None):
     for cd in codes:
@@ -38,6 +41,31 @@ def best_row(rows, codes, date_cap=None, undated=None):
             c.append(r)
         if c: return max(c, key=lambda r: (_d(r.get("UPDATEDATE")), int(r.get("BROKERCOUNT") or 0)))
     return None
+
+def post_from_of(frozen):
+    try: return (_dt.date.fromisoformat(_d(frozen)) + _dt.timedelta(days=1)).isoformat()
+    except ValueError: return None
+
+POST_MIN_SHARE = 0.4
+
+def pick_post(post_all, frozen, warn, pre_fwd=()):
+    rows = [dict(r, FISCALPERIOD=pk(r.get("FISCALPERIOD"))) for r in list(pre_fwd) + list(post_all)]
+    picked, dropped = pick_forward_consensus(rows, post_from=post_from_of(frozen), min_share=POST_MIN_SHARE)
+    for n in drop_notes(dropped): warn(n)
+    def lookup(code, per):
+        p = picked.get((str(code), per)) if code and per else None
+        return (p["row"], p["status"]) if p else (None, None)
+    lookup.thin = []
+    return lookup
+
+def post_entry(spec, code, per, lookup, warn):
+    r, st = lookup(code, per)
+    if not r: return None
+    if st == "not_revised":
+        lookup.thin.append((code, per))
+        warn(f"[forward consensus dropped] {code} {per}: consensus has not revised since the print, so the post-print value was left out")
+        return None
+    return cons_entry(spec, r, "InSync post-print", warn)
 
 def cons_entry(spec, r, source, warn=None):
     cnt = int(r.get("BROKERCOUNT") or 0); u = spec["unit"]; raw = fix_suffix(r.get("VALUE"), spec)
@@ -68,7 +96,7 @@ def load_actuals(RAW, issues=None, notes=None):
 def resolve_basis(spec, act_by, pre_q, period, frozen):
     codes = codes_of(spec)
     has_act = [c for c in codes if classify(act_by.get(c, {}).get(period)) == "ok"]
-    has_cons = [c for c in codes if best_row(pre_q, [c], frozen)]
+    has_cons = [c for c in codes if best_row(pre_q, [c])]
     both = [c for c in codes if c in has_act and c in has_cons]
     if both: return both[0], None
     if has_act:
@@ -116,15 +144,17 @@ def build(RAW, mm, period, nxt, fy_period, frozen, fy_lab, fy_next_lab, missing,
     undated = []
     pre_all = load(RAW, "insync_estimates_pre*.json", issues) + load(RAW, "insync_probe_wide*.json")
     post_all = load(RAW, "insync_estimates_post*.json", issues)
+    post_of = pick_post(post_all, frozen, warn, pre_fwd=load(RAW, "insync_estimates_pre_fwd*.json"))
     latest_probe = load(RAW, "insync_probe_latest*.json")
     cov = probe_coverage(RAW, period)
     pre_q = [r for r in pre_all if pk(r.get("FISCALPERIOD")) == period]
+    pre_q = [r for r in pre_q if _plain(r) or not DATE.match(_d(r.get("UPDATEDATE"))) or _d(r.get("UPDATEDATE")) <= _d(frozen)]
     cons, probe = {}, []
     for mid_, spec in mm.items():
         codes = codes_of(spec)
         code, conflict = resolve_basis(spec, act_by, pre_q, period, frozen)
         L["resolved"][mid_] = code
-        r = best_row(pre_q, [code], frozen, undated) if code else None
+        r = best_row(pre_q, [code], None, undated) if code else None
         e = cons_entry(spec, r, "InSync", warn) if r else None
         if conflict:
             L["basis_conflict"][mid_] = conflict; warn(f"BASIS: {mid_}: {conflict}")
@@ -143,49 +173,53 @@ def build(RAW, mm, period, nxt, fy_period, frozen, fy_lab, fy_next_lab, missing,
     for r in undated:
         if pk(r.get("FISCALPERIOD")) == period: warn(f"estimate row without UPDATEDATE ignored (cannot prove it is pre-print): {r.get('LTCODE')} {pk(r.get('FISCALPERIOD'))} {r.get('VALUE')} in {r.get('_file')}")
     L["consensus"] = cons; L["probe"] = {"asof": frozen, "period": period, "probed": probe}
-    post_q = [r for r in post_all if pk(r.get("FISCALPERIOD")) == nxt]
     L["consensus_next"] = {}
     for m, s in mm.items():
-        r = best_row(post_q, [L["resolved"][m]]) if L["resolved"][m] else None
-        e = cons_entry(s, r, "InSync post-print", warn) if r else None
+        e = post_entry(s, L["resolved"][m], nxt, post_of, warn)
         if e: L["consensus_next"][m] = e
     L["consensus_fy"], L["consensus_fy_next"] = {}, {}
     if fy_period:
-        fyp = [r for r in pre_all if pk(r.get("FISCALPERIOD")) == fy_period]; fyq = [r for r in post_all if pk(r.get("FISCALPERIOD")) == fy_period]
+        fyp = [r for r in pre_all if pk(r.get("FISCALPERIOD")) == fy_period]
         for m, s in mm.items():
             c = L["resolved"][m]
             if not c: continue
             r = best_row(fyp, [c], frozen)
             e_ = cons_entry(s, r, "InSync", warn) if r else None
             if e_: L["consensus_fy"][m] = e_
-            r = best_row(fyq, [c])
-            e_ = cons_entry(s, r, "InSync post-print", warn) if r else None
+            e_ = post_entry(s, c, fy_period, post_of, warn)
             if e_: L["consensus_fy_next"][m] = e_
     fwd = {}
     fy1 = str(int(fy_period) + 1) if fy_period else None
     for m, s in mm.items():
         if not is_forward(m, s): continue
         pfx = fkey(m, s); nm = {"eps": "EPS", "rev": "revenue"}.get(pfx, s["label"])
-        ffmt = "usd3" if pfx == "eps" else ("bn" if pfx == "rev" else s["fmt"])
+        ffmt = "usd2" if pfx == "eps" else ("bn" if pfx == "rev" else s["fmt"])
         cand = [L["resolved"][m]] + [c for c in codes_of(s) if c != L["resolved"][m]]
         for per, sfx, lab in ((nxt, "next_q", nxt), (fy_period, "fy0", fy_lab), (fy1, "fy1", fy_next_lab)):
             if not per: continue
-            rows_pre = [r for r in pre_all if pk(r.get("FISCALPERIOD")) == per]; rows_post = [r for r in post_all if pk(r.get("FISCALPERIOD")) == per]
+            rows_pre = [r for r in pre_all if pk(r.get("FISCALPERIOD")) == per]
             pick = None
             for c in cand:
-                pr, po = best_row(rows_pre, [c], frozen), best_row(rows_post, [c])
+                pr, po = best_row(rows_pre, [c], frozen), post_of(c, per)[0]
                 if pr and po: pick = (c, pr, po); break
             if pick:
-                c, pr, po = pick; a_, b_ = cons_entry(s, pr, "InSync", warn), cons_entry(s, po, "InSync post-print", warn)
+                c, pr, po = pick; a_, b_ = cons_entry(s, pr, "InSync", warn), post_entry(s, c, per, post_of, warn)
                 if not (a_ and b_): continue
+                _nw = max((_d(r.get("UPDATEDATE")) for r in pre_all if r.get("LTCODE") == c and DATE.match(_d(r.get("UPDATEDATE")))
+                           and _d(r.get("UPDATEDATE")) <= _d(frozen)), default=None)
+                if _nw and _d(pr.get("UPDATEDATE")) < _nw:
+                    warn(f"forward {pfx}_{sfx}: pre-print mark for {c} {per} is dated {_d(pr.get('UPDATEDATE'))}, but {c} has rows up to {_nw} "
+                         f"on or before the cut-off; check the forward pull was not cut off (page with offset) before trusting this value")
                 if c != L["resolved"][m]: warn(f"forward {pfx}_{sfx}: shown on {c}, not the graded line item {L['resolved'][m]} (no common pre/post rows on the graded code)")
                 fwd[f"{pfx}_{sfx}"] = {"label": f"{lab} {nm}", "pre": a_["mean"], "pre_count": a_["count"], "pre_asof": a_["asof"], "post": b_["mean"],
                                        "post_count": b_["count"], "post_asof": b_["asof"], "post_down": None, "fmt": ffmt, "metric": m, "source": "InSync", "pre_code": c, "post_code": c}
+                if b_.get("not_revised"): fwd[f"{pfx}_{sfx}"]["post_status"] = "not_revised"
             else:
-                pre_c = next((c for c in cand if best_row(rows_pre, [c], frozen)), None); post_c = next((c for c in cand if best_row(rows_post, [c])), None)
+                pre_c = next((c for c in cand if best_row(rows_pre, [c], frozen)), None); post_c = next((c for c in cand if post_of(c, per)[0]), None)
                 if pre_c or post_c:
                     warn(f"forward {pfx}_{sfx} not comparable: pre-print on {pre_c or 'none'}, post-print on {post_c or 'none'} for {per} (different or missing line items): not shown")
     L["forward"] = fwd
+    L["post_print_thin"] = bool(post_of.thin)
     L["kpi_universe"] = kpi_universe(RAW)
     L["valuation_history"] = valuation_history(RAW, warn)
     L["probe_coverage"] = cov
@@ -256,6 +290,40 @@ def valuation_history(RAW, warn=None):
         out[m] = {"ltm": last(cur.get(m, [])), "y1": summ(h1.get(m)), "y3": summ(h3.get(m))}
     return out or None
 
+def _has_page_info(obj):
+    blocks, stack = [], [obj]
+    while stack:
+        x = stack.pop()
+        if isinstance(x, dict):
+            if isinstance(x.get("data"), list): blocks.append(x)
+            else: stack += [v for k, v in x.items() if k != "request"]
+        elif isinstance(x, list): stack += [v for v in x if isinstance(v, (dict, list))]
+    def told(b):
+        mm = b.get("meta") if isinstance(b.get("meta"), dict) else {}
+        return any(k in d for d in (b, mm) for k in ("has_more", "remaining_items"))
+    return bool(blocks) and all(told(b) for b in blocks)
+
+def _pages(obj):
+    out, stack = [], [obj]
+    while stack:
+        x = stack.pop()
+        if isinstance(x, dict):
+            if isinstance(x.get("data"), list):
+                mm = x.get("meta") if isinstance(x.get("meta"), dict) else {}
+                try: off = int(mm.get("offset", x.get("offset")))
+                except (TypeError, ValueError): off = None
+                more = mm.get("has_more") is True or (isinstance(mm.get("remaining_items"), (int, float)) and mm["remaining_items"] > 0)
+                out.append((off, len(x["data"]), more))
+            else: stack += [v for k, v in x.items() if k not in ("request", "meta")]
+        elif isinstance(x, list): stack += [v for v in x if isinstance(v, (dict, list))]
+    return out
+
+def _continued(files):
+    pages = {f: _pages(load_json(f)) for f in files}
+    starts = {o for ps in pages.values() for o, _, _ in ps if o is not None}
+    return {os.path.basename(f) for f, ps in pages.items()
+            if any(m for _, _, m in ps) and all(o is not None and (o + n) in starts for o, n, m in ps if m)}
+
 def payload_errors(RAW, tid):
     errs, foreign, issues = [], {}, []
     for f in sorted(glob.glob(os.path.join(RAW, "insync_*.json"))):
@@ -264,8 +332,17 @@ def payload_errors(RAW, tid):
         for r in payload_rows(load_json(f)):
             t = r.get("TICKER_ID")
             if t is not None and str(t) != str(tid): foreign[fn] = foreign.get(fn, 0) + 1
+    continued = set()
     for pat in ("insync_actuals*.json", "insync_estimates_pre*.json", "insync_estimates_post*.json", "insync_guidance*.json", "insync_valuation*.json", "insync_call_date*.json"):
-        for f in sorted(glob.glob(os.path.join(RAW, pat))): payload_rows(load_json(f), os.path.basename(f), issues)
+        fs = sorted(glob.glob(os.path.join(RAW, pat)))
+        for grp in ([f for f in fs if "_fwd" in os.path.basename(f)], [f for f in fs if "_fwd" not in os.path.basename(f)]):
+            continued |= _continued(grp)
+        for f in fs: payload_rows(load_json(f), os.path.basename(f), issues)
+    issues = [i for i in issues if not (i[0] == "has_more" and i[1] in continued)]
+    for f in sorted(glob.glob(os.path.join(RAW, "insync_estimates_pre*.json"))):
+        if not _has_page_info(load_json(f)):
+            errs.append(f"{os.path.basename(f)}: the saved estimates response has no page information (meta.has_more), so it cannot be shown "
+                        f"to be complete; save the response with its meta block, paging with offset until has_more is false")
     for f in sorted(glob.glob(os.path.join(RAW, "insync_probe_*.json"))):
         pi = []; payload_rows(load_json(f), os.path.basename(f), pi)
         issues += [i for i in pi if i[0] == "has_more"]

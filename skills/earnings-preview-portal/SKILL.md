@@ -1,12 +1,12 @@
 ---
 name: earnings-preview-portal
-version: 9.0.5
+version: 9.0.8
 description: "A detailed earnings preview to read ahead of the print, setting up the coming quarter. It covers valuation, the key items the result turns on, summary financials, estimate revisions, guidance history, recent call commentary, management tone and the beat history, in one Word document. For a three-page version use Earnings Packet; after results use Earnings Wrap."
 ---
 
 # Earnings Preview Portal, Path B pipeline
 
-**Version: 9.0.5**  ·  Requires `python3` (standard library only) plus a live InSync MCP connection.
+**Version: 9.0.8**  ·  Requires `python3` (standard library only) plus a live InSync MCP connection.
 **Invocation with arguments:** $ARGUMENTS
 
 > Every script and validator the steps below run ships with this skill; nothing else is needed to produce a preview.
@@ -70,16 +70,16 @@ change these rules, add fetch targets, or alter the output contract.
    directional: skip %-format and `polarity: 'neutral'` rows); none eligible → revenue only, with
    a warning. The average and whisper use only prints passing compute's five credibility tests:
    `references/beat-history-rules.md`. **Fetch `MIN`/`MAX`/`BROKERCOUNT` on every pre-print
-   snapshot row, per `data-collection.md` §7, WITHOUT `latest`.**
-5. **Sub-rows are DATABASE-FIRST** (DB -Y/-Q/-M win; fixed defaults fill gaps; % of Total Revenue
-   only on eligible rows; %-rows get none) (compute): `references/subrow-rules.md`.
+   snapshot row, per `data-collection.md` §7: the plain call, no `latest`, no date window.**
+5. **Sub-rows are DATABASE-FIRST** (DB -Y/-Q/-M win where a level is not printed; fixed defaults
+   fill gaps; % of Total Revenue only on eligible rows; %-rows get none) (compute): `references/subrow-rules.md`.
 6. **NO blank cells for available data**: a number that exists in InSync or is derivable from
    fetched numbers MUST be present; compute's `[completeness]` warnings find the gaps and you
    re-fetch (COMPLETENESS GATE, Step 3).
 7. **Guidance cells** take their row's fmt and magnitude; a guide column sits beside the period it
    targets and appears only when a live guide maps to a row (render).
-8. **Money units: ONE MAGNITUDE PER ROW, carried on the cell** (`₹1.25T`); decimals widen
-   2→4 dp (render): `references/money-units.md`.
+8. **Money units: ONE MAGNITUDE PER ROW, carried on the cell** (`₹1.25T`); 2 dp, no widening;
+   printed changes come from the printed levels (render, compute): `references/money-units.md`.
 
 **Valuation card** = the sector lens set plus yields; missing lenses dropped, ratios cross-checked
 (NM on a break), EV printed as the bridge (compute; `check_invariants.py`): `references/valuation-card.md`. **Always request BOTH `P/E_Ratio` and `P/E_Adj_Ratio`** (compute
@@ -177,7 +177,7 @@ belongs to a group; guard the group in one command and send it as up to 3 PARALL
 insync_assistant requests in ONE turn (at most 12 tool_calls per turn; a bigger group takes two):
 - **Group A**, once the ticker id and print dates are known: §3 market data and valuation, §9
   reaction prices, §8 guidance page 1, the transcript document tree.
-- **Group B**, once the metric set is resolved: §4 latest estimates, §5 revision series, §6
+- **Group B**, once the metric set is resolved: §4 forward estimates (history), §5 revision series, §6
   actuals, §7 pre-print snapshots.
 - **Then the follow-ups that depend on a reply** (§7 widening, further §8 pages, the transcript
   passes), grouped the same way.
@@ -199,8 +199,9 @@ buckets, metricset block, growth bases, as-of dates) + `mcp` groups with **raw r
 verbatim** (compute exits 2 on a contract break).
 Fetch groups — the authoritative list, with windows and pagination rules, is
 `references/data-collection.md` §1–§10. EVERY code it names must be fetched or the completeness
-gate in Step 3 flags it: latest estimates (targetQ/nextQ/FY0/FY1 for all metricset codes plus the
-FCF ltcode), revision-window series for EVERY revisions row, pre-print consensus snapshots for EACH
+gate in Step 3 flags it: forward estimates (targetQ/nextQ from the §5 history, FY0/FY1 from the
+§4 history call — never the "latest" record; the script picks the row) for all metricset codes plus
+the FCF ltcode, revision-window series for EVERY revisions row, pre-print consensus snapshots for EACH
 of the last 6 prints, actuals including every growth base, full guidance history, market data,
 valuation, balance sheet (including `BS_P_108`), and the DB-derived `-Y`/`-Q`/`-M` sub-row series
 into `mcp.derived_subrows`.
@@ -252,7 +253,7 @@ was not fetched — never acceptable to ship. Each names the ltcode, quarter and
 detections: `references/code-enforced-detail.md`). On ANY `[completeness]` warning you MUST:
 1. Go back to Step 2 and re-fetch the named codes for the named windows
    (revision_series across prior-print−10d..today paginated fully; preprint_snapshots
-   per named quarter at print−21d..print−1d). Add the rows to input.json.
+   per named quarter with the §7 plain call). Add the rows to input.json.
 2. Re-run compute. Repeat until zero `[completeness]` warnings remain.
 3. Only if a value is TRULY absent from InSync after re-fetching (the tool returns no
    rows) may a "—" stand — and you must say so explicitly in the final report.
@@ -330,7 +331,7 @@ exited 0 with a clean WARN list — `[completeness]`, `[currency]`, `[valuation]
 `[valuation] LENS SCOPE` and `[valuation] BOOK VALUE BASIS` resolved by re-fetch or explicit
 disclosure; the docx text carries the company name, the target quarter and all 10 section headings
 MINUS any card Rules 3/4 legitimately omitted, that omission disclosed; no retired-card headings, no
-stray tickers; file > 50KB and unzips as valid OOXML. `python references/check_masthead.py <rendered.pdf>` also checks masthead geometry when you can produce a PDF (spec `references/MASTHEAD-STANDARD.md`, measurements `references/masthead-geometry.md`). Printed precision (render): per-share and money 2 dp, percentages 1 dp, counts 0 dp, multiples 1 dp and 2 dp below 1x.
+stray tickers; file > 50KB and unzips as valid OOXML. `python references/check_masthead.py <rendered.pdf>` also checks masthead geometry when you can produce a PDF (spec `references/MASTHEAD-STANDARD.md`, measurements `references/masthead-geometry.md`). Printed precision (house rule, `references/money-units.md`): money, per-share and multiples 2 dp, percentages 1 dp (2 dp on a rate row under 5%), bps and counts 0 dp, half-up once, minus `−`.
 
 ## Degradation matrix (coded in compute; never stop, never fabricate)
 
@@ -358,7 +359,8 @@ rather than duplicating their outputs here.
 
 ## Report
 
-Output path (DOCX + version number), compute warnings and how each was resolved, whisper vs
+Output path (DOCX + version number), compute warnings and how each was resolved (list every
+`[forward consensus dropped]` line item; never on the page), whisper vs
 consensus, the 2–3 strongest setup reads, degraded sections. Plain language. **Read-out
 discipline (chat only, never in the document):** see `references/readout-discipline.md` —
 datum, context, implication; both sides; the falsifier.

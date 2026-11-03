@@ -146,7 +146,7 @@ def c_html():
     for w in BANNED:
         if re.search(r"\b" + re.escape(w) + r"\b", lint): err(f"banned wording in the document: '{w}'")
     for m in re.finditer(r'<span class="up">([^<]*)</span>', h):
-        if m.group(1).strip().startswith(("(", "-")): err(f"green negative: {m.group(1)}")
+        if m.group(1).strip().startswith(("(", "-", "−")): err(f"green negative: {m.group(1)}")
     for m in re.finditer(r'<span class="dn">([^<]*)</span>', h):
         if m.group(1).strip().startswith("+"): err(f"red positive: {m.group(1)}")
     if re.search(r"<td class=\"[lr]\"></td>", h): err("empty table cell found (use an em dash)")
@@ -374,7 +374,7 @@ def c_valuation():
 check("valuation", c_valuation)
 
 for w in (d.get("build_warnings") or []) + [x for x in (cj.get("warnings") or []) if "native Y/Y" not in x]:
-    if w.startswith(("POLARITY", "BASIS", "could not be read", "forward", "basis gap", "VALUATION", "prices:", "no raw/", "metric_map", "guide_vs_frozen")) or "labelled InSync native" in w:
+    if w.startswith(("POLARITY", "BASIS", "could not be read", "forward", "basis gap", "VALUATION", "prices:", "no raw/", "metric_map", "guide_vs_frozen", "[forward consensus dropped]")) or "labelled InSync native" in w:
         print("UNRESOLVED", w)
 for f_ in (d.get("fill_by_hand") or []): print("NOTE  listed FILL BY HAND at build (confirm it was filled or is deliberately omitted):", f_)
 for w in Wn: print("WARN ", w)

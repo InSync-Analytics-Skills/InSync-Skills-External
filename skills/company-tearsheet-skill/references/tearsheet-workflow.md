@@ -191,20 +191,48 @@ insync_assistant(
     }}
 )
 
-# Forward annual estimates (for FY+1, FY+2 EPS and Revenue)
+# FORWARD consensus (8.1.2): next-quarter EPS (FFO/sh on Real Estate), FY1, FY2, and FY0 while
+# FY0 is still open. From the HISTORY, never the plain or latest call: around a print those
+# return a 1-2 broker partial update (a full-year revenue line on 1 broker against 43 in the history).
 insync_assistant(
     mode="execute",
     tool_calls={"tool_name": "get_estimates", "tool_arguments": {
         "ticker_id": "[ticker_id]",
             "ltcode": "IS_P_101,IS_P_128",
-            "fiscal_period": "2025,2026,2027",  # ANNUAL tokens are BARE YEARS — never '2026FY'/'FY26'
-                                            # INCLUDE FY0: compute derives FY1 growth from it
-                                            # when the MCP returns a null YOY_GROWTH (v2.3.0).
+            "fiscal_period": "[next_q],2026,2027",  # ANNUAL tokens are BARE YEARS — never '2026FY'/'FY26'
+            "latest": {"enabled": false},
+            "updatedate_start": "[today-30d YYYY-MM-DD]",
+            "updatedate_end": "today",
+            "limit": "100"
+    }}
+)
+# Page until has_more is false. Through the FactSet wrapper the flag is the FLAT form
+# "latest_enabled": false (the standalone InSync MCP rejects that flat form); if one form is
+# rejected, retry with the other. A code + period that returns no rows: re-fetch it once with
+# a 120-day window (updatedate_start = today-120d). Paste EVERY history row returned (several
+# per code and period is expected); compute_tearsheet.py keeps one per code and period.
+
+# FY0 actual-year consensus, ONLY when FY0 is already fully reported (compute derives FY1
+# growth from it when the MCP returns a null YOY_GROWTH). Never in the same call as a forward
+# period: split any call that mixes reported and forward periods.
+insync_assistant(
+    mode="execute",
+    tool_calls={"tool_name": "get_estimates", "tool_arguments": {
+        "ticker_id": "[ticker_id]",
+            "ltcode": "IS_P_101,IS_P_128",
+            "fiscal_period": "2025",
             "latest": {"enabled": true, "limit": 1},
             "limit": "100"
     }}
 )
 ```
+
+**Forward pick (compute, never you).** For each code and forward period compute takes the
+deepest panel in the window as full, keeps rows with at least half that many brokers, and uses
+the newest of those. A forward line item whose rows carry no `BROKERCOUNT` or no `UPDATEDATE`
+is REMOVED (its slot prints the usual dash or is omitted) and named in the warnings as
+`[forward consensus dropped] ...`; the build never stops for it. Report every such drop, and
+every `[forward consensus] ... skipped` note, in the chat summary, never on the page.
 
 **Compute vs_est:** Actual - Estimate for each metric. Format as "+$XXM" or "-$XXM" for absolute, or "Beat"/"Miss" for KPIs.
 

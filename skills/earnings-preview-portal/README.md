@@ -1,6 +1,6 @@
 # Earnings Preview Portal
 
-**Version 9.0.5**
+**Version 9.0.8**
 
 Builds a buy-side **Earnings Preview** for a quarter a company has **not yet reported** —
 what the setup looks like going into the print, and where the risk sits versus what the

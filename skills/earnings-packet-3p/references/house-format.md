@@ -77,17 +77,26 @@ negative, a red positive, or a black negative.
 
 | Type | Rule |
 |---|---|
-| Money | **$B**, two decimals: `$187.32B`. Negatives in parentheses **and** red. |
-| Per share | `$0.742`, three decimals where the consensus spread needs them |
-| Percentages | **one decimal**, always: `25.3%`, `4.7%` |
+| Money | **$M / $B / $T by size, ONE unit per row** (the row's largest value picks it), two decimals: `$187.32B`, `$950.10M`. Negatives lead with U+2212 **and** are red: `−$14.20B`. |
+| Per share | `$0.74`, two decimals (a `'$3'` row prints two as well) |
+| Percentages | **one decimal**: `25.3%`; a rate row whose largest value is under 5% prints two: `3.42%` (`'%2'` is the same rule) |
 | Change in a percentage | **basis points**: `+18 bps`. A margin's Y/Y is a spread, not a percent of a percent. |
-| Multiples | two decimals below `5.00x`, one above: `1.28x`, `36.9x`. **Per value, not per column**: a peer row holding `21.8x` and `2.68x` is correct. **Sections 7 and 8 implement this rule**, in `xf()` and `xmul()`; everywhere else an `x`-formatted cell goes through `cell(v,'x')` in `fmt.py`, which is fixed at two decimals, so a book-to-bill or coverage ratio at or above `5.00x` prints `5.20x` in the section 3 grid and `5.2x` in the peer table. Recorded rather than fixed: `fmt.py` is shared by every table in the document, so changing it moves cells in sections 2, 3, 4 and 6 at once, a wider blast radius than the inconsistency costs, and most `x` lines sit well below `5.00x`. If it is ever changed, change it as its own release with the fixture matrix as the evidence |
-| Counts | thousands separators, no decimals |
+| Multiples | two decimals, everywhere: `1.28x`, `36.92x` (v7.12.5; one rule in `xfmt()`) |
+| Counts | thousands separators, no decimals; a count in billions (`'#B'`) two decimals |
 | Verbatim guidance text | **quoted as published, never re-rounded.** `3.50%` stays `3.50%`. |
 
-Rounding is half-up (finance convention), not banker's. Python validators must use
-`ROUND_HALF_UP` or they will disagree with the document on exact `.x25`/`.x5` ties, the
-document is right in that disagreement.
+Rounding is half-up (finance convention), not banker's, applied ONCE to the stored full value;
+`-0.00` prints `0.00`. Python validators must use `ROUND_HALF_UP` or they will disagree with
+the document on exact `.x25`/`.x5` ties, the document is right in that disagreement.
+
+**Round first, then calculate (house rule R1, v7.12.5).** A printed Y/Y, margin, dispersion
+spread, revision delta, LTM-vs-average and print-day move is worked by `build_computed.py`
+from the two levels AS PRINTED (each at its row's unit and decimals), then rounded once.
+Exceptions: a money base under $1B or a per-share base under 1.00 is worked in full; a change
+in basis points is worked from the full rates; a growth whose base is not printed (dispersion
+vs prior year, the 1- and 5-day moves, the peer growth rates) is worked in full. The Raised /
+Cut / Unchanged tag reads the printed delta. `compute.py --audit` allows exactly the levels'
+rounding on top of its 0.05pp tolerance.
 
 ## Punctuation
 

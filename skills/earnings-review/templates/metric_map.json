@@ -54,10 +54,11 @@
   "unit": "m"
  },
  "cash": {
-  "label": "Cash",
+  "label": "Cash & Cash Equivalents",
   "fmt": "bn",
   "kind": "level",
   "ltcode": [
+   "BS_P_101",
    "BS_P_141"
   ],
   "unit": "m"

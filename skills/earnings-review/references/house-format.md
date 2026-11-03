@@ -17,7 +17,7 @@ file from it (a built-in copy is used only when the file is missing, with a warn
 | Colour | sign only: green `1E7A34` for a positive change or beat, red `B02A1F` for any negative number or miss; never good/bad, never cheap/expensive |
 | Continuity | short tables (reaction, What Changed, tone) kept whole; long tables repeat the header on each page, never split a row, never leave a header or band row at a page foot |
 | Footer | stamped grey 6.5pt: "InSync Analytics | TICKER nQyy Earnings Review | Source: … | InSync consensus as of YYYY-MM-DD, market YYYY-MM-DD" left, "Page X of Y" right; to fit, the source list is shortened first, never the dates; if needed two lines |
-| Numbers | one display scale per row (counts ≥ 10M in M, money ≥ $1T in T) and one precision per row (per-share actual and consensus at the same decimals) |
+| Numbers | house rounding rule: one unit per row from its largest value (money in $M under $1B, $B, $T from $1T; counts ≥ 10M in M); money, per-share and multiples 2 dp, % 1 dp (2 dp for a rate row under 5%), bps whole, no widening; half-up; negatives "−$1.23B", "−1.2%", "−35 bps"; printed changes, surprises and verdicts from the figures as printed (full values for a base under $1B or 1.00 per share; bps from full rates); InSync native Y/Y only when a level is not printed |
 | Source block | 6.2pt grey, hairline above, ends with the house disclosure from brand.json |
 
 Renderer: headless Chromium `--print-to-pdf` ($BROWSER_PATH, then Edge, Chrome, Chromium on Windows, macOS and Linux; Edge occasionally exits silently and the next engine is tried) then PyMuPDF for the footer.

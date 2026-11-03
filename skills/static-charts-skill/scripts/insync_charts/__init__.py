@@ -13,7 +13,7 @@ from .render import (SpecError, catalogue, load_specs, render_chart,
                      render_figure, render_many, validate)
 from .theme import token_map
 
-__version__ = "1.9.1"
+__version__ = "1.9.4"
 __all__ = ["render_chart", "render_figure", "render_many", "validate",
            "catalogue", "load_specs", "token_map", "SpecError", "__version__",
            "normalise_period", "normalise_rows", "restated_periods",

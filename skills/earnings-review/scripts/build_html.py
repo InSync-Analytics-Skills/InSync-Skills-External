@@ -39,7 +39,7 @@ C = dict(ORANGE="#" + BC["orange"], INK="#" + BC["ink"], DARK="#" + BC["sectionH
          HEADBG="#" + BC["headerBg"], BAND="#" + BC["bandFill"], ZEBRA="#" + BC["rowAlt"], EXBG="#" + BC["calloutBg"], BOX="#" + BC["mastBorder"],
          HRULE="#" + BC["headerRule"], RRULE="#" + BC["rowRule"], GRID="#" + BC["tableBorder"], GREEN="#" + BC["beatGreen"], RED="#" + BC["missRed"])
 
-def _is_zero(t): return re.fullmatch(r"[+\-(]*0(\.0+)?\)?\s*(%|bps|bp)?", t) is not None
+def _is_zero(t): return re.fullmatch(r"[+\-−(]*0(\.0+)?\)?\s*(%|bps|bp)?", t) is not None
 def sgn(t):
     t = str(t).strip()
     if _is_zero(t): return esc(t)
@@ -47,7 +47,7 @@ def sgn(t):
     if t.startswith("+"): return f'<span class="up">{esc(t)}</span>'
     return esc(t)
 def neg(t):
-    t = str(t).strip(); return f'<span class="dn">{esc(t)}</span>' if (t.startswith("(") or t.startswith("-")) else esc(t)
+    t = str(t).strip(); return f'<span class="dn">{esc(t)}</span>' if t.startswith(("(", "-", "−")) else esc(t)
 TOK = re.compile(r"\{([A-Za-z0-9_.\-]+)(\|c)?\}")
 def rel_disp():
     dsp, tm = REL["display"], REL.get("timing", "")
@@ -91,6 +91,9 @@ def btag(mid_):
     lab = M[mid_]["label"].lower()
     if b == "adjusted" and len(M[mid_].get("ltcode") or []) > 1: return "" if re.search(r"\badj(?:usted|\.)", lab) else " <span class='tag'>(adj.)</span>"
     return (" <span class='tag'>(reported)</span>" if b == "reported" and not re.search(r"\b(reported|gaap)\b", lab) else "")
+def vsg_cell(mid_):
+    v_ = M[mid_].get("vs_guide_text") or (T[f"{mid_}.vs_guide"] if CM[mid_]["vs_guide_mid"] is not None else DASH)
+    return sgn(v_) if v_ != DASH else DASH
 def cons_cell(mid_):
     m = M[mid_]; cs = m.get("consensus")
     if not cs: return DASH
@@ -161,10 +164,9 @@ for band in SC["bands"]:
         actual = neg(T[f"{mid_}.actual"]) if cm["actual"] is not None or m.get("actual_text") else DASH
         surprise = sgn(T[f"{mid_}.surprise"]) if cm["surprise"] is not None else DASH
         guide = esc(T[f"{mid_}.guide_prior"])
-        vsg = m.get("vs_guide_text") or (T[f"{mid_}.vs_guide"] if cm["vs_guide_mid"] is not None else DASH)
         comment = sub(pr.get("scorecard_comments", {}).get(mid_, ""))
         lab_ = mn(m["label"]) + btag(mid_) + (" <span class='tag'>(Primary KPI)</span>" if mid_ == cfg.get("primary_kpi") else "")
-        rows.append([lab_, actual, cons_cell(mid_), surprise, guide, sgn(vsg) if vsg != DASH else DASH, comment])
+        rows.append([lab_, actual, cons_cell(mid_), surprise, guide, vsg_cell(mid_), comment])
 parts.append(table(["Metric", PD["label"], PD["label"], "Beat / (Miss)", "Guide", "vs Guide", "Comment"], rows,
                    [20, 9, 11, 9, 10, 8, 33], aligns=["l", "r", "r", "r", "r", "r", "l"], sub_heads=["", "(Actual)", "(Consensus)", "", SC.get("guide_date_label", ""), "(midpoint)", ""]))
 _ls = c.get("large_surprise") or []
@@ -183,7 +185,7 @@ for band in cfg["evolution"]["bands"]:
         mid_ = r["id"]; m = M[mid_]; cm = CM[mid_]
         rows4.append([mn(m["label"])] + [neg(T[f"{mid_}.v.{p}"]) for p in P])
         if r.get("yoy"):
-            _nat = r["yoy"] == "native" and any(v is not None for v in (m.get("native_yoy") or []))
+            _nat = r["yoy"] == "native" and cm.get("yoy_native_used", False)
             lab = r.get("yoy_label") or ("Y/Y Growth (InSync native)" if _nat else ("Y/Y Change" if m.get("kind") == "rate" else "Y/Y Growth"))
             rows4.append(("sub", [f"<span class='ind'>{esc(lab)}</span>"] + [sgn(T[f"{mid_}.yoy.{p}"]) if T[f"{mid_}.yoy.{p}"] != DASH else DASH for p in P]))
 parts.append(table(["Metric"] + P, rows4, [34] + [66 / n] * n, aligns=["l"] + ["r"] * n, sub_heads=[""] + ["(Actual)"] * n))
@@ -195,7 +197,7 @@ def grow(mid_):
     m = M[mid_]; cm = CM[mid_]
     cn = m.get("consensus_next")
     return [mn(m["label"]), esc(T[f"{mid_}.guide_prior"]), cons_cell(mid_), f"<b>{neg(T[f'{mid_}.actual'])}</b>",
-            sgn(T[f"{mid_}.vs_guide"]) if cm["vs_guide_mid"] is not None else DASH, sgn(T[f"{mid_}.surprise"]) if cm["surprise"] is not None else DASH,
+            vsg_cell(mid_), sgn(T[f"{mid_}.surprise"]) if cm["surprise"] is not None else DASH,
             esc(T[f"{mid_}.guide_new"]), (esc(T[f"{mid_}.consensus_next"]) + tag(cn.get("source", GC.get("post_tag", "post-print")).replace("InSync ", ""))) if cn else DASH]
 rows6 = [("band", GC["band_label"])] + [grow(x) for x in GC["rows"]]
 for x in d.get("guidance_extra_rows", []):
@@ -208,11 +210,11 @@ if e:
     _xc = (F.get(fe_key) or {}).get("pre_code") if fe_key else None
     if frozen_cell != DASH and _xc and _xc != d["metrics"][e].get("resolved_code"): frozen_cell += tag(f"on {_xc}")
     rows6.append([mn(M[e]["label"].replace("(GAAP, diluted)", "(diluted, $)")), esc(T[f"{e}.guide_prior"]), cons_cell(e), f"<b>{esc(GC.get('eps_actual_text') or T[f'{e}.actual'])}</b>",
-                  sgn(T[f"{e}.vs_guide"]), sgn(T[f"{e}.surprise"]), esc(T[f"{e}.guide_new"]), frozen_cell])
+                  vsg_cell(e), sgn(T[f"{e}.surprise"]), esc(T[f"{e}.guide_new"]), frozen_cell])
 rv = GC.get("revenue_row")
 if rv:
     rid = rv["id"]; fr = F.get("rev_next_q")
-    rows6.append([mn(M[rid]["label"]), esc(T[f"{rid}.guide_prior"]), cons_cell(rid), f"<b>{esc(T[f'{rid}.actual'])}</b>", DASH, sgn(T[f"{rid}.surprise"]),
+    rows6.append([mn(M[rid]["label"]), esc(T[f"{rid}.guide_prior"]), cons_cell(rid), f"<b>{esc(T[f'{rid}.actual'])}</b>", vsg_cell(rid), sgn(T[f"{rid}.surprise"]),
                   esc(f"~{T['i.' + rv['implied']]} {rv.get('implied_label', 'implied*')}") if rv.get("implied") else (esc(T[f"{rid}.guide_new"]) if M[rid].get("guide_new") else DASH),
                   (esc(f"{T['fwd.rev_next_q.pre']} ({T['fwd.rev_next_q.pre_n']})") + tag(GC.get("frozen_tag", "pre-print"))) if fr else DASH])
 FYL = c.get("fy_rows") or d.get("fy_guide"); FYL = [FYL] if isinstance(FYL, dict) else (FYL or [])
@@ -229,18 +231,24 @@ for fi, FY in enumerate(FYL):
     def _tg(val, t_): return tag(t_) if (t_ and val != DASH) else ""
     rows6.append([mn(FY["label"]), esc(T[px + "prior"]) + _tg(T[px + "prior"], FY.get("prior_tag", "")), fy_cons_cell(FY, px), f"<b>{sub(T[px + 'ytd'])}</b>", sgn(subtxt(FY.get("vs_guide_text", DASH))), DASH,
                   esc(T[px + "new"]) + _tg(T[px + "new"], FY.get("new_tag", "")), esc(T[px + "consensus_next"]) + _tg(T[px + "consensus_next"], FY.get("consensus_next_tag", ""))])
-parts.append(table(["Guided item", GC["col_prior"], f"Consensus {PD['label']}", f"Actual {PD['label']}", "Actual vs Guide", "Actual vs Consensus", GC["col_new"], f"Consensus {PD['next_label']}"], rows6,
-                   [17, 11, 11, 13, 9, 9, 15, 15], aligns=["l"] + ["r"] * 7, sub_heads=["", GC["col_prior_sub"], "(pre-print / †)", "(reported)", "(vs midpoint)", "", GC["col_new_sub"], "(pre-print or post-print)"]))
+_gh = ["Guided item", GC["col_prior"], f"Consensus {PD['label']}", f"Actual {PD['label']}", "Actual vs Guide", "Actual vs Consensus", GC["col_new"], f"Consensus {PD['next_label']}"]
+_gw, _gs = [17, 11, 11, 13, 9, 9, 15, 15], ["", GC["col_prior_sub"], "(pre-print / †)", "(reported)", "(vs midpoint)", "", GC["col_new_sub"], "(pre-print or post-print)"]
+if d.get("post_print_thin"):
+    _gh, _gw, _gs = _gh[:7], [23, 11, 11, 14, 10, 10, 21], _gs[:7]
+    rows6 = [(("sub", r[1][:7]) if r[0] == "sub" else r) if isinstance(r, tuple) else r[:7] for r in rows6]
+parts.append(table(_gh, rows6, _gw, aligns=["l"] + ["r"] * (len(_gh) - 1), sub_heads=_gs))
 parts.append(note(sub(pr["guidance_read"]), "g"))
 rev_bits = []
 for key in ["eps_next_q", "rev_next_q", "eps_fy0", "eps_fy1"] + [k for k in F if k not in ("eps_next_q", "rev_next_q", "eps_fy0", "eps_fy1")]:
     if key in F:
         s = f"{esc(T[f'fwd.{key}.label'])} {esc(T[f'fwd.{key}.pre'])} → {esc(T[f'fwd.{key}.post'])}, {sgn(T[f'fwd.{key}.chg'])}"
         if F[key].get("post_down") is not None: s += f" ({T[f'fwd.{key}.post_down']} of {T[f'fwd.{key}.post_n']} cut)"
+        if F[key].get("post_status") == "not_revised": s += " (not yet revised after the print)"
         _rc = (d["metrics"].get(F[key].get("metric")) or {}).get("resolved_code")
         if F[key].get("pre_code") and _rc and F[key]["pre_code"] != _rc: s += f" (on {esc(F[key]['pre_code'])}, not the graded {esc(_rc)})"
         rev_bits.append(s)
-parts.append(note(f"<b>Post-print revisions (InSync, pre-print snapshot on or before {esc(d['consensus']['frozen_date'])} → {esc(d['consensus']['post_print_date'])}):</b> " + "; ".join(rev_bits) + ". " + sub(pr.get("revisions_tail", "")), "o"))
+if rev_bits:
+    parts.append(note(f"<b>Post-print revisions (InSync, pre-print snapshot on or before {esc(d['consensus']['frozen_date'])} → {esc(d['consensus']['post_print_date'])}):</b> " + "; ".join(rev_bits) + ". " + sub(pr.get("revisions_tail", "")), "o"))
 
 TN = pr["tone"]
 parts.append(sec("Management Tone Shift"))

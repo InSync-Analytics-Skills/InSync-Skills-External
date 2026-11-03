@@ -17,6 +17,7 @@ stderr: the full human-readable plan.
 Company master override: export INSYNC_COMPANY_MASTER=/abs/path/to/company_master.csv
 """
 import csv
+import datetime
 import json
 import os
 import re
@@ -119,6 +120,12 @@ def _last8(lq):
     if parsed is None or parsed[1] is None:
         return []
     y, q = parsed[0], parsed[1]
+    if re.search(r"[12]H", str(lq), re.I):
+        h, out = q // 2, []
+        for _ in range(8):
+            out.append("%dH%02d" % (h, y % 100))
+            h, y = (2, y - 1) if h == 1 else (1, y)
+        return out
     out = []
     for _ in range(8):
         out.append("%dQ%02d" % (q, y % 100))
@@ -183,10 +190,14 @@ def main():
     q8 = _last8(row.get("latest_quarter", ""))
     e("-" * 72 + "\n")
     e(" MONITORING & FORWARD FETCHES (for the new sections):\n")
-    e(f"   Quarterly (8q, monitor + LTM shift): get_actuals ltcode=CF_P_108,CF_P_109,CF_P_101,CF_P_104\n")
+    e(f"   Quarterly (8q, monitor + LTM shift): get_actuals ltcode=CF_P_108,CF_P_109,CF_P_101,CF_P_104,CF_P_105\n")
     e(f"     fiscal_period={','.join(q8) if q8 else '<last 8 quarters>'}  -> raw_data.actuals_quarterly\n")
     e("   Forward guidance: get_guidance(latest=true) -> capital-allocation rows (capex, buyback/dividend posture, leverage target)\n")
-    e("   Consensus: get_estimates ltcode=CF_P_109,CF_P_110,IS_P_128 fiscal_period=<FY+1>,<FY+2> -> forward_outlook.rows\n")
+    _d0 = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+    e("   Consensus (HISTORY pull, never the plain/latest call): get_estimates ltcode=CF_P_109,CF_P_110,IS_P_128\n")
+    e(f"     fiscal_period=<FY+1>,<FY+2> latest={{\"enabled\":false}} updatedate_start={_d0} updatedate_end=today limit=100\n")
+    e("     page until has_more=false; FactSet wrapper takes flat latest_enabled=false (retry the other form if refused);\n")
+    e("     a code+period with no rows: re-fetch once with a 120-day window -> raw_data.forward_estimates (keep BROKERCOUNT, UPDATEDATE)\n")
     e("   Management commentary: parse_document_content on the latest transcript -> 2-3 verbatim capital-allocation quotes\n")
     e("-" * 72 + "\n")
     _codes = fetch_codes(skey)

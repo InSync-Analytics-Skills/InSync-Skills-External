@@ -1,6 +1,6 @@
 # Forecast Reliability Suite
 
-*Version 7.12.1*
+*Version 7.12.4*
 
 ## What this skill does
 

@@ -30,6 +30,7 @@ import math
 import os
 import re
 import sys
+from decimal import Decimal, ROUND_HALF_UP, Context
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -38,11 +39,11 @@ if HERE not in sys.path:
 from jscompat import (js_str, js_json, js_to_fixed, js_round, js_parse_float,
                       js_number, js_cmp_sort, js_keys, js_stdio, js_write, UNDEFINED)
 import polarity as POLARITY
+from forward_consensus import pick_forward_consensus, drop_notes
 
 U = UNDEFINED
 NaN = float('nan')
 INF = float('inf')
-EPSILON = 2.220446049250313e-16
 
 
 def _isnum(x):
@@ -483,9 +484,9 @@ def parse_parts(raw):
         return None
     cur = currency_info(s)
     neg = False
-    if _test('^\\(.*\\)$', s):
+    if _test('^\\(.*\\)[A-Za-z%]*$', s):
         neg = True
-        s = s[1:-1]
+        s = _replace('^\\((.*)\\)', s, lambda m: m.group(1))
     s = _replace('[,\\s]', s, '', glob=True)
     s = CUR_RE.sub('', s, count=1)
     s = CUR_RE_TRAIL.sub('', s, count=1)
@@ -567,11 +568,8 @@ def _round(x, d):
     n = _n(x)
     if not _num_is_finite(n):
         return None
-    sign = -1 if n < 0 else 1
-    a = float(abs(n))
-    f = 10 ** d
-    scaled = a * f
-    return sign * js_round(scaled + abs(scaled) * EPSILON * 4) / f
+    q = Decimal(repr(float(n))).quantize(Decimal(1).scaleb(-int(d)), rounding=ROUND_HALF_UP, context=Context(prec=60))
+    return float(q) + 0.0
 
 
 def pct1(x):
@@ -600,6 +598,31 @@ def abs_change(cur, base):
     if cur is None or cur is U or base is None or base is U:
         return None
     return _round(_sub(cur, base), 4)
+
+
+def _rate_dp(vals):
+    nz = [abs(v) for v in vals if _num_is_finite(v)]
+    return 2 if nz and max(nz) < 5 else 1
+
+
+def _shown(v, vals, fmt):
+    if not _num_is_finite(v):
+        return v
+    if fmt == '$':
+        return _round(v, 2)
+    nz = [abs(x) for x in vals if _num_is_finite(x)]
+    mx = max(nz) if nz else 0
+    if fmt == '#':
+        div = 1e9 if mx >= 1e9 else (1e6 if mx >= 1e6 else 0)
+        return _round(v / div, 2) * div if div else _round(v, 0)
+    div = 1e6 if mx >= 1e6 else (1e3 if mx >= 1e3 else 1)
+    return _round(v / div, 2) * div
+
+
+def _as_printed(cur, base, vals, fmt):
+    if not (_num_is_finite(cur) and _num_is_finite(base)) or abs(base) < (1 if fmt == '$' else 0 if fmt == '#' else 1e3):
+        return cur, base
+    return _shown(cur, vals, fmt), _shown(base, vals, fmt)
 
 
 def median(arr):
@@ -683,6 +706,45 @@ def last_on_or_before(series, date_str):
 
 def latest_of(series):
     return series[-1] if (_t(series) and len(series)) else None
+
+
+def forward_consensus_rows(rows, actual_rows, tid, warn_fn):
+    reported = {}
+    for r in actual_rows:
+        if not _t(r) or _g(r, 'UPDATEDATE') is not U or not _t(_g(r, 'LTCODE')) or not _t(_g(r, 'FISCALPERIOD')):
+            continue
+        tv = _g(r, 'TICKER_ID')
+        if tv is not U and tv is not None and _S(tv) != tid:
+            continue
+        fp = _S(r['FISCALPERIOD'])
+        reported[_S(r['LTCODE']) + '|' + (fp[2:] if fp.startswith('R-') else fp)] = True
+
+    def fkey(r):
+        if not _t(_g(r, 'LTCODE')) or not _t(_g(r, 'FISCALPERIOD')) or _g(r, 'UPDATEDATE') is U:
+            return None
+        k = _S(r['LTCODE']) + '|' + _S(r['FISCALPERIOD'])
+        return None if k in reported else k
+    fwd = [r for r in rows if fkey(r) is not None]
+    if not fwd:
+        return rows
+    picked, dropped = pick_forward_consensus(fwd)
+    by_key = {}
+    for (lt, per), p in picked.items():
+        by_key[lt + '|' + per] = p
+    kept = []
+    for r in rows:
+        k = fkey(r)
+        if k is None:
+            kept.append(r)
+            continue
+        p = by_key.get(k)
+        if p is None:
+            continue
+        if r is p['row'] or _S(_g(r, 'UPDATEDATE')).strip()[0:10] < p['asof']:
+            kept.append(r)
+    for line in drop_notes(dropped):
+        warn_fn(line)
+    return kept
 
 
 def num(v):
@@ -998,7 +1060,9 @@ def main():
         mk = _g(mcp, 'market')
         v = _g(mk, key) if _t(mk) else mk
         return v if _t(v) else []
-    est = index_estimates(own(extract_rows(_g(mcp, 'estimates_latest')) + extract_rows(_g(mcp, 'revision_series')), 'estimates'), abs_codes, cur_ledger)
+    est = index_estimates(forward_consensus_rows(
+        own(extract_rows(_g(mcp, 'estimates_latest')) + extract_rows(_g(mcp, 'revision_series')), 'estimates'),
+        extract_rows(_g(mcp, 'actuals')), tid_meta, warn), abs_codes, cur_ledger)
     snaps = index_estimates(own(extract_rows(_g(mcp, 'preprint_snapshots')), 'preprint_snapshots'), abs_codes, cur_ledger)
     act = index_actuals(own(extract_rows(_g(mcp, 'actuals')), 'actuals'), abs_codes, cur_ledger, warn)
     px_ledger = {}
@@ -1284,7 +1348,7 @@ def main():
              _S(prep) + '), so the masthead invites the reader to a call that has already happened. ' +
              'Re-fetch get_call_date for the next period, or correct meta.prepared.')
 
-    est_rows = extract_rows(_or(_g(mcp, 'estimates_latest'), []))
+    est_rows = extract_rows(_or(_g(mcp, 'estimates_latest'), [])) + extract_rows(_or(_g(mcp, 'revision_series'), []))
     if not est_rows:
         warn('[NO CONSENSUS] InSync returned NO estimate rows for ANY metricset code. A preview ' +
              'grades the coming print against consensus, so the target-period column will be entirely ' +
@@ -1413,10 +1477,10 @@ def main():
         'bvps_basis': None if bvps_computed is None else 'diluted (BS_P_113 / IS_P_125)',
         'bvps_vendor': None if bvps_vendor is None else _round(bvps_vendor, 2),
         'dividend_yield': vn[tid + '|Dividend_Yield'] if (tid + '|Dividend_Yield') in vn else None,
-        'fcf_yield_ntm': _round(_mul(vn[tid + '|FCF_Yield'], 100), 1) if (tid + '|FCF_Yield') in vn else None,
-        'ntm_pe': _round(pe_adj if pe_adj is not U else pe_gaap, 4),
+        'fcf_yield_ntm': _round(_mul(vn[tid + '|FCF_Yield'], 100), 10) if (tid + '|FCF_Yield') in vn else None,
+        'ntm_pe': _round(pe_adj if pe_adj is not U else pe_gaap, 10),
         'ntm_pe_basis': 'Adj' if pe_adj is not U else ('GAAP' if pe_gaap is not U else None),
-        'ntm_ev_ebitda': _round(eve_adj if eve_adj is not U else eve_gaap, 4),
+        'ntm_ev_ebitda': _round(eve_adj if eve_adj is not U else eve_gaap, 10),
         'ntm_ev_ebitda_basis': 'Adj' if eve_adj is not U else ('GAAP' if eve_gaap is not U else None)
     }
     LENS_PCT = {'Dividend_Yield', 'FCF_Yield', 'Earnings_Yield'}
@@ -1444,7 +1508,7 @@ def main():
             'label': label, 'metric': metric, 'requested': metric,
             'resolved_metric': got['metric'] if got else None, 'basis': got['basis'] if got else None,
             'kind': 'pct' if is_pct else 'x',
-            'value': _round(_mul(got['v'], 100) if is_pct else got['v'], 1 if is_pct else 4) if got else None,
+            'value': _round(_mul(got['v'], 100) if is_pct else got['v'], 10) if got else None,
             'nm': False, 'nm_reason': None
         })
         if _t(concept):
@@ -1697,8 +1761,8 @@ def main():
             'drawdown_low': lo['close'], 'drawdown_date': lo['date'],
             'heaviest_volume_shares_m': _round(hi_vol['volume'] / 1e6, 1) if has_vol else None,
             'heaviest_volume_date': hi_vol['date'] if has_vol else None,
-            'pe_now': valuation['ntm_pe'], 'pe_1yr_avg': _round(pm1 if pm1 is not U else _g(pe_sum, 'MEAN'), 4),
-            'pe_year_ago': _round(_g(pe_year_ago_row, 'value'), 4) if pe_year_ago_row else None
+            'pe_now': valuation['ntm_pe'], 'pe_1yr_avg': _round(pm1 if pm1 is not U else _g(pe_sum, 'MEAN'), 10),
+            'pe_year_ago': _round(_g(pe_year_ago_row, 'value'), 10) if pe_year_ago_row else None
         }
     else:
         warn('[setup] fewer than 2 daily closes in 30d window')
@@ -1734,7 +1798,7 @@ def main():
             'fy_prev': actual(FCF, _g(FY, 'fy_prev')), 'fy0': latest_est(FCF, _g(FY, 'fy0')), 'fy1': latest_est(FCF, _g(FY, 'fy1'))
         })
 
-    def growth_for(code, bases):
+    def growth_for(code, bases, row=None):
         pq_base = _g(bases, 'py_q_base')
         pairs = {
             'yy': {
@@ -1757,6 +1821,8 @@ def main():
         for g in ['yy', 'qq']:
             for k in js_keys(pairs[g]):
                 cur, base = pairs[g][k]
+                if _t(row) and k in (['target_q', 'fy0', 'fy1'] if g == 'yy' else ['target_q', 'next_q']):
+                    cur, base = _as_printed(cur, base, [row.get(c, U) for c in cols], _or(row.get('fmt', U), '$M'))
                 out[g][k] = growth_pct(cur, base)
                 if (out[g][k] is None and cur is not None and cur is not U and base is not None and
                         base is not U and _le(base, 0)):
@@ -1764,7 +1830,8 @@ def main():
                     out[g + '_abs'][k] = abs_change(cur, base)
         return out
     gb0 = _or(_g(meta, 'growth_bases'), {})
-    sf['growth'] = {'revenue': growth_for(REV, gb0), 'eps': growth_for(EPS, gb0) if _t(EPS) else None}
+    row_of = {r['ltcode']: r for r in reversed(sf['rows'])}
+    sf['growth'] = {'revenue': growth_for(REV, gb0, row_of.get(REV)), 'eps': growth_for(EPS, gb0, row_of.get(EPS)) if _t(EPS) else None}
 
     d_rows = extract_rows(_or(_g(mcp, 'derived_subrows'), []))
     d_val, d_name = {}, {}
@@ -1792,13 +1859,15 @@ def main():
     period_of = {'py_q': _g(Q, 'py_q'), 'prior_q': _g(Q, 'prior_q'), 'target_q': _g(Q, 'target_q'), 'next_q': _g(Q, 'next_q'),
                  'fy_prev': _g(FY, 'fy_prev'), 'fy0': _g(FY, 'fy0'), 'fy1': _g(FY, 'fy1')}
     ALLKEYS = ['py_q', 'prior_q', 'target_q', 'next_q', 'fy_prev', 'fy0', 'fy1']
+    YY_BOTH, QQ_BOTH = ['target_q', 'fy0', 'fy1'], ['target_q', 'next_q']
     QKEYS = ['py_q', 'prior_q', 'target_q', 'next_q']
 
-    def db_cells(dcode, fallback, keys=None):
+    def db_cells(dcode, fallback, keys=None, both=()):
         o, any_ = {}, False
         for k in (keys or ALLKEYS):
             dv = derived(dcode, period_of[k])
-            if dv is not None:
+            fb0 = fallback.get(k, U) if isinstance(fallback, dict) else U
+            if dv is not None and not (k in both and fb0 is not None and fb0 is not U):
                 o[k] = dv
             else:
                 fb = fallback.get(k, U) if (_t(fallback) and isinstance(fallback, dict)) else U
@@ -1819,10 +1888,10 @@ def main():
         if not _t(g):
             continue
         if has_derived(_S(code) + '-Y'):
-            g['yy'] = _or(db_cells(_S(code) + '-Y', g['yy']), g['yy'])
+            g['yy'] = _or(db_cells(_S(code) + '-Y', g['yy'], None, YY_BOTH), g['yy'])
             gate_derived(_S(code) + '-Y', g['yy'])
         if has_derived(_S(code) + '-Q'):
-            g['qq'] = _or(db_cells(_S(code) + '-Q', g['qq'], QKEYS), g['qq'])
+            g['qq'] = _or(db_cells(_S(code) + '-Q', g['qq'], QKEYS, QQ_BOTH), g['qq'])
             gate_derived(_S(code) + '-Q', g['qq'], ['py_q', 'prior_q'])
 
     COLKEYS = ['py_q', 'prior_q', 'target_q', 'next_q', 'fy_prev', 'fy0', 'fy1']
@@ -1833,6 +1902,9 @@ def main():
         for k in COLKEYS:
             n = num_row.get(k, U)
             d = den_row.get(k, U) if _t(den_row) else None
+            if n is not None and n is not U and _num_is_finite(d) and abs(d) >= 1e3:
+                n, d = (_shown(n, [num_row.get(c, U) for c in COLKEYS], num_row.get('fmt', U)),
+                        _shown(d, [den_row.get(c, U) for c in COLKEYS], den_row.get('fmt', U)))
             o[k] = _round(_mul(_div(n, d), 100), 10) if (n is not None and n is not U and _t(d)) else None
             if o[k] is not None:
                 any_ = True
@@ -1875,7 +1947,7 @@ def main():
             continue
         subs = []
         gb = _or(_g(meta, 'growth_bases'), {})
-        gr = growth_for(r['ltcode'], gb)
+        gr = growth_for(r['ltcode'], gb, r)
         missing_bases = _uniq([bq for cur, bq in _base_checks(r['ltcode'], gb)
                                if cur is not None and _t(bq) and actual(r['ltcode'], bq) is None])
         if missing_bases and not _t(r.get('street_only', U)):
@@ -1884,10 +1956,10 @@ def main():
                  _join(missing_bases, ', ') + ' -> fetch actuals for ' + _S(r['ltcode']) + ' in those periods')
         lt = _S(r['ltcode'])
         if has_derived(lt + '-Y'):
-            gr['yy'] = _or(db_cells(lt + '-Y', gr['yy']), gr['yy'])
+            gr['yy'] = _or(db_cells(lt + '-Y', gr['yy'], None, YY_BOTH), gr['yy'])
             gate_derived(lt + '-Y', gr['yy'])
         if has_derived(lt + '-Q'):
-            gr['qq'] = _or(db_cells(lt + '-Q', gr['qq'], QKEYS), gr['qq'])
+            gr['qq'] = _or(db_cells(lt + '-Q', gr['qq'], QKEYS, QQ_BOTH), gr['qq'])
             gate_derived(lt + '-Q', gr['qq'], ['py_q', 'prior_q'])
 
         def nm_flags(cells, keys):
@@ -1921,7 +1993,7 @@ def main():
                              _trim(x['name']).lower().startswith(prefix)), U) if prefix else None
             if _t(pair_row):
                 mg_computed = ratio_cells(r, pair_row)
-        mg = _or(db_cells(lt + '-M', mg_computed), mg_computed) if m_is_margin else mg_computed
+        mg = _or(db_cells(lt + '-M', mg_computed, None, ALLKEYS), mg_computed) if m_is_margin else mg_computed
         if _t(mg):
             subs.append({'label': 'Margin', 'kind': 'pct', 'cells': mg})
             if m_is_margin:
@@ -1936,7 +2008,7 @@ def main():
         if (_t(rev_row_ref) and not _seq(r['ltcode'], REV) and row_pct_rev(r) and
                 ((_seq(r['fmt'], '$M') and row_is_flow(r)) or m_is_pct_rev)):
             pc_computed = ratio_cells(r, rev_row_ref)
-            pc = _or(db_cells(lt + '-M', pc_computed), pc_computed) if m_is_pct_rev else (pc_computed if _seq(r['fmt'], '$M') else None)
+            pc = _or(db_cells(lt + '-M', pc_computed, None, ALLKEYS), pc_computed) if m_is_pct_rev else (pc_computed if _seq(r['fmt'], '$M') else None)
             has_margin = any(_test('^Margin', _S(_or(s.get('label', U), '')), 'i') for s in subs) or _t(mg)
             RATIO_CAP, QCOLS = 250, ['py_q', 'prior_q', 'target_q', 'next_q']
             pc_vals = [v for v in (pc.get(k, U) for k in COLKEYS) if _num_is_finite(v)] if _t(pc) else []
@@ -2117,7 +2189,7 @@ def main():
             return {'v': r[fy0], 'label': _trim(_replace('\\s*\\(.*$', _S(r['name']), ''))} if _t(r) else None
         return _or(_or(pick('\\bEBITDA(re)?\\b'), pick('\\b(AFFO|FFO)\\b')), None)
     lev_den = _lev_den()
-    valuation['net_debt_ebitda'] = _round(_div(V['net_debt'], lev_den['v']), 1) \
+    valuation['net_debt_ebitda'] = _round(_div(V['net_debt'], lev_den['v']), 10) \
         if (V['net_debt'] is not None and V['net_debt'] is not U and V['net_debt'] > 0 and _t(lev_den)) else None
     incl_lease = _test('incl', _S(_or(valuation['debt_label'], '')), 'i')
     valuation['net_debt_ebitda_label'] = None if valuation['net_debt_ebitda'] is None \
@@ -2266,6 +2338,7 @@ def main():
         pre, post, inter, lat = (last_on_or_before(s, b_pre), last_on_or_before(s, b_post),
                                  last_on_or_before(s, b_inter), latest_of(s))
         is_pct = _test('%|Margin', m['name'], 'i') or _seq(m['fmt'], '%')
+        rvals = [x['value'] for x in [pre, post, inter, lat] if x]
         delta, delta_unit, raw_delta = None, None, None
         if post and lat:
             if is_pct:
@@ -2273,11 +2346,11 @@ def main():
                 delta = _round(raw_delta, 0)
                 delta_unit = 'bps'
             elif _gt(post['value'], 0):
-                raw_delta = growth_pct(lat['value'], post['value'])
-                delta = _round(raw_delta, 2)
+                raw_delta = growth_pct(*_as_printed(lat['value'], post['value'], rvals, m['fmt']))
+                delta = _round(raw_delta, 1)
                 delta_unit = '%'
             else:
-                raw_delta = abs_change(lat['value'], post['value'])
+                raw_delta = abs_change(*_as_printed(lat['value'], post['value'], rvals, m['fmt']))
                 delta = _round(raw_delta, 2)
                 delta_unit = 'abs'
         for an, a, bn, b in [['Pre', pre, 'Post', post], ['Post', post, 'Inter-Q', inter],
@@ -2712,13 +2785,27 @@ def main():
             'guide_text': lg['parsed']['text'] if (_t(lg) and _t(lg['parsed'].get('qualitative', U))) else None,
             'consensus': setup_cons, 'actual': None, 'vs_guide_hi': None, 'vs_cons': None
         })
+        bv = [c[k] for c in block['cols'] for k in ['guide_point', 'guide_hi', 'guide_lo', 'consensus', 'actual']]
+        growth_blk = _test('-(Y|Q|IMY|IMQ)$', item['ltcode'], 'i') or _test('Y\\/Y|Q\\/Q', item['lineitem'], 'i')
+        block['dp'] = 2 if (_test('FX', item['lineitem'], 'i') or (is_pct and not growth_blk and _rate_dp(bv) == 2)) else 1
+        for c in block['cols'][:-1]:
+            for key, ref in [['vs_guide_hi', c['guide_hi']], ['vs_cons', c['consensus']]]:
+                if c[key] is not None:
+                    c[key] = (_round(_sub(_round(c['actual'], block['dp']), _round(ref, block['dp'])), block['dp']) if is_pct
+                              else _round(pct_change(*_as_printed(c['actual'], ref, bv, block['fmt'])), 1))
+        s0 = block['cols'][-1]
+        sc, sh, sl = [None if v is None else (_round(v, block['dp']) if is_pct else _shown(v, bv, block['fmt']))
+                      for v in [s0['consensus'], s0['guide_hi'], s0['guide_lo']]]
+        if sc is not None and (sh is not None or sl is not None):
+            sh, sl = (INF if sh is None else sh), (-INF if sl is None else sl)
+            s0['cons_vs_guide'] = 'above' if sc > sh else ('below' if sc < sl else ('at' if sh == sl else 'within'))
         past_cols = block['cols'][:-1]
         cons_gaps = [c['q'] for c in past_cols if c['actual'] is not None and c['consensus'] is None]
         if cons_gaps:
             code = _or(y_base, item['ltcode'])
             cgap([code, item['ltcode']], 'evolution "' + _S(item['lineitem']) + '": actual present but consensus missing for ' +
                  _join(cons_gaps, ', ') + ' -> fetch preprint_snapshots for ' + _S(code) +
-                 ' in each of those quarters (updatedate = print-21d .. print-1d)')
+                 ' in each of those quarters (the §7 plain call, no date window)')
         if y_base and py_gaps:
             qs = _uniq(py_gaps)
             warn('[completeness] evolution "' + _S(item['lineitem']) + '": derived Y/Y cells blank because the prior-year actual for ' +
@@ -2847,10 +2934,10 @@ def main():
         c_k = sane(cons_k['value'] if cons_k else None, a_k)
         if a_r is not None and cons_r is None:
             cgap([REV, _S(REV) + '|' + _S(pq), 'beat|' + _S(pq)],
-                 'beat history: no pre-print revenue consensus for ' + _S(pq) + ' -> fetch preprint_snapshots for ' + _S(REV) + ' (updatedate = print-21d .. print-1d)')
+                 'beat history: no pre-print revenue consensus for ' + _S(pq) + ' -> fetch preprint_snapshots for ' + _S(REV) + ' (the §7 plain call, no date window)')
         if a_k is not None and cons_k is None:
             cgap([BK, _S(BK) + '|' + _S(pq), 'beat|' + _S(pq)],
-                 'beat history: no pre-print ' + _S(_g(beat_kpi, 'name')) + ' consensus for ' + _S(pq) + ' -> fetch preprint_snapshots for ' + _S(BK) + ' (updatedate = print-21d .. print-1d)')
+                 'beat history: no pre-print ' + _S(_g(beat_kpi, 'name')) + ' consensus for ' + _S(pq) + ' -> fetch preprint_snapshots for ' + _S(BK) + ' (the §7 plain call, no date window)')
         credit[_S(pq)] = {'rev': discredit(cons_r, a_r), 'kpi': discredit(cons_k, a_k),
                           'csR': cons_r, 'acR': a_r, 'csK': cons_k, 'acK': a_k}
         if cons_k and cons_r:
@@ -2873,7 +2960,7 @@ def main():
             rx = {'pre': pre_['close'] if pre_ else None, 'post': post_['close'] if post_ else None,
                   'move_pct': _round(pct_change(post_['close'], pre_['close']), 1) if (pre_ and post_) else None}
         beat['prints'].append({
-            'q': pq, 'rev_beat_pct': _round(growth_pct(a_r, c_r), 2), 'kpi1_beat_pct': _round(growth_pct(a_k, c_k), 2),
+            'q': pq, 'rev_beat_pct': growth_pct(a_r, c_r), 'kpi1_beat_pct': growth_pct(a_k, c_k),
             'reaction_pct': rx['move_pct'],
             'rev_excluded': None, 'kpi1_excluded': None
         })
@@ -2990,8 +3077,8 @@ def main():
         return {'used': [p['q'] for p in used],
                 'excluded': [{'q': p['q'], 'why': p[ex_key]} for p in beat['prints'] if _t(p[ex_key])],
                 'n': len(used),
-                'avg': _round(mean([p[key] for p in used]), 2),
-                'avg_all_prints': _round(mean([p[key] for p in beat['prints']]), 2)}
+                'avg': _round(mean([p[key] for p in used]), 10),
+                'avg_all_prints': _round(mean([p[key] for p in beat['prints']]), 10)}
     b_r2, b_k2 = basis('rev_beat_pct', 'rev_excluded'), basis('kpi1_beat_pct', 'kpi1_excluded')
 
     def thin_avg(b, lbl):
@@ -3010,7 +3097,7 @@ def main():
         if b['n'] >= 2 and b['n'] < THIN_N:
             warn('[beat] ' + _S(lbl) + ': the average beat rests on only ' + _S(b['n']) + ' of ' + _S(len(beat['prints'])) +
                  ' prints (' + _join(b['used'], ', ') + '), so it is a thin track record, not a pattern. It ' +
-                 'reads ' + _S(b['avg']) + '% here and ' + _S(b['avg_all_prints']) + '% across all prints; the whisper ' +
+                 'reads ' + pct1(b['avg']) + '% here and ' + pct1(b['avg_all_prints']) + '% across all prints; the whisper ' +
                  'inherits the thin figure. Say which prints it rests on wherever it is quoted.')
     beat['avg_withheld'] = {'revenue': beat['avg_rev_beat'] is None, 'kpi1': beat['avg_kpi1_beat'] is None}
     beat['avg_thin'] = {'revenue': b_r2['n'] < THIN_N, 'kpi1': b_k2['n'] < THIN_N}
@@ -3021,7 +3108,7 @@ def main():
                  'is not a plausible one-day move. Check the two closes either side of the call date: a ' +
                  'duplicate row, an unadjusted split or a stub price will produce exactly this. The ' +
                  'figure is shown as computed, so correct the series rather than the number.')
-    beat['avg_reaction'] = _round(mean([p['reaction_pct'] for p in beat['prints']]), 2) \
+    beat['avg_reaction'] = _round(mean([p['reaction_pct'] for p in beat['prints']]), 10) \
         if len([p for p in beat['prints'] if p['reaction_pct'] is not None]) >= 2 else None
     for lbl, b in [['revenue', b_r2], [_g(beat_kpi, 'name') if beat_kpi is not None else 'KPI', b_k2]]:
         if not b['excluded']:
@@ -3033,9 +3120,9 @@ def main():
                  'pre-print consensus exists for this line.')
         else:
             warn('[beat] ' + _S(lbl) + ': average beat computed on ' + _S(b['n']) + ' of ' + _S(len(beat['prints'])) +
-                 ' prints (' + _join(b['used'], ', ') + ') = ' + _S(b['avg']) + '%. Excluded ' +
+                 ' prints (' + _join(b['used'], ', ') + ') = ' + pct1(b['avg']) + '%. Excluded ' +
                  '; '.join(_S(e['q']) + ': ' + _S(e['why']) for e in b['excluded']) + '. On all ' + _S(len(beat['prints'])) +
-                 ' prints it would read ' + _S(b['avg_all_prints']) + '%. Say in Beat History which prints the ' +
+                 ' prints it would read ' + pct1(b['avg_all_prints']) + '%. Say in Beat History which prints the ' +
                  'average rests on.')
     cons_tq = latest_est(REV, _g(Q, 'target_q'))
     beat['whisper'] = _round(_mul(cons_tq, 1 + beat['avg_rev_beat'] / 100), 0) \
@@ -3191,9 +3278,9 @@ def main():
             outlook_rows.append(o)
 
     def _citable():
-        vals, pcts, counts = _NumSet(), _NumSet(), _NumSet()
+        vals, pcts, counts, ptxt = _NumSet(), _NumSet(), _NumSet(), set()
 
-        def add(x, kind=U):
+        def add(x, kind=U, dp=1):
             if not _num_is_finite(x):
                 return
             vals.add(x)
@@ -3201,6 +3288,7 @@ def main():
             if kind == 'pct':
                 pcts.add(x)
                 pcts.add(abs(x))
+                ptxt.add(js_to_fixed(_round(abs(x), dp), dp))
             if kind == '#':
                 counts.add(x)
                 counts.add(abs(x))
@@ -3209,17 +3297,15 @@ def main():
                   'wk52_low', 'bvps', 'ntm_pe', 'ntm_ev_ebitda']:
             add(Vc.get(k, U))
         for k in ['pct_off_high', 'pct_above_low', 'fcf_yield_ntm']:
-            add(Vc.get(k, U), 'pct')
+            add(Vc.get(k, U), 'pct', _rate_dp([Vc.get(k, U)]) if k == 'fcf_yield_ntm' else 1)
         if _isnum(Vc.get('dividend_yield', U)):
-            add(_round(Vc['dividend_yield'] * 100, 2), 'pct')
+            add(_round(Vc['dividend_yield'] * 100, 10), 'pct', _rate_dp([Vc['dividend_yield'] * 100]))
         add(Vc.get('net_debt_ebitda', U))
         for L in _or(Vc.get('lenses', U), []):
             if not _isnum(L['value']):
                 continue
             kind = 'pct' if L['kind'] == 'pct' else 'values'
-            add(L['value'], 'pct' if kind == 'pct' else U)
-            dp = 2 if _seq(L['metric'], 'Dividend_Yield') else 1
-            add(_round(L['value'], dp), 'pct' if kind == 'pct' else U)
+            add(L['value'], 'pct' if kind == 'pct' else U, _rate_dp([L['value']]))
         if setup:
             add(setup['move_30d_pct'], 'pct')
             for k in ['drawdown_low', 'heaviest_volume_shares_m', 'pe_now', 'pe_1yr_avg', 'pe_year_ago']:
@@ -3228,10 +3314,11 @@ def main():
         for r in _or(sf['rows'], []):
             kind = 'pct' if _seq(r['fmt'], '%') else ('#' if _seq(r['fmt'], '#') else None)
             for k in CC:
-                add(r.get(k, U), kind)
+                add(r.get(k, U), kind, _rate_dp([r.get(c, U) for c in CC]))
             for s in _or(r.get('subs', U), []):
                 for k in CC:
-                    add(_or(s.get('cells', U), {}).get(k, U), 'pct')
+                    add(_or(s.get('cells', U), {}).get(k, U), 'pct',
+                        1 if s.get('kind', U) == 'growth' else _rate_dp(list(_or(s.get('cells', U), {}).values())))
         for k in ['revenue', 'eps']:
             g = _or(sf.get('growth', U), {}).get(k, U)
             if not _t(g):
@@ -3246,14 +3333,15 @@ def main():
                 add(g['point'])
         for r in _or(revisions['rows'], []):
             for k in ['pre', 'post', 'interq', 'latest']:
-                add(r[k], 'pct' if r['is_pct'] else None)
-            add(r['delta_vs_post'], 'pct' if (r['delta_unit'] == '%' or r['delta_unit'] == 'bps') else None)
+                add(r[k], 'pct' if r['is_pct'] else None, _rate_dp([r[c] for c in ['pre', 'post', 'interq', 'latest']]))
+            add(r['delta_vs_post'], 'pct' if (r['delta_unit'] == '%' or r['delta_unit'] == 'bps') else None,
+                0 if r['delta_unit'] == 'bps' else 1)
         for b in _or(evolution['blocks'], []):
             for c in _or(b['cols'], []):
                 for k in ['guide_hi', 'guide_lo', 'guide_point', 'consensus', 'actual']:
-                    add(c[k], 'pct' if b['is_pct'] else None)
+                    add(c[k], 'pct' if b['is_pct'] else None, b['dp'])
                 for k in ['vs_guide_hi', 'vs_cons']:
-                    add(c[k], 'pct')
+                    add(c[k], 'pct', b['dp'] if b['is_pct'] else 1)
         for r in _or(evolution.get('reactions', U), []):
             add(r['pre'])
             add(r['post'])
@@ -3279,6 +3367,8 @@ def main():
             if found is not None:
                 for s in found:
                     add(js_parse_float(s), kind)
+                    if kind == 'pct':
+                        ptxt.update([s.lstrip('-')] + [js_to_fixed(_round(abs(js_parse_float(s)), d), d) for d in (1, 2)])
         for k in ['target_q', 'fy', 'fy1']:
             for g in _or(sf.get('guidance_' + k, U), []):
                 if guide_opens_column(g):
@@ -3309,6 +3399,7 @@ def main():
         return {'values': arr, 'b_ok': [x / 1000 for x in arr if abs(x) >= 1000],
                 'pct': sorted(x for x in pcts.items() if x != 0),
                 'counts': sorted(x for x in counts.items() if x != 0),
+                'pct_text': sorted(ptxt),
                 'guide_prior': sorted(gp.items()),
                 'count': len(arr)}
     citable = _citable()

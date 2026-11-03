@@ -32,7 +32,7 @@ from fetch_plan import match_sector
 
 _hr = CC._xr
 
-SKILL_VERSION = "v2.73.0"
+SKILL_VERSION = "v2.73.8"
 
 BANNED = {"strong", "disappointing", "impressive", "significantly", "robust", "notable",
           "unmatched", "beloved", "award-winning", "premium", "compelling", "best-in-class",
@@ -91,6 +91,100 @@ def _as_list(v):
     if isinstance(v, dict):
         return [v]
     return [] if v is None else [v]
+
+
+FORWARD_CODES = (
+    ("CF_P_109", "Capital expenditure", r"\bcapex\b|capital expenditure|capital spend"),
+    ("CF_P_110", "Free cash flow", r"free cash flow|\bfcf\b"),
+    ("IS_P_128", "EPS (adjusted)", r"\beps\b|earnings per share"),
+)
+_EMPTY_CELLS = ("", "n/a", "na", "-", "—", "–")
+
+
+def _fy_year(p):
+    m = re.match(r"^\s*(?:FY)?(\d{4})\s*$", str(p or ""), re.I)
+    return int(m.group(1)) if m else None
+
+
+def _forward_code_of(row):
+    lt = str(row.get("ltcode") or row.get("LTCODE") or "").strip().upper()
+    if lt in {c for c, _, _ in FORWARD_CODES}:
+        return lt
+    item = str(row.get("item") or "")
+    for code, _, rx in FORWARD_CODES:
+        if re.search(rx, item, re.I):
+            return code
+    return None
+
+
+def build_forward_table(raw, narrative):
+    import forward_consensus as FC
+    notes = []
+    codes = {c for c, _, _ in FORWARD_CODES}
+    cur = (raw.get("meta") or {}).get("currency") or "$"
+    est = [r for r in CC.unwrap(raw.get("forward_estimates"))
+           if str(r.get("LTCODE") or "").strip().upper() in codes]
+    picked, dropped = FC.pick_forward_consensus(est)
+    last_actual = max((y for y in (_fy_year(r.get("FISCALPERIOD"))
+                                   for r in CC.unwrap(raw.get("actuals_annual"))) if y),
+                      default=None)
+    seen = {_fy_year(k[1]) for k in picked} | {_fy_year(d[1]) for d in dropped}
+    years = sorted(y for y in seen if y and (last_actual is None or y > last_actual))[:2]
+    dropped = [d for d in dropped if _fy_year(d[1]) in years]
+    dropped_codes = {d[0] for d in dropped}
+    notes += FC.drop_notes(dropped)
+
+    cons, picks = {}, []
+    for code, _, _ in FORWARD_CODES:
+        if code in dropped_codes:
+            continue
+        vals = {}
+        for (lt, per), p in picked.items():
+            y = _fy_year(per)
+            if lt == code and y in years:
+                vals[y] = (CC.pnum(FC._field(p["row"], "VALUE")), p)
+        if not vals:
+            continue
+        ref = max((abs(v) for v, _ in vals.values() if v is not None), default=None)
+        cells = []
+        for y in years:
+            v = vals.get(y, (None, None))[0]
+            if v is None:
+                cells.append("n/a")
+            elif code == "IS_P_128":
+                cells.append(CC.fmt_ps(v, cur))
+            else:
+                cells.append(CC.fmt_usd(v, cur, ref))
+        cells += ["n/a"] * (2 - len(cells))
+        cons[code] = cells
+        for y, (v, p) in sorted(vals.items()):
+            picks.append({"ltcode": code, "period": str(y), "value": v,
+                          "brokers": p["brokers"], "full_panel": p["full_panel"],
+                          "asof": p["asof"]})
+
+    rows, used = [], set()
+    for nr in _as_list(_as_dict(narrative.get("forward_outlook")).get("rows")):
+        if not isinstance(nr, dict):
+            continue
+        if any(str(nr.get(k) or "").strip().lower() not in _EMPTY_CELLS for k in ("fy1", "fy2")):
+            notes.append("ADVISORY: narrative forward_outlook row '%s' carried its own consensus "
+                         "figures (fy1/fy2); they were ignored - forward consensus is picked by the "
+                         "script from raw_data.forward_estimates." % str(nr.get("item") or "")[:40])
+        code = _forward_code_of(nr)
+        if code in dropped_codes:
+            continue
+        if code in used:
+            code = None
+        r = {k: nr[k] for k in ("item", "guided", "basis", "read") if k in nr}
+        r["fy1"], r["fy2"] = cons.get(code, ["n/a", "n/a"]) if code else ["n/a", "n/a"]
+        if code:
+            used.add(code)
+        rows.append(r)
+    for code, label, _ in FORWARD_CODES:
+        if code in cons and code not in used:
+            rows.append({"item": label, "fy1": cons[code][0], "fy2": cons[code][1]})
+    return {"rows": rows, "periods": ["FY%d" % y for y in years], "picks": picks,
+            "dropped": [list(d) for d in dropped]}, notes
 
 
 def _renorm_sentence(n_scored, requested, valid, unscored, adjustments, labels):
@@ -165,7 +259,7 @@ def score_reconciliation(components, weights, overall, band):
 def _flatten_strings(obj):
     out = []
     if isinstance(obj, str):
-        out.append(obj)
+        out.append(obj.replace("\u2212", "-"))
     elif isinstance(obj, dict):
         for v in obj.values():
             out.extend(_flatten_strings(v))
@@ -238,7 +332,7 @@ def allocation_confidence(computed, raw, narrative):
     peers = computed.get("peers", {})
     npeers = len(peers.get("rows", [])) if peers.get("available") else 0
     excl = len(peers.get("peer_warnings", []))
-    fwd = bool(_as_dict(narrative.get("forward_outlook")).get("rows"))
+    fwd = bool(_as_dict(computed.get("forward_outlook")).get("rows"))
     qc_ok = computed["qc"]["passed"] == computed["qc"]["total"]
     if span >= 5: score += 1
     else: reasons.append("<5y history")
@@ -262,7 +356,7 @@ def allocation_confidence(computed, raw, narrative):
 
 
 WORD_LIMIT = 80
-CAPALLOC_KW = ("buyback", "repurchase", "dividend", "capex", "capital", "allocat", "leverage",
+CAPALLOC_KW = ("buyback", "buy-back", "buy back", "repurchase", "dividend", "capex", "capital", "allocat", "leverage",
                "balance sheet", "return of capital", "m&a", "acquisition", "reinvest", "invest", "payout", "authoriz", "shareholder")
 DENSITY_EXEMPT = ("key_observations", "overall_conclusion", "scope", "consistency_check",
                   "classification_evidence")
@@ -347,7 +441,9 @@ def narrative_acquisition_conflicts(narrative, computed):
     errs = []
     ma = (computed.get("m_and_a") or {})
     total = str(ma.get("acq_total_5y") or "n/a")
-    has_spend = not total.lower().startswith("n/a") and any(ch.isdigit() for ch in total)
+    _amt = re.sub(r"[^\d.]", "", total)
+    has_spend = (not total.lower().startswith("n/a") and any(ch.isdigit() for ch in total)
+                 and float(_amt or 0) > 0)
     if not has_spend:
         return errs
     _deny = ("no transaction consideration", "not captured", "no consideration is captured",
@@ -401,6 +497,9 @@ def narrative_figure_conflicts(narrative, computed):
             lead = blob[max(0, _ns - 14):_ns].lower()
 
             if re.search(r"(against|versus|\bvs\.?)\s*$", lead):
+                continue
+            if re.search(r"(target|range|goal|aim|ceiling|policy|up to|no more than|below|under|within)\b[^.]{0,25}$",
+                         blob[max(0, _ns - 40):_ns].lower()):
                 continue
             if re.match(r"\s*(x\s*)?(peer|group|sector)\s+(median|average)",
                         blob[m.end(gi):m.end(gi) + 24], re.I):
@@ -481,7 +580,7 @@ def narrative_allocation_conflicts(narrative, computed):
                        ("shareholder returns", "shareholder_return_pct"),
                        ("shareholder return", "shareholder_return_pct"),
                        ("debt reduction", "debt_reduction_pct")):
-        _v = str(cl.get(_fld, "")).strip().rstrip("%")
+        _v = str(cl.get(_fld, "")).strip().rstrip("%").replace("\u2212", "-")
         try:
             canon[_key] = float(_v)
         except ValueError:
@@ -987,6 +1086,8 @@ def main():
     if errs:
         print(json.dumps({"status": "narrative_error", "errors": errs})); sys.exit(3)
     warns += density_warnings(narrative)
+    computed["forward_outlook"], _fwd_notes = build_forward_table(raw, narrative)
+    warns += _fwd_notes
     conf, conf_basis = allocation_confidence(computed, raw, narrative)
 
     merged = {
@@ -1133,7 +1234,7 @@ def main():
                         % (_dep.get("quarters", 0), _dep.get("expected", 8)))
     else:
         excluded.append("Quarterly Monitor + LTM shift (EXCLUDED: no actuals_quarterly supplied)")
-    fo = _as_dict(narrative.get("forward_outlook"))
+    fo = _as_dict(computed.get("forward_outlook"))
     (included if fo.get("rows") else excluded).append(
         "Forward Outlook" if fo.get("rows") else "Forward Outlook (EXCLUDED: no guidance/consensus supplied)")
     (included if narrative.get("management_commentary") else excluded).append(
@@ -1215,6 +1316,8 @@ def main():
         "outcome_coverage": computed.get("outcome_coverage"),
         "publication": computed.get("publication"),
         "warnings": computed["warnings"] + warns,
+        "forward_consensus": {k: (computed.get("forward_outlook") or {}).get(k)
+                              for k in ("periods", "picks", "dropped")},
         "output": _pdf_path or out_path,
         "docx": None if (_pdf_path and _fmt == "pdf") else out_path,
     }), indent=2))

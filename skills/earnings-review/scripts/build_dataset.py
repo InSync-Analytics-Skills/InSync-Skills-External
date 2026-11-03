@@ -10,7 +10,7 @@ Raw files (save each MCP response verbatim; one tool per file; names are read by
   raw/insync_search_tickerid.json   search_tickerid response (identity: exact match required)
   raw/insync_call_date.json         get_call_date, window quarter end -> today + 120 days (reported / stale guard)
   raw/insync_actuals*.json          get_actuals              raw/insync_estimates_pre*.json  get_estimates as-of the cut-off
-  raw/insync_estimates_post*.json   get_estimates latest     raw/insync_guidance*.json       get_guidance
+  raw/insync_estimates_post*.json   get_estimates history   raw/insync_guidance*.json       get_guidance
   raw/insync_probe_wide.json / insync_probe_latest.json      {"request": {...}, "response": {...}} for codes with no pre-print row
   raw/insync_search_lineitem_topkpi.json                     raw/insync_valuation*.json (NTM; _ltm, _ltm_1y, _ltm_3y)
   raw/insync_prices.json             get_market_data, adjusted closes for the ticker and IDX0001
@@ -189,14 +189,14 @@ def main():
     val = {}
     for f_ in sorted(glob.glob(os.path.join(RAW, "insync_valuation*.json"))):
         if "_ltm" in os.path.basename(f_): continue
-        for r in payload_rows(load_json(f_)):
+        for r in sorted(payload_rows(load_json(f_)), key=lambda r: str(r.get("DATE") or "")):
             k = r.get("metric"); v = r.get("value")
             if k in ("Market Cap", "Market_Cap"): val["market_cap_m"] = v
             if k == "EV": val["ev_m"] = v
             if k == "P/E_Adj_Ratio": val["pe_adj_ntm"] = v
             if k == "EV/EBITDA_Adj": val["ev_ebitda_adj_ntm"] = v
             if k == "P/B_Ratio": val["pb"] = v
-            if r.get("DATE"): val.setdefault("_date", r["DATE"])
+            if r.get("DATE"): val["_date"] = r["DATE"]
     if not val: FILL.append("valuation: no get_valuation rows (mode NTM)")
     val["history"] = L["valuation_history"]; val["source"] = "InSync get_valuation"; val["asof"] = a.valuation_date or val.pop("_date", None) or a.post; val.pop("_date", None)
     val["currency"] = reporting_ccy
@@ -244,9 +244,9 @@ def main():
            "release": {"date": "", "display": "", "timing": ""}, "call": {"date": "", "display": ""}, "prepared": "",
            "consensus": {"frozen_source": "InSync", "frozen_date": a.frozen, "post_print_date": a.post, "cross_check": None},
            "consensus_probe": L["probe"], "kpi_universe": L["kpi_universe"],
-           "periods": periods, "base_periods": base, "metrics": metrics, "reaction": reaction, "valuation": val, "forward": L["forward"],
+           "periods": periods, "base_periods": base, "metrics": metrics, "reaction": reaction, "valuation": val, "forward": L["forward"], "post_print_thin": L.get("post_print_thin", False),
            "guidance_extra_rows": [], "facts": {}, "quotes": {}, "guide_verified": {}, "build_warnings": WARN, "fill_by_hand": FILL,
-           "fy_guide": [{"label": f"{m['label']} ({FY_LAB})", "fmt": m["fmt"], "metric": k, "prior": m.get("guide_fy_prior"), "new": m.get("guide_fy_new"),
+           "fy_guide": [{"label": f"{m['label']} ({FY_LAB})", "fmt": m["fmt"], "metric": k, "prior": m.get("guide_fy_prior"), "new": m.get("guide_fy_new"), "prior_raw": m.get("guide_fy_prior_raw"), "new_raw": m.get("guide_fy_new_raw"),
                          "prior_tag": a.prior_source, "new_tag": period, "ytd_text": "—"}
                         for k, m in metrics.items() if (m.get("guide_fy_new") or m.get("guide_fy_prior")) and m.get("fy_guide", True) is not False] or None}
     kept, dp = [], os.path.join(W, "data.json")

@@ -3,11 +3,12 @@ Reads data.json (parsed numbers, no arithmetic) + review_config.json and writes 
 midpoint, revision and reaction statistic, and a flat TOKEN namespace of pre-formatted strings that prose.json references.
 2.0 rules: periods are matched by LABEL (prior year / prior period), never by list position; relative changes divide by |base|
 and print 'n.m.' when the sign crosses zero; verdicts use the declared polarity only (no default); one display scale and
-one precision per row; the currency printed is the one the data were reported in.
+one precision per row; printed changes are computed from the figures as printed (house rule R1); the currency printed is
+the one the data were reported in.
 Usage: python compute.py <workdir>"""
 import json, sys, os, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from erlib import parse_growth_words, ccy_symbol, envelope, guarded
+from erlib import parse_growth_words, guide_qualifier, QUAL_WORD, ccy_symbol, envelope, guarded
 import periods as PER
 from version import VERSION
 from decimal import Decimal, ROUND_HALF_UP
@@ -31,39 +32,51 @@ def main():
     def mid(r): return None if not r else (r[0] + r[1]) / 2
     def crosses(a, b): return a is not None and b is not None and (a * b < 0 or b == 0)
 
-    def f_bn(x):
-        a_ = abs(x); body = f"{S}{q(a_ / 1e6, 2):,.2f}T" if a_ >= 1e6 else f"{S}{q(a_ / 1000, 2):,.2f}B"
-        return body if x >= 0 else f"({body})"
-    def f_m(x): return f"{q(x, 0):,.0f}" if x >= 0 else f"({q(abs(x), 0):,.0f})"
+    def f_bn(x): return f"{S}{q(x / 1000, 2):,.2f}B"
+    def f_bt(x): return f"{S}{q(x / 1e6, 2):,.2f}T"
+    def f_bm(x): return f"{S}{q(x, 2):,.2f}M"
+    def f_m(x): return f"{q(x, 2):,.2f}"
     def f_int(x): return f"{q(x, 0):,.0f}"
     def f_k(x): return f"{S}{q(x, 0):,.0f}k"
     def f_knum(x): return f"{q(x, 0):,.0f}"
     def f_pct1(x): return f"{q(x, 1):.1f}%"
     def f_pct2(x): return f"{q(x, 2):.2f}%"
     def f_usd2(x): return f"{S}{q(x, 2):,.2f}"
-    def f_usd3(x): return f"{S}{q(x, 3):,.3f}"
     def f_num1(x): return f"{q(x, 1):,.1f}"
     def f_num2(x): return f"{q(x, 2):,.2f}"
     def f_days(x): return f"{q(x, 0):,.0f}"
-    def f_x(x): return f"{q(x, 1):.1f}x"
+    def f_x(x): return f"{q(x, 2):.2f}x"
     def f_cm(x): return f"{q(x / 1e6, 2):,.2f}M"
     def f_cb(x): return f"{q(x / 1e9, 2):,.2f}B"
-    def f_mbn(x): return f_bn(x)
-    FMT = {"bn": f_bn, "m": f_m, "int": f_int, "k": f_k, "knum": f_knum, "pct1": f_pct1, "pct2": f_pct2, "usd2": f_usd2, "usd3": f_usd3,
-           "num1": f_num1, "num2": f_num2, "days": f_days, "x": f_x, "cm": f_cm, "cb": f_cb, "mbn": f_mbn}
-    NEG_SELF = {"bn", "m", "mbn"}
+    FMT = {"bn": f_bn, "bt": f_bt, "bm": f_bm, "m": f_m, "int": f_int, "k": f_k, "knum": f_knum, "pct1": f_pct1, "pct2": f_pct2, "usd2": f_usd2, "usd3": f_usd2,
+           "num1": f_num1, "num2": f_num2, "days": f_days, "x": f_x, "cm": f_cm, "cb": f_cb, "mbn": f_bn}
+    def nz(s): return any(ch in "123456789" for ch in s)
     def fmt(x, kind):
         if x is None: return "—"
-        if x < 0 and kind not in NEG_SELF: return f"({FMT[kind](abs(x))})"
-        return FMT[kind](x)
-    def pcn(x, dp=1): return "—" if x is None else (f"({q(abs(x), dp)})%" if x < 0 else f"+{q(x, dp)}%")
-    def bps(x): return "—" if x is None else (f"({q(abs(x), 0)}) bps" if x < 0 else f"+{q(x, 0)} bps")
+        s = FMT[kind](abs(x)); return "\u2212" + s if (x < 0 and nz(s)) else s
+    def pcn(x, dp=1):
+        if x is None: return "—"
+        s = f"{q(abs(x), dp)}%"; return (("\u2212" if x < 0 else "+") + s) if nz(s) else s
+    def bps(x):
+        if x is None: return "—"
+        s = f"{q(abs(x), 0)} bps"; return (("\u2212" if x < 0 else "+") + s) if nz(s) else s
+    def mk(mx, k_): return "bt" if mx >= 1e6 else ("bn" if mx >= 1e3 else ("bm" if k_ == "bn" else "m"))
+    SH = {"bn": (1e3, 2), "mbn": (1e3, 2), "bt": (1e6, 2), "cm": (1e6, 2), "cb": (1e9, 2), "pct1": (1, 1), "num1": (1, 1), "int": (1, 0), "k": (1, 0), "knum": (1, 0), "days": (1, 0)}
+    MONEY = {"bn": 1e3, "mbn": 1e3, "bt": 1e3, "bm": 1e3, "m": 1e3, "k": 1e6, "knum": 1e6, "usd2": 1.0, "usd3": 1.0}
+    def shown(x, k_):
+        if x is None: return None
+        dv, dp = SH.get(k_, (1, 2)); return float(q(x / dv, dp)) * dv
+    def small(x, k_): return x is not None and k_ in MONEY and abs(x) < MONEY[k_]
+    def rpct(a_, b_, ka, kb=None):
+        kb = kb or ka
+        return pct(a_, b_) if (a_ is None or b_ is None or small(b_, kb)) else pct(shown(a_, ka), shown(b_, kb))
+    def rdif(a_, b_, k_): return None if (a_ is None or b_ is None) else (a_ - b_ if small(b_, k_) else shown(a_, k_) - shown(b_, k_))
     def rng(r, kind):
         if not r: return "—"
         if r[0] == r[1]: return fmt(r[0], kind)
         a_, b_ = fmt(r[0], kind), fmt(r[1], kind)
-        if "(" not in a_ + b_ and a_[-1:] == b_[-1:] and a_[-1:] in "BTMk%x" and not a_[-1:].isdigit(): a_ = a_[:-1]
-        if "(" not in a_ + b_ and S.strip() and b_.startswith(S) and a_.startswith(S): b_ = b_[len(S):]
+        if "\u2212" not in a_ + b_ and a_[-1:] == b_[-1:] and a_[-1:] in "BTMk%x" and not a_[-1:].isdigit(): a_ = a_[:-1]
+        if "\u2212" not in a_ + b_ and S.strip() and b_.startswith(S) and a_.startswith(S): b_ = b_[len(S):]
         return f"{a_}⁠–​{b_}"
     def rng_approx(r, kind): return "—" if not r else (f"~{fmt(r[0], kind)}" if r[0] == r[1] else rng(r, kind))
 
@@ -73,8 +86,10 @@ def main():
         if k in ("int", "knum", "num1") and m.get("unit") == "count":
             if mx >= 1e9: return "cb"
             if mx >= 1e7: return "cm"
-        if k == "m" and mx >= 1e5: return "mbn"
-        return k
+        if k in ("bn", "m") and m.get("unit") == "m": return mk(mx, k)
+        if k in ("pct1", "pct2"): return "pct2" if mx < 5 else "pct1"
+        if k == "num1" and m.get("unit") in ("m", "b"): return "num2"
+        return "usd2" if k == "usd3" else k
 
     out = {"version": VERSION, "metrics": {}, "tokens": {}, "warnings": WARN, "large_surprise": []}
     T = out["tokens"]
@@ -94,7 +109,7 @@ def main():
             cv, cu = SC["value"], SC["unit"]
             sc_yago = full[cur] - cv / 100 if cu == "bps" else (full[cur] / (1 + cv / 100) if cu == "pct" else full[cur] - cv)
             if SC.get("mode", "replace") == "replace" and ya in full: full[ya] = sc_yago
-        def chg(a_, b_): return pct(a_, b_) if kind == "level" else bp(a_, b_)
+        def chg(a_, b_): return rpct(a_, b_, k) if kind == "level" else bp(a_, b_)
         def yoy_of(p): return chg(full.get(p), full.get(PER.prior_year_of(p)))
         def seq_of(p):
             pp = PER.prior_period_of(p)
@@ -102,28 +117,32 @@ def main():
         yoy = [yoy_of(p) for p in P]; qoq = [seq_of(p) for p in P]
         nat = m.get("native_yoy") or [None] * n
         replace_sc = bool(SC and SC.get("mode", "replace") == "replace")
-        yoy_display = [(yoy[j] if (replace_sc and j == i) or nat[j] is None else nat[j]) for j in range(n)]
+        usen = [nat[j] is not None and not (replace_sc and j == i) and (yoy[j] is None or PER.prior_year_of(P[j]) not in P) for j in range(n)]
+        yoy_display = [nat[j] if usen[j] else yoy[j] for j in range(n)]
         for j, p in enumerate(P):
             if nat[j] is not None and yoy[j] is not None and kind == "level" and abs(nat[j] - yoy[j]) > 0.5:
                 WARN.append(f"{mid_} {p}: InSync native Y/Y {nat[j]:.1f}% differs from the level-computed {yoy[j]:.1f}% (check basis)")
         act = full.get(cur)
         surprise = None if (act is None or not cons) else chg(act, cons["mean"])
-        vs_guide = None if (act is None or not gp) else chg(act, mid(gp))
+        gpm = None if not gp else (mid(gp) if (kind != "level" or small(mid(gp), k)) else mid([shown(x, k) for x in gp]))
+        vs_guide = None if (act is None or not gp) else (bp(act, gpm) if kind != "level" else pct(act, gpm) if small(gpm, k) else pct(shown(act, k), gpm))
         nx = d["period"].get("next_label"); ya_next = full.get(PER.prior_year_of(nx)) if nx else None
         r = {"actual": act, "prior": full.get(PER.prior_period_of(cur)), "yago": full.get(ya), "yoy": yoy, "qoq": qoq, "yoy_display": yoy_display,
              "surprise": surprise, "vs_guide_mid": vs_guide, "guide_prior_mid": mid(gp), "guide_new_mid": mid(gn),
              "new_mid_vs_actual": None if (not gn or act is None) else chg(mid(gn), act),
              "new_mid_vs_yago_next": None if (not gn or ya_next is None) else chg(mid(gn), ya_next),
              "new_mid_vs_cons_next": None if (not gn or not cn) else chg(mid(gn), cn["mean"]),
-             "vs_guide_low": None if (act is None or not gp) else act - gp[0], "row_fmt": k}
+             "vs_guide_low": None if (act is None or not gp) else rdif(act, gp[0], k), "row_fmt": k, "yoy_native_used": any(usen)}
         better = m.get("better"); band = m.get("inline_band", 1.0 if kind == "level" else 10.0)
         if surprise is None or not cons: verdict = "Not comparable"
         elif better not in ("higher", "lower"): verdict = "UNDECLARED"; WARN.append(f"POLARITY UNDECLARED: {mid_} ({m.get('resolved_code')}) is graded but has no declared direction")
-        elif abs(surprise) < band: verdict = "IN LINE"
-        else: verdict = "BEAT" if ((surprise > 0) == (better == "higher")) else "MISS"
+        else:
+            sp = float(q(surprise, 1 if kind == "level" else 0))
+            verdict = "IN LINE" if abs(sp) < band else ("BEAT" if ((sp > 0) == (better == "higher")) else "MISS")
         if cons and surprise is not None and cons.get("thin") and verdict != "UNDECLARED": verdict += "†"
         r["verdict"] = verdict
-        r["guide_pos"] = None if (act is None or not gp) else ("below range" if act < min(gp) else ("above range" if act > max(gp) else "within range"))
+        sa, sg = shown(act, k), [shown(x, k) for x in (gp or [])]
+        r["guide_pos"] = None if (act is None or not gp) else ("below range" if sa < min(sg) else ("above range" if sa > max(sg) else "within range"))
         if surprise is not None and ((kind == "level" and abs(surprise) > 15) or (kind == "rate" and abs(surprise) > 200)):
             out["large_surprise"].append({"id": mid_, "label": m["label"], "code": m.get("resolved_code"), "cons_code": cons.get("code"), "surprise": surprise})
         if SC:
@@ -131,19 +150,17 @@ def main():
             if SC.get("mode") == "alongside" and sc_yago is not None:
                 ay = chg(act, sc_yago); r["stated_yoy"]["yoy"] = ay
                 T[f"{mid_}.alt_yago"] = fmt(sc_yago, k); T[f"{mid_}.alt_yoy"] = pcn(ay) if kind == "level" else bps(ay)
-                T[f"{mid_}.alt_change"] = fmt(act - sc_yago, k) if kind == "level" else bps(ay)
+                T[f"{mid_}.alt_change"] = fmt(rdif(act, sc_yago, k), k) if kind == "level" else bps(ay)
             T[f"{mid_}.alt_label"] = SC.get("basis", ""); T[f"{mid_}.basis_yago"] = fmt(sc_yago, k)
         out["metrics"][mid_] = r
-        ka = k
-        if k == "usd2" and cons and act is not None and q(act, 2) == q(cons["mean"], 2) and abs(act - cons["mean"]) > 1e-9: ka = "usd3"
-        kc = ka
+        ka = kc = k
         def delta(x, a_=None, b_=None):
             if x is None: return "—"
             if a_ is not None and b_ is not None and kind == "level" and crosses(a_, b_): return "n.m."
             return pcn(x) if kind == "level" else bps(x)
         T[f"{mid_}.actual"] = m.get("actual_text") or fmt(act, ka)
         T[f"{mid_}.prior"] = fmt(r["prior"], k); T[f"{mid_}.yago"] = fmt(r["yago"], k)
-        T[f"{mid_}.yoy"] = ("n.m." if (kind == "level" and nat[i] is None and crosses(act, full.get(ya))) else delta(yoy_display[i]))
+        T[f"{mid_}.yoy"] = ("n.m." if (kind == "level" and not usen[i] and crosses(act, full.get(ya))) else delta(yoy_display[i]))
         T[f"{mid_}.qoq"] = delta(qoq[i], act, r["prior"]); T[f"{mid_}.seq"] = T[f"{mid_}.qoq"]
         T[f"{mid_}.surprise"] = delta(surprise, act, (cons or {}).get("mean")); T[f"{mid_}.verdict"] = r["verdict"]; T[f"{mid_}.guide_pos"] = r["guide_pos"] or "—"
         T[f"{mid_}.consensus"] = "—" if not cons else fmt(cons["mean"], kc)
@@ -163,12 +180,14 @@ def main():
         T[f"{mid_}.new_mid_vs_cons_next"] = delta(r["new_mid_vs_cons_next"])
         for j, plabel in enumerate(P):
             T[f"{mid_}.v.{plabel}"] = fmt(full.get(plabel), k if plabel != cur else ka)
-            T[f"{mid_}.yoy.{plabel}"] = ("n.m." if (kind == "level" and nat[j] is None and crosses(full.get(plabel), full.get(PER.prior_year_of(plabel)))) else delta(yoy_display[j]))
+            T[f"{mid_}.yoy.{plabel}"] = ("n.m." if (kind == "level" and not usen[j] and crosses(full.get(plabel), full.get(PER.prior_year_of(plabel)))) else delta(yoy_display[j]))
 
-    def v(mid_, j): return M[mid_]["values"][j]
-    def b(mid_, j): return M[mid_]["base"][j]
+    def sv(mid_, x):
+        k_ = out["metrics"][mid_]["row_fmt"]; return x if (x is None or M[mid_].get("kind") == "rate" or small(x, k_)) else shown(x, k_)
+    def v(mid_, j): return sv(mid_, M[mid_]["values"][j])
+    def b(mid_, j): return sv(mid_, M[mid_]["base"][j])
     def vp(mid_, label):
-        full_ = dict(zip(ALLP, (M[mid_].get("base") or [None] * len(BASE)) + M[mid_]["values"])); return full_.get(PER.norm_period(label))
+        full_ = dict(zip(ALLP, (M[mid_].get("base") or [None] * len(BASE)) + M[mid_]["values"])); return sv(mid_, full_.get(PER.norm_period(label)))
     def fy_actual(mid_, yy):
         parts = PER.fy_parts(cad, 2000 + int(yy))
         xs = [vp(mid_, p) for p in parts]
@@ -203,12 +222,12 @@ def main():
             if not cand: envelope("compute", f"reaction.{key} {dtv} is outside the price history ({dates[0]}..{dates[-1]})")
             new = cand[-1] if side < 0 else cand[0]; WARN.append(f"reaction.{key} {dtv} is not a trading day in the price file: using {new}"); R[key] = new
     def close(s, dt): return (R["closes"].get(s) or [None] * len(dates))[ix[dt]]
-    def ret(s, a_, b_): return pct(close(s, b_), close(s, a_))
+    def ret(s, a_, b_, pr_=False): return rpct(close(s, b_), close(s, a_), "usd2") if pr_ else pct(close(s, b_), close(s, a_))
     rx = {"pre_price": close(sym, R["pre_date"]), "post_price": close(sym, R["post_date"]), "current_price": close(sym, R["asof_date"]) if R.get("asof_date") in ix else None,
-          "chg": ret(sym, R["pre_date"], R["post_date"]), "index_chg": ret(idx, R["pre_date"], R["post_date"]) if idx in R["closes"] else None,
+          "chg": ret(sym, R["pre_date"], R["post_date"], True), "index_chg": ret(idx, R["pre_date"], R["post_date"]) if idx in R["closes"] else None,
           "day2": ret(sym, R["post_date"], R["day2_date"]) if R.get("day2_date") else None,
           "index_day2": ret(idx, R["post_date"], R["day2_date"]) if R.get("day2_date") and idx in R["closes"] else None,
-          "since": ret(sym, R["pre_date"], R["asof_date"]) if R.get("asof_date") in ix else None, "index_since": ret(idx, R["pre_date"], R["asof_date"]) if R.get("asof_date") in ix and idx in R["closes"] else None,
+          "since": ret(sym, R["pre_date"], R["asof_date"], True) if R.get("asof_date") in ix else None, "index_since": ret(idx, R["pre_date"], R["asof_date"]) if R.get("asof_date") in ix and idx in R["closes"] else None,
           "peers": {p: ret(p, R["pre_date"], R["post_date"]) for p in R.get("peers", [])},
           "peers_day2": {p: ret(p, R["post_date"], R["day2_date"]) for p in R.get("peers", [])} if R.get("day2_date") else {}}
     vols = R.get("volumes", {}).get(sym)
@@ -223,7 +242,7 @@ def main():
     T.update({"reaction.pre_price": fp(rx["pre_price"]), "reaction.post_price": fp(rx["post_price"]), "reaction.current_price": fp(rx["current_price"]),
               "reaction.chg": pcn(rx["chg"]), "reaction.index_chg": pcn(rx["index_chg"]), "reaction.day2": pcn(rx["day2"]), "reaction.index_day2": pcn(rx["index_day2"]),
               "reaction.since": pcn(rx["since"]), "reaction.index_since": pcn(rx["index_since"]),
-              "reaction.vol_reaction_x": "—" if rx.get("vol_reaction_x") is None else f"{q(rx['vol_reaction_x'], 1)}", "reaction.vol_day2_x": "—" if rx.get("vol_day2_x") is None else f"{q(rx['vol_day2_x'], 1)}",
+              "reaction.vol_reaction_x": "—" if rx.get("vol_reaction_x") is None else f"{q(rx['vol_reaction_x'], 2)}", "reaction.vol_day2_x": "—" if rx.get("vol_day2_x") is None else f"{q(rx['vol_day2_x'], 2)}",
               "reaction.vs_buyback": "—" if rx.get("price_vs_buyback") is None else f"{q(abs(rx['price_vs_buyback']), 1)}", "reaction.index": idx})
     for p, val in rx["peers"].items(): T[f"reaction.peer.{p}"] = pcn(val)
     for p, val in rx["peers_day2"].items(): T[f"reaction.peer_day2.{p}"] = pcn(val)
@@ -248,9 +267,8 @@ def main():
                         "market cap, EV, NTM multiples and the own-history table print as dashes (verify the vendor valuation before quoting any)")
             for k_ in ("market_cap_m", "ev_m", "pe_adj_ntm", "ev_ebitda_adj_ntm", "pb"): VL[k_] = None
             VL["history"] = None
-    T.update({"val.mcap": f_bn(VL["market_cap_m"]) if VL.get("market_cap_m") is not None else "—", "val.ev": f_bn(VL["ev_m"]) if VL.get("ev_m") is not None else "—",
-              "val.pe_ntm": f_x(VL["pe_adj_ntm"]) if VL.get("pe_adj_ntm") is not None else "—", "val.ev_ebitda_ntm": f_x(VL["ev_ebitda_adj_ntm"]) if VL.get("ev_ebitda_adj_ntm") is not None else "—",
-              "val.pb": f"{q(VL['pb'], 2):.2f}x" if VL.get("pb") is not None else "—"})
+    T.update({"val.mcap": fmt(VL.get("market_cap_m"), mk(abs(VL.get("market_cap_m") or 0), "bn")), "val.ev": fmt(VL.get("ev_m"), mk(abs(VL.get("ev_m") or 0), "bn")),
+              "val.pe_ntm": fmt(VL.get("pe_adj_ntm"), "x"), "val.ev_ebitda_ntm": fmt(VL.get("ev_ebitda_adj_ntm"), "x"), "val.pb": fmt(VL.get("pb"), "x")})
     VK = {"P/E_Adj_Ratio": "pe", "P/E_Ratio": "pe_gaap", "EV/EBITDA_Adj": "ev_ebitda", "EV/EBITDA": "ev_ebitda_gaap", "P/B_Ratio": "pb", "EV/Sales": "ev_sales"}
     out["valuation_history"] = {}
     for mname, h in (VL.get("history") or {}).items():
@@ -258,16 +276,16 @@ def main():
         if not kk or h.get("ltm") is None: continue
         y1, y3 = h.get("y1") or {}, h.get("y3") or {}
         o = {"ltm": h["ltm"], "avg1y": y1.get("avg"), "avg3y": y3.get("avg"), "min3y": y3.get("min"), "max3y": y3.get("max")}
-        o["vs1y"] = pct(o["ltm"], o["avg1y"]); o["vs3y"] = pct(o["ltm"], o["avg3y"])
+        o["vs1y"] = rpct(o["ltm"], o["avg1y"], "x"); o["vs3y"] = rpct(o["ltm"], o["avg3y"], "x")
         out["valuation_history"][kk] = o
-        fx = lambda x: "—" if x is None else f_x(x)
+        fx = lambda x: fmt(x, "x")
         T.update({f"val.hist.{kk}.ltm": fx(o["ltm"]), f"val.hist.{kk}.avg1y": fx(o["avg1y"]), f"val.hist.{kk}.avg3y": fx(o["avg3y"]),
                   f"val.hist.{kk}.min3y": fx(o["min3y"]), f"val.hist.{kk}.max3y": fx(o["max3y"]), f"val.hist.{kk}.vs1y": pcn(o["vs1y"]), f"val.hist.{kk}.vs3y": pcn(o["vs3y"])})
 
     out["forward"] = {}
     for key, f in d.get("forward", {}).items():
-        c_ = pct(f["post"], f["pre"]); out["forward"][key] = {"chg": c_, "code": f.get("pre_code")}
-        k = f.get("fmt", "usd3")
+        k = f.get("fmt", "usd2"); k = mk(max(abs(f["pre"] or 0), abs(f["post"] or 0)), k) if k in ("bn", "m") else k
+        c_ = rpct(f["post"], f["pre"], k); out["forward"][key] = {"chg": c_, "code": f.get("pre_code")}
         T[f"fwd.{key}.pre"] = fmt(f["pre"], k); T[f"fwd.{key}.post"] = fmt(f["post"], k); T[f"fwd.{key}.chg"] = "n.m." if crosses(f["post"], f["pre"]) else pcn(c_)
         T[f"fwd.{key}.pre_n"] = str(f.get("pre_count", "")); T[f"fwd.{key}.post_n"] = str(f.get("post_count", "")); T[f"fwd.{key}.post_down"] = str(f.get("post_down", ""))
         T[f"fwd.{key}.label"] = f.get("label", key)
@@ -277,7 +295,7 @@ def main():
     def _rtxt(r_):
         lo, hi = r_
         if lo is not None and hi is not None: return pcn(lo, 0) if lo == hi else f"{pcn(lo, 0)} to {pcn(hi, 0)}"
-        return f"above {pcn(lo, 0)}" if lo is not None else f"below {pcn(hi, 0)}"
+        return f"at least {pcn(lo, 0)}" if lo is not None else f"up to {pcn(hi, 0)}"
     def _pos(x, r_):
         if x is None or r_ is None: return "—"
         lo, hi = r_
@@ -295,9 +313,10 @@ def main():
             row = FYA.get(G["metric"], {})
             yy = f"{int(d['period']['fy_label'][2:]) - 1:02d}"
             bv = fy_actual(G["metric"], yy) if G.get("base", "fy_prior") == "fy_prior" else out["derived"].get(G["base"])
-            gtxt = G.get("guide_text") or row.get("new_text") or mrow.get("guide_fy_new_text"); ptxt = G.get("prior_text") or row.get("prior_text") or mrow.get("guide_fy_prior_text")
+            gtxt = G.get("guide_text") or row.get("new_text") or row.get("new_raw") or mrow.get("guide_fy_new_text"); ptxt = G.get("prior_text") or row.get("prior_text") or row.get("prior_raw") or mrow.get("guide_fy_prior_text")
             gr, pr_ = parse_growth_words(gtxt), parse_growth_words(ptxt)
-            o = {"base": bv, "implied": pct(fpre, bv), "implied_post": pct(fpost, bv), "range": gr, "prior_range": pr_}
+            kf, kb_ = fwd.get("fmt", "usd2"), fwd.get("fmt", mrow["fmt"])
+            o = {"base": bv, "implied": rpct(fpre, bv, kf, kb_), "implied_post": rpct(fpost, bv, kf, kb_), "range": gr, "prior_range": pr_}
             o["pos"] = _pos(o["implied"], gr); o["pos_post"] = _pos(o["implied_post"], gr); o["prior_pos"] = _pos(o["implied"], pr_)
             out["guide_vs_frozen"].append(o)
             if bv is None: WARN.append(f"guide_vs_frozen {G['metric']}: FY{yy} actual incomplete (needs {', '.join(PER.fy_parts(cad, 2000 + int(yy)))})")
@@ -311,21 +330,27 @@ def main():
             continue
         gn_ = mrow.get("guide_fy_new") if G.get("basis") == "fy" else mrow.get("guide_new")
         if gn_:
-            o = {"mid": pct(mid(gn_), fpre), "high": pct(gn_[1], fpre), "low": pct(gn_[0], fpre), "mid_vs_post": pct(mid(gn_), fpost)}
+            kf = fwd.get("fmt", "usd2")
+            o = {"mid": rpct(mid(gn_), fpre, kf), "high": rpct(gn_[1], fpre, kf), "low": rpct(gn_[0], fpre, kf), "mid_vs_post": rpct(mid(gn_), fpost, kf)}
             out["guide_vs_frozen"].append(o)
             T[gp_ + "mid_vs_frozen"] = pcn(o["mid"]); T[gp_ + "high_vs_frozen"] = pcn(o["high"]); T[gp_ + "low_vs_frozen"] = pcn(o["low"]); T[gp_ + "mid_vs_post"] = pcn(o["mid_vs_post"])
             T[gp_ + "frozen"] = fmt(fwd["pre"], fwd.get("fmt", "usd3")); T[gp_ + "frozen_n"] = str(fwd.get("pre_count", "")); T[gp_ + "metric"] = mrow["label"]
 
     FYL = d.get("fy_guide"); FYL = [FYL] if isinstance(FYL, dict) else (FYL or [])
     out["fy_guide"] = []
+    def _qw(q_, s_): return (QUAL_WORD[q_] + s_) if (q_ and s_ and s_ != "—") else s_
     for fi, FY in enumerate(FYL):
         px = "fy." if fi == 0 else f"fy{fi+1}."
         k = FY.get("fmt", "int"); o = {}
-        o["cut_vs_orig"] = pct(mid(FY["new"]), FY["orig_target"]) if (FY.get("orig_target") and FY.get("new")) else None
-        o["cut_units"] = (mid(FY["prior"]) - mid(FY["new"])) if (FY.get("prior") and FY.get("new")) else None
-        o["change"] = (mid(FY["new"]) - mid(FY["prior"])) if (FY.get("prior") and FY.get("new")) else None
-        o["change_pct"] = pct(mid(FY["new"]), mid(FY["prior"])) if (FY.get("prior") and FY.get("new")) else None
-        o["direction"] = None if o["change"] is None else ("raised" if o["change"] > 0 else "lowered" if o["change"] < 0 else "reaffirmed")
+        qn, qp = guide_qualifier(FY.get("new_raw")), guide_qualifier(FY.get("prior_raw"))
+        _qr = {"ceiling": -1, None: 0, "floor": 1}
+        if k in ("bn", "m"): k = mk(max([abs(x) for x in list(FY.get("prior") or []) + list(FY.get("new") or []) + [FY.get("orig_target")] if x is not None] or [0]), k)
+        o["cut_vs_orig"] = rpct(mid(FY["new"]), FY["orig_target"], k) if (FY.get("orig_target") and FY.get("new")) else None
+        o["cut_units"] = rdif(mid(FY["prior"]), mid(FY["new"]), k) if (FY.get("prior") and FY.get("new")) else None
+        o["change"] = rdif(mid(FY["new"]), mid(FY["prior"]), k) if (FY.get("prior") and FY.get("new")) else None
+        o["change_pct"] = rpct(mid(FY["new"]), mid(FY["prior"]), k) if (FY.get("prior") and FY.get("new")) else None
+        o["direction"] = None if o["change"] is None else ("raised" if o["change"] > 0 else "lowered" if o["change"] < 0 else
+                                                        "raised" if _qr[qn] > _qr[qp] else "lowered" if _qr[qn] < _qr[qp] else "reaffirmed")
         o["implied_next"] = [x - FY["ytd_value"] for x in FY["new"]] if (FY.get("ytd_value") is not None and FY.get("new")) else None
         mrow = M.get(FY.get("metric") or "", {}); Fd = d.get("forward", {})
         fk = FY.get("forward") or next((c for c in ([{"EPS": "eps", "SALES": "rev"}.get(mrow.get("consensus_metric") or "", (mrow.get("consensus_metric") or "").lower()) + "_fy0"] if mrow.get("consensus_metric") else [])
@@ -334,13 +359,19 @@ def main():
         if fk: cf, cfn, cs = Fd[fk]["pre"], Fd[fk]["post"], "InSync"; o["cons_counts"] = (Fd[fk].get("pre_count"), Fd[fk].get("post_count"))
         elif mrow.get("consensus_fy"): cf, cs = mrow["consensus_fy"]["mean"], "InSync"; o["cons_counts"] = (mrow["consensus_fy"].get("count"), (mrow.get("consensus_fy_next") or {}).get("count"))
         if cfn is None and mrow.get("consensus_fy_next"): cfn = mrow["consensus_fy_next"]["mean"]
+        gz = FYA.get(FY.get("metric"), {}).get("_growth")
+        _grow = str(k).startswith("pct") and not str(mrow.get("fmt", "")).startswith("pct")
+        if _grow:
+            cf, cfn = (gz[1]["implied"], gz[1]["implied_post"]) if gz else (None, None)
+            if not gz: WARN.append(f"fy_guide {FY.get('metric')}: a growth guide on a level line needs a guide_vs_frozen growth entry; consensus left blank")
         o["consensus_frozen"], o["consensus_post"], o["consensus_src"] = cf, cfn, cs
         nm = mid(FY.get("new")) if FY.get("new") else None; pm = mid(FY.get("prior")) if FY.get("prior") else None
-        kd = mrow.get("kind", "level")
-        dlt = (lambda a_, b_: pct(a_, b_)) if kd == "level" else (lambda a_, b_: bp(a_, b_))
+        kd = "rate" if _grow else mrow.get("kind", "level")
+        dlt = (lambda a_, b_: rpct(a_, b_, k)) if kd == "level" else (lambda a_, b_: bp(a_, b_))
         o["new_mid_vs_cons"] = dlt(nm, cf) if (nm is not None and cf is not None) else None
         o["prior_mid_vs_cons"] = dlt(pm, cf) if (pm is not None and cf is not None) else None
-        o["cons_pos"] = _pos(cf, FY["new"]) if (cf is not None and FY.get("new")) else "—"
+        _nr_ = FY.get("new"); _nr_ = ((_nr_[0], None) if qn == "floor" else (None, _nr_[1]) if qn == "ceiling" else _nr_) if _nr_ else _nr_
+        o["cons_pos"] = _pos(cf, _nr_) if (cf is not None and _nr_) else "—"
         if cf is not None:
             n0 = (o.get("cons_counts") or (None, None))[0]
             T[px + "consensus"] = fmt(cf, k) + (f" ({n0})" if n0 else ""); T[px + "consensus_src"] = cs
@@ -348,15 +379,16 @@ def main():
             if gz: T[px + "consensus_growth"] = T[gz[0] + "implied_growth"]
         if FY.get("consensus_next") is None and cfn is not None:
             FY["consensus_next"] = cfn; n1 = (o.get("cons_counts") or (None, None))[1]
-            FY.setdefault("consensus_next_tag", "InSync post-print" + (f" ({n1})" if n1 else ""))
+            _nr = (Fd[fk].get("post_status") == "not_revised") if fk else bool((mrow.get("consensus_fy_next") or {}).get("not_revised"))
+            FY.setdefault("consensus_next_tag", ("InSync pre-print" if _nr else "InSync post-print") + (f" ({n1})" if n1 else ""))
         T[px + "new_mid_vs_cons"] = (pcn(o["new_mid_vs_cons"]) if kd == "level" else bps(o["new_mid_vs_cons"])) if o["new_mid_vs_cons"] is not None else "—"
         T[px + "prior_mid_vs_cons"] = (pcn(o["prior_mid_vs_cons"]) if kd == "level" else bps(o["prior_mid_vs_cons"])) if o["prior_mid_vs_cons"] is not None else "—"
         T[px + "cons_pos"] = o["cons_pos"]
         out["fy_guide"].append(o)
-        T.update({px + "prior": FY.get("prior_text") or rng(FY.get("prior"), k), px + "new": FY.get("new_text") or rng(FY.get("new"), k), px + "orig": fmt(FY.get("orig_target"), k), px + "cut_vs_orig": pcn(o["cut_vs_orig"]),
+        T.update({px + "prior": FY.get("prior_text") or _qw(qp, rng(FY.get("prior"), k)), px + "new": FY.get("new_text") or _qw(qn, rng(FY.get("new"), k)), px + "orig": fmt(FY.get("orig_target"), k), px + "cut_vs_orig": pcn(o["cut_vs_orig"]),
                   px + "cut_units": fmt(o["cut_units"], k) if o["cut_units"] is not None else "—", px + "implied_next": rng(o["implied_next"], k) if o["implied_next"] else "—",
                   px + "ytd": FY.get("ytd_text", "—"), px + "consensus_next": fmt(FY.get("consensus_next"), k) if FY.get("consensus_next") is not None else "—", px + "label": FY["label"],
-                  px + "change": ("—" if o["change"] is None else ("+" if o["change"] > 0 else "") + fmt(o["change"], k)), px + "change_pct": pcn(o["change_pct"]), px + "direction": o["direction"] or "—"})
+                  px + "change": ("—" if o["change"] is None else ("+" if (o["change"] > 0 and nz(fmt(o["change"], k))) else "") + fmt(o["change"], k)), px + "change_pct": pcn(o["change_pct"]), px + "direction": o["direction"] or "—"})
 
     for k2, v2 in d.get("facts", {}).items(): T[f"f.{k2}"] = str(v2)
     C = d["company"]; PD = d["period"]

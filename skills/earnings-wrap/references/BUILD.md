@@ -1,4 +1,4 @@
-# Build guide — earnings wrap v7.13.1
+# Build guide — earnings wrap v7.13.5
 
 This file describes the shipped pipeline. The renderer carries its CSS inline; there is no
 separate HTML template or header spec to follow.
@@ -129,11 +129,16 @@ precisions on one page:
 |---|---|---|
 | money, at EVERY magnitude | 2 | `$39.31B`, `$617.10M`, `EUR 4.72B`, `GBp 83.37M` |
 | per-share | 2 | `$1.87`. Per-share is money with no magnitude, so the money rule covers it |
-| percentages | 1, always | `74.9%`, `+2.6pp` |
+| percentages | 1; 2 for a rate row whose largest value is under 5% | `74.9%`, `+2.6pp`, `2.45%` |
 | multiples | 2 | `24.80x` |
 | counts with a magnitude | 2 | `16.72M`, `149.25K`, `3.72B` |
 | bare `#` | whole units | `1,482`. Refuses a fractional value |
 | bare numbers (`2d`) | 2 | `16.72` |
+| negatives | U+2212 minus before the currency symbol, never a hyphen or brackets | `−$1.23B`, `−1.2%`, `−0.5pp` |
+
+**One unit per row (house rule R3).** Choose the row's `u` from its LARGEST value: under 1bn in
+`$M`, under 1tn in `$B`, else `$T` (any currency token the same way); every cell of the row then
+prints in that unit. A column listing one metric over time follows the same rule.
 
 **Two unit tokens were retired**, and a config carrying either gets a migration message naming
 its replacement rather than the generic "not in the vocabulary" list:
@@ -206,31 +211,27 @@ both, never neither. `guidanceBasis` is still required and still describes what 
 
 ## Gotchas
 
-- **Section 4 computes from the DISPLAYED figures, and that is deliberate.** earnings-flash-skill
-  computes from the values as displayed too, so identical data publishes identical surprises in both
-  notes; computing from unrounded values instead can move a surprise by a tenth of a point. Three
-  things carry the rule and none of them can be removed alone:
-  1. `resultsTable` quantises `a`/`c`/`py`/`pq` through `results_dp_map` **before** computing.
-  2. `row_dp` widens a row (money to 4dp, rates to 2dp) when the house precision would erase its
-     gap or flip its direction. Without it a flat 2dp could print a multi-billion miss on a
-     trillion-scale balance as `$1.20T | $1.20T | +$0.00T | +0.0% | In-Line`: it reconciles
-     perfectly and is factually inverted.
+- **Every printed change is computed from the DISPLAYED figures (house rounding rule, 2026-10-22).**
+  earnings-flash-skill applies the same rule, so identical data publishes identical surprises in both
+  notes. Three things carry it and none of them can be removed alone:
+  1. `resultsTable`, the snapshot, `kpiHistoryTable` and `revisionsTable` quantise both operands to the
+     row's precision **before** computing (`_r1`), except on a small base - money under 1bn in currency
+     units, per-share under 1.00 - which is computed from the full values (`_small_base`).
+  2. `row_dp` decides the row's one precision: the unit's house precision, 2dp for a rate row whose
+     largest value is under 5%, nothing else. The old widener (money to 4dp, rates to 2dp, the
+     "Precision note") is retired; the Beat / In-Line / Miss arrow is decided on the PRINTED surprise.
   3. `change()` returns `(a-b)/abs(b)`, not `a/b - 1`, so a negative base is signed correctly at
      source. `deltaCons` applies no separate sign flip on top, which would invert every negative
      row twice.
   **`results_dp_map` is the only place precision is decided.** `basis_band_rows` MUST read it:
   `numbers_lint` block (d) recomputes the 40% basis test from the PRINTED cells and fails the build
   when a banded row is not named in the Section 4 caption, so raw-versus-quantised straddling of
-  that band breaks the render outright. Deliberately NOT shared with earnings-flash-skill: its verdict bands
-  (1% / 0.25pp - wrap's arrow is a weaker claim than the word "Beat" and bands tighter at
-  0.5 / 0.15), and its rounding mode (`%.1f`, ties-to-even; wrap keeps Excel's ties-away-from-zero).
-  `_flash_verdict` exists ONLY to decide widening, so the two skills widen the same rows.
-  Out of scope and still computed raw: the revisions grid, and the KPI table's Y/Y column for any
-  metric Section 4 does not print. A KPI-table or dict-snapshot row whose metric
-  Section 4 also prints (same `crosstable_lint` label key, same `u`) computes its Y/Y from its OWN
-  cells quantised to Section 4's `results_dp_map` precision, via `shared_results_dp`, so the two
-  tables print the same Y/Y from the same figures. A real `py` vs `vals` conflict still blocks,
-  because each table still uses its own operands.
+  that band breaks the render outright. Both skills round half-up like Excel's ROUND. Deliberately
+  NOT shared with earnings-flash-skill: its verdict bands (wrap's arrow bands at 0.5 / 0.15). A
+  KPI-table or dict-snapshot row whose metric Section 4 also prints (same `crosstable_lint` label
+  key, same `u`) uses Section 4's precision via `shared_results_dp`; each table still uses its OWN
+  operands, so a real `py` vs `vals` conflict still blocks. `derived_lint` re-derives a Results
+  surprise to its own rounding, and to the printed-cell tolerance only on a small-base row.
 - `IS_P_102` (adjusted revenue) is frequently empty; `IS_P_101` is often the only series.
 - **The adjusted margin codes are often the ones with no data, and the fallback is the rule, not a
   footnote.** On some issuers `IS_P_102`, `IS_P_106-M` and `IS_P_110-M` return ZERO rows on both
@@ -238,12 +239,12 @@ both, never neither. `guidanceBasis` is still required and still describes what 
   histories. Ask for the adjusted code; when it returns nothing, take the reported twin and carry
   the asterisk. They are still different
   concepts and the note must say which one it printed.
-- Pre-print consensus needs the as-of idiom (`latest={"enabled": false}` plus an update-date window
-  ending the day before the report). **The naive latest pull is not RELIABLY post-print consensus,
-  which is worse than if it always were.** `latest:{enabled:true}` over an already-reported period
-  can return the pre-print consensus when the series never revised after the print. Use the as-of
-  idiom anyway: nothing in the payload tells you which
-  case you are in.
+- Pre-print consensus for the printed quarter is the PLAIN call (`get_estimates` with no `latest`
+  override and no update-date window). A closed quarter's consensus freezes at the print, so the
+  plain call already returns the last pre-print mark; run the windowed cross-check SKILL.md
+  "Pre-print consensus" prescribes. A FORWARD period keeps revising: pin its pre-print mark with the
+  as-of idiom (`latest={"enabled": false}` plus an update-date window ending at the call), and take
+  its post-print mark from the history pull in "Forward consensus" (never the plain or `latest` call).
 - Probe consensus for EVERY Results row in one batched call, not just revenue and EPS. Margins and
   segment KPIs usually DO have a pre-print mean.
 - Keep Basis and Metric cells terse.
@@ -446,6 +447,73 @@ SKILL.md lists the blocks and what each one is for; these are the full field rul
   `kpiDiscovery`. Empty or omitted when every selected KPI proved out on the first pass. A KPI kept
   despite a partial history (printed and year-ago anchors present, some intermediate quarter `n/a`)
   is NOT a substitution and is not logged here.
+- **`forwardConsensus`** (v7.13.4) — the raw history rows behind every post-print FORWARD figure:
+  `{window:"<start> to <end>", postFrom?:"YYYY-MM-DD", rows:[<get_estimates rows, verbatim>]}`. See
+  "Forward consensus" below. Internal, never rendered: it is where `BROKERCOUNT` lives for these
+  cells, and the renderer removes the block before any gate reads the config.
+
+## Forward consensus (post-print, unreported periods) — v7.13.4
+
+**Scope.** Only FORWARD periods the company has not yet reported: the `Post-print [E]` column of
+`guidanceTable`, the `Consensus [E]` column of `forwardTable` and the `After [E]` cell of each
+`revisions` row. Everything for the printed quarter or earlier is unchanged: the frozen-final PLAIN
+call, its windowed cross-check and STOP, and the `guidanceConsensusProbe` pre-print pull.
+
+**Why.** On a forward period the plain call and `latest={"enabled": true, "limit": 1}` can return a
+one- or two-broker partial update in the days around a print (measured on v5: a full-year line on 1
+broker against 38 in the history; another full-year line on 2 brokers against 32). The history call
+carries the full panel, but while the panel rebuilds after a print it too has thin rows (1 broker the
+day after one print; 4-9 against 10 pre-print on another). So the newest row is not automatically
+the consensus, and the model never chooses: the script does.
+
+**Fetch (InSync standalone MCP):**
+
+```
+get_estimates(ticker_id, ltcode=<forward ltcodes>, fiscal_period=<forward periods>,
+              latest={"enabled": false},
+              updatedate_start="<today - 30d, YYYY-MM-DD>", updatedate_end="today",
+              limit="100")             ← page with offset until has_more is false
+```
+
+- The FactSet wrapper takes the FLAT form `"latest_enabled": false` instead of the nested object,
+  and the standalone MCP rejects that flat form ("Unexpected parameter"). If one form is rejected,
+  retry the same call with the other. `mcp_guard` rewrites a flat `latest_enabled` to the nested
+  form for this MCP (it used to drop it, which silently turned the history pull into the plain call).
+- A code + period that returns no rows is re-fetched ONCE with a 120-day window
+  (`updatedate_start` = today - 120d). Still empty: leave it out of the rows; the cell is dropped.
+- Never substitute the plain call or `latest={"enabled": true}` for a forward period, not even as a
+  retry: that is the call that returns the partial update.
+
+**Config.** Paste every returned row VERBATIM (`LTCODE`, `FISCALPERIOD`, `VALUE`, `BROKERCOUNT`,
+`UPDATEDATE` and the rest) into `forwardConsensus.rows`, and write each forward cell as
+`{"fwd": {"ltcode": "IS_P_101", "period": "2027"}, "u": "$B"}` (a revisions row:
+`"after": {"fwd": {...}}`, with the row's own `u`). `period` matches `FISCALPERIOD` after the
+renderer's `_norm_period`. A cell written as a plain `{"v", "u"}` figure is printed as given, so an
+older config renders unchanged.
+
+**The pick** (`references/forward_consensus.py`, called by `render_wrap.resolve_forward_consensus`
+before any gate), per (LTCODE, FISCALPERIOD):
+1. Rows without a positive `BROKERCOUNT` or a readable `UPDATEDATE` are not usable.
+2. Full panel = the deepest `BROKERCOUNT` in the window; a row is adequate with at least 40% of that
+   (`POST_MIN_SHARE`; the other skills keep the shared helper's 50%).
+3. The newest adequate row on or after `postFrom` is the post-print consensus. `postFrom` is the
+   day AFTER `guidanceFreshness.callDate` (no call date: the release file's date plus one day),
+   whatever time the release stamp shows: InSync stamps are 12-hour with no AM/PM, so a same-day
+   snapshot is never treated as post-print. Set `forwardConsensus.postFrom` only to override it.
+4. No adequate post-print row (status `not_revised`): nothing is shown. A `guidanceTable` row keeps
+   its guides and the WHOLE `Post-print [E]` column is removed (head `GUIDANCE_HEAD_NO_POST`, the
+   only time the four-column head passes); a `forwardTable` or `revisions` row
+   leaves its table. A pre-print mark is never shown in a post-print cell; the run names the line
+   in a WARN for the chat summary. Frame the reset off the NEW guide.
+
+**Never a stop.** A line whose rows lack `BROKERCOUNT` or `UPDATEDATE` (or have no rows, or an
+unreadable `VALUE`) is removed: a `forwardTable` or `revisions` row leaves its table; a
+`guidanceTable` row keeps its guides and the `Post-print [E]` column is removed. A `revisions` grid
+that empties is omitted (say so in `revisionsScope`); a `forwardTable` that empties keeps its rows
+with empty consensus cells, because Section 7 must carry a table. Every drop, every not-revised row and every
+newer thin row passed over is a `WARN forward_consensus` line on stderr for the chat summary. None of
+it, and no broker count, reaches the page. `guidanceConsensusProbe.postAsOf`, when left blank, is set
+to the newest picked row's date.
 
 ## Rules 9-14 in full
 
@@ -541,17 +609,20 @@ which basis the note printed.
 - **7 Guidance and Estimate Revisions** — `guidanceTone`, `guidance` bullets (close with a
   Read-Through), a **mandatory `guidanceTable`** and, when pre/post consensus exists, a `revisions`
   table. The **`guidanceTable` is required whenever the company gives guidance** (bullets alone are
-  not enough): `{head:["Guide Metric","Prior [G]","New [G]","Consensus [E]"], rows:[...], w:[...]}`,
-  one row per guided metric (revenue, EPS or EBITDA, FCF, segment growth, and the Primary KPI where
-  guided). **The head is exact and enforced** by the table-contract gate: `Prior [G]` is the guide
-  the company had given FOR the printed quarter (the bar it set), `New [G]` is the guide issued ON
-  the call, `Consensus [E]` is the post-print Street number for the guided period, or `n/a` where
-  the probe found none. An Actual column does NOT belong here: grading an actual against an
+  not enough): `{head:["Guide Metric","Prior [G]","New [G]","Pre-print [E]","Post-print [E]"],
+  rows:[...], w:[...]}`, one row per guided metric (revenue, EPS or EBITDA, FCF, segment growth, and
+  the Primary KPI where guided). **The head is exact and enforced** by the table-contract gate:
+  `Prior [G]` is the guide the company had given FOR the printed quarter (the bar it set), `New [G]`
+  is the guide issued ON the call, `Pre-print [E]` is the `guidanceConsensusProbe` mark, and
+  `Post-print [E]` is the post-print Street number for the guided period, written as a `{"fwd": ...}`
+  cell the renderer picks from `forwardConsensus` ("Forward consensus"), or `n/a` where the history
+  has none. An Actual column does NOT belong here: grading an actual against an
   expectation is Section 4's job, and an Actual column in Section 7 prints the same figure a second
   time for `crosstable_lint` to reconcile. `revisions` =
-  before/after/change rows with `revisionsWindow` and both dates in `revisionsCap`; if consensus has
-  not revised since the print, say so in one line and omit only the revisions grid, never the
-  `guidanceTable`. `wrap_eval` FAILS the build if Section 7 contains no table.
+  before/after/change rows (`after` as a `{"fwd": ...}` cell) with `revisionsWindow` and `revisionsCap`;
+  if consensus has not revised since the print, the renderer drops that row, say so in one line and
+  omit only the revisions grid, never the `guidanceTable`. `wrap_eval` FAILS the build if Section 7
+  contains no table.
 
 ### Consensus probe (MANDATORY, "no consensus" must be PROVEN not assumed)
 The fallback chain above governs WHERE consensus comes from. This rule governs WHICH LINES you must
@@ -564,9 +635,9 @@ Mirror the Step 0 prove-then-include discipline, on estimates instead of actuals
 1. **Build the probe list BEFORE writing the config.** It is every ltcode already resolved for the
    Results table: the financial spine (revenue, EPS, each margin) plus EVERY KPI in `kpiUniverse`
    that earns a row, including segment lines, rate lines and cost lines such as fuel or interest expense.
-2. **Probe them in ONE batched as-of call.** `get_estimates` with the pre-print idiom
-   (`latest={"enabled": false}` plus an update-date window ending the day before the report date),
-   passing the whole ltcode list at once. This costs one call, not one per line.
+2. **Probe them in ONE batched plain call.** `get_estimates` for the printed quarter with no
+   `latest` override and no update-date window (the frozen pre-print mark, SKILL.md "Pre-print
+   consensus"), passing the whole ltcode list at once. This costs one call, not one per line.
 3. **Grade everything the probe returns.** A row is set `c:null` ONLY when the probe came back
    empty for that ltcode. Margins and segment KPIs frequently DO carry consensus even when the
    headline pull did not request them; assuming otherwise is the single most common defect in this
@@ -638,9 +709,9 @@ takes for an absent fact.
 | `get_valuation` | `limit` | **100** (max 500) | |
 | `get_document_tree` | `limit` | **none: the tool takes no `limit`** | Passing one fails the whole batch. `mcp_guard` drops it. |
 | every tool | `ltcode`, `fiscal_period`, `metrics`, `ticker_id` | **comma-separated TEXT** (`"IS_P_101,IS_P_128"`) | A JSON list is rejected; only `parse_document_content`'s `file_paths` is a list. `mcp_guard` joins a list and says so. |
-| `get_estimates` | `latest` | **`{"enabled": true, "limit": 1}`** | the naive pull is POST-print consensus |
+| `get_estimates` | `latest` | **`{"enabled": true, "limit": 1}`** | the naive pull. On a FORWARD period it can be a 1-2 broker partial update around a print, so it is never the post-print forward consensus: use the history pull in "Forward consensus" |
 | `get_estimates` | `updatedate_start` | **`90d` back from TODAY** when `latest.enabled=false` | The trap. The harm is a TRUNCATED window, not zero rows: unset, it can return a handful of rows where the full history is ten times longer. Zero is loud and the probe machinery catches it; four rows look like valid data with the revision history gutted. Always pass it. |
-| `get_estimates` | `latest` true vs false | ordering | `latest:false` returns the revision history **OLDEST FIRST**, so `data[0]` can be a mark from more than a year before the print and wildly different from the pre-print consensus. Take the LAST row, or use `latest:true` bounded by the same window. |
+| `get_estimates` | `latest` true vs false | ordering | `latest:false` returns the revision history **OLDEST FIRST**, so `data[0]` can be a mark from more than a year before the print and wildly different from the pre-print consensus. For the PRE-print forward mark (`guidanceConsensusProbe`) take the LAST row, or use `latest:true` bounded by the same window; the POST-print forward mark is picked by the script ("Forward consensus"). |
 
 **Pagination is NOT uniform.** The default limits above hold; the `meta` block does not:
 
@@ -686,7 +757,9 @@ blocks a wrap of an older period.
 
 ### How `get_estimates` query shapes behave
 
-- **The naive latest pull is not always POST-print consensus.** `latest:{enabled:true}` on an
+- **The naive latest pull is not always POST-print consensus.** On a FORWARD period it can be a
+  1-2 broker partial update around a print, which is why post-print forward figures come from the
+  history pull ("Forward consensus"). And `latest:{enabled:true}` on an
   already-reported period can return the pre-print consensus when the series never revised after
   the print.
 - **`latest:true` plus a date window** returns rows at the quarterly level, but can return **zero

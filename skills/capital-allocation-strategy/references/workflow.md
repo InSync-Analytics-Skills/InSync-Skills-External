@@ -7,7 +7,7 @@ Buyback# `CF_P_102`, Avg Repurchase Px `CF_P_103`, Dividends `CF_P_104`, Payout%
 Acquisitions `CF_P_129`, Purchases of Investments `CF_P_130`, Net CFI `CF_P_111`, Net CFF `CF_P_112`,
 Debt Issuance `CF_P_133`, Change in WC `CF_P_106`, Net Change in Cash `CF_P_135`.
 
-Balance sheet: Cash `BS_P_141`/`BS_P_101`, Total Debt `BS_P_114`/`BS_P_108`, Net Debt `BS_P_115`/`BS_P_109`,
+Balance sheet: Cash `BS_P_101`/`BS_P_141`, Total Debt `BS_P_114`/`BS_P_108`, Net Debt `BS_P_115`/`BS_P_109`,
 LT Debt `BS_P_107`, ST Debt `BS_P_106`, Total Equity `BS_P_113`, Total Assets `BS_P_103`, Intangibles `BS_P_127`.
 
 Income: Revenue `IS_P_101`, EBIT `IS_P_109`, EBITDA(Adj) `IS_P_114`/`IS_P_113`, Net Income `IS_P_124`/`IS_P_123`,
@@ -38,6 +38,10 @@ ETR `IS_P_121`, R&D `IS_P_135`, D&A `IS_P_111`, SBC `IS_P_151`.
 - `scripts/ltcodes.py` - the single source of truth for the fetch list + code names.
 - `scripts/fetch_plan.py` - offline planner (ltcodes + sector profile + periods).
 - `scripts/compute_capalloc.py` - deterministic math + ratings + QC. `compute(raw)->dict`.
+- `scripts/forward_consensus.py` - picks one FY+1/FY+2 consensus row per line item and period
+  from `raw_data.forward_estimates` (estimates HISTORY pull, never the plain/latest call): the
+  newest row with at least half the deepest panel's brokers; rows without `BROKERCOUNT` or
+  `UPDATEDATE` drop the line item (named in `warnings[]`). `run_pipeline.py` calls it.
 - `scripts/render_capalloc.py` - branded python-docx renderer. `render(merged, out)->path`.
 - `scripts/run_pipeline.py` - orchestrator (compute -> sector weights -> eval -> render). ONLY entry point.
 - `assets/capital_allocation_sectors.json` - sector adaptation registry.

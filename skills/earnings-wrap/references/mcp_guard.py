@@ -111,6 +111,12 @@ def _guard_rules(name, args, notes):
         return args
     allowed, lim = rule
     a = dict(args)
+    if "latest_enabled" in a and "latest" in allowed and "latest" not in a:
+        _le = a.pop("latest_enabled")
+        _le = (str(_le).strip().lower() not in ("false", "0", "no")) if not isinstance(_le, bool) else _le
+        a["latest"] = {"enabled": _le}
+        notes.append("%s: rewrote flat latest_enabled=%r as latest={\"enabled\": %s} - this MCP "
+                     "takes only the nested form." % (name, _le, "true" if _le else "false"))
     for k in [k for k in a if k not in allowed and not k.startswith("_")]:
         notes.append("%s: dropped %s=%r - the tool does not take it, and the server rejects the "
                      "whole batch over it." % (name, k, a[k]))

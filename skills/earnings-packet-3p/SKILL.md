@@ -1,13 +1,13 @@
 ---
 name: earnings-packet-3p
-version: 7.12.4
+version: 7.12.8
 description: "A dense three-page earnings packet for a portfolio manager to read before a company reports. It covers the key debate, guidance against consensus, financials, analyst spread, KPIs, estimate revisions, valuation, peers, typical results-day reaction, and risks and catalysts, in Word and PDF. For a longer, more detailed preview use Earnings Preview."
 argument-hint: TICKER [target quarter e.g. 3Q26] [--peers "PEER1,PEER2,PEER3"]
 ---
 
 # Earnings Packet, three pages, Path B pipeline
 
-**Version: 7.12.4**  ·  Requires: `python3` (standard library for the build; no Node, no npm),
+**Version: 7.12.8**  ·  Requires: `python3` (standard library for the build; no Node, no npm),
 plus `pymupdf` + `pdfplumber` for the PDF checks. `self_check.py` probes for them, so a missing one
 is a named failure at
 Step 7, not a silent skip.
@@ -25,7 +25,7 @@ run, same version number:
 ```
 
 `<SKILL VERSION>` is the full three-part version in this file's frontmatter, so this build
-writes `... Earnings Packet v7.12.4.docx`. Not a build counter, not the major number alone.
+writes `... Earnings Packet v7.12.8.docx`. Not a build counter, not the major number alone.
 
 **Three pages is the specification, not a target.** Ten sections, every one present. If the
 build runs to four, compress by structure: transpose a table, merge two tables, fold a
@@ -257,8 +257,14 @@ smoke test:
 
 ```json
 {"tool_name":"get_actuals","tool_arguments":{"ticker_id":"<id>","ltcode":"<candidates>","fiscal_period":"<2 periods per call>","limit":"100"}}
-{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<candidates>","fiscal_period":"<target>,<next_q>","latest":{"enabled":true,"limit":1},"limit":"100"}}
+{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<candidates>","fiscal_period":"<target>","latest":{"enabled":true,"limit":1},"limit":"100"}}
+{"tool_name":"get_estimates","tool_arguments":{"ticker_id":"<id>","ltcode":"<candidates>","fiscal_period":"<next_q>","latest":{"enabled":false},"updatedate_start":"<today-30d>","updatedate_end":"today","limit":"100"}}
 ```
+
+**Unreported periods (`next_q`, `fy0`, `fy1`) come from HISTORY only**: the plain
+or `latest:1` call can return a 1-2 broker partial update around a print. Dump those rows as
+returned into `raw_mcp.json` `forward_rows`; the builder picks one per code and period, never
+you. Paging, flag forms and the empty-window retry: `data-collection.md` section 4.
 
 **Keep the rows.** A code that returned nothing for either is dropped from the response you
 already hold; a code with actuals and no target-quarter consensus is a legitimate row and is
@@ -339,13 +345,13 @@ same.
 
 A timeout is a retry after splitting, not necessarily a bad request. Still to fetch, per
 those recipes: **actuals** over the periods Step 2 did not cover; **estimates** for `fy0` and
-`fy1` plus `MIN`, `MAX` and `BROKERCOUNT` on every code reaching section 4 (without them
-section 4 is a page of dashes); the **revision series** for `target` across the vintages the
+`fy1` from the history call into `forward_rows`, with `MIN`, `MAX` and `BROKERCOUNT` on every
+code reaching section 4 (without them section 4 is a page of dashes); the **revision series** for `target` across the vintages the
 feed actually published; **guidance** over 12 to 24 months; **market data**, last 8 prints
 plus the index, **keeping the closes** (`pre`, `day`, `d1`, `d5` and the index on the same
 three dates per print, because the builder derives all five reaction rates and will not
 accept four hand-computed percentages); **valuation**, the lens NTM and LTM plus `1y` and
-`3y` summarised; **peers**, 3 to 5 comparables with `calendarize: true` mandatory; and
+`3y` summarised; **peers**, 3 to 5 comparables with `calendarize: true` mandatory, plus `peer_call_dates` (§9: a print within 10 days blanks that row's CY cells); and
 **documents** via `get_document_tree`. One trap worth repeating: `get_actuals` ships
 `YOY_GROWTH` per row, so where the table prints only a growth sub-row and never the
 prior-year LEVEL, take the feed's own column instead of fetching that comparable as a level.
@@ -405,7 +411,10 @@ delete any role the issuer does not report. Then fill the two files. **`plan.jso
 DECISIONS and no numbers**: which LTCODE fills which role, the display name, the format, the
 sub-row kind, the band labels, the lens order, the twelve tile labels and where each tile
 reads its figure from. About forty lines. **`raw_mcp.json` carries the feed's own values**,
-dumped rather than transcribed. A yield the feed returns as a fraction (dividend, FCF) goes in
+dumped rather than transcribed. Add `forward_rows` (the forward history rows, as returned)
+and leave the forward cells null: the builder fills them, blanks any line with no usable row,
+and lists each drop in `warnings`. A guide row on a forward period gets `code` for its
+consensus. A yield the feed returns as a fraction (dividend, FCF) goes in
 AS RETURNED with the tile's `fmt: "pct100"`; the builder multiplies, never you. Everything else, every growth rate, margin, dispersion
 spread, revision delta, reaction move, move-band statistic and valuation comparison, is
 DERIVED. `meta` is still authored, because dates and labels are not arithmetic. A leftover
@@ -574,15 +583,10 @@ The renderer enforces all of it; full detail in `references/house-format.md` and
 `references/invariants.md`. What you must know while authoring: **US Letter, 0.50in margins,
 text column 10,800 dxa**; Calibri for body and tables, Times New Roman for section headings
 AND the masthead; **tables carry horizontal rules only**, no vertical gridlines and no outer
-box; **dollars at ONE scale for the whole document**, `meta.money_scale`, `B` by default and
-`M` whenever the issuer's spine lines live below roughly `$1,000M` (at `B` scale a
-small issuer's money cells collapse into identical strings within ONE ROW); one decimal for percentages and two on a `'%2'` row; **two decimals for per-share
-figures** (`'$'`, and three only on an explicit `'$3'` row); **every figure rounded HALF-UP, the
-way Excel's `ROUND()` and JavaScript's `toLocaleString` do**. `fmt.py` and
-`build_computed.py::_fixed` are the two implementations and they must stay in step, because
-Python's own `format()` rounds an exact half to EVEN and would print a different page; two
-decimals for
-multiples below 5.00x and one above, per value and not per column; verbatim guidance quoted
+box; **house rounding rule** (`references/house-format.md`): money $M/$B/$T with ONE unit per row by its
+largest value, money, per-share and multiples at two decimals, percentages at one (two on a rate row under 5%),
+`−` (U+2212) for negatives, a printed change worked from the printed levels; **every figure rounded HALF-UP ONCE**
+(`fmt.py` and `build_computed.py::_fixed` must stay in step); verbatim guidance quoted
 as published and never re-rounded; every label carries its unit where the values are
 percentages, and a mixed-unit column carries none.
 

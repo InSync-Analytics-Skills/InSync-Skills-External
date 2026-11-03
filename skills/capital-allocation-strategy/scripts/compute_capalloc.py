@@ -44,7 +44,7 @@ C = {
     "buyback_usd": ["CF_P_101"], "buyback_num": ["CF_P_102"],
     "dividend": ["CF_P_104"], "payout": ["CF_P_107"],
     "acq": list(ACQUISITION_LTCODES),
-    "cash": ["BS_P_141", "BS_P_101"], "total_debt": ["BS_P_114", "BS_P_108"],
+    "cash": ["BS_P_101", "BS_P_141"], "total_debt": ["BS_P_114", "BS_P_108"],
     "net_debt": ["BS_P_115", "BS_P_109"], "equity": ["BS_P_113"],
     "dcf": ["CF_S_126"], "maint_capex": ["CF_S_122"],
     "roe_reported": ["RT_P_102"],
@@ -352,7 +352,7 @@ def _unit_mark(raw):
 def pnum(v):
     if v is None:
         return None
-    s = str(v).strip()
+    s = str(v).strip().replace("\u2212", "-")
     if s == "" or s.lower() in ("n/a", "na", "none", "null", "-"):
         return None
     _par = re.match(r"^\((.+)\)\s*([TBMKtbmk]?)$", s)
@@ -441,6 +441,13 @@ def _vintage(per):
         return 1
 
 
+def _pnum_code(code, v):
+    x = pnum(v)
+    if x is not None and code in (C.get("buyback_num") or []) and re.fullmatch(r"\s*-?[\d,]*\.?\d+\s*", str(v)):
+        x = x / 1e6
+    return x
+
+
 def index_rows(rows):
     by_period = {}
     end_dates = {}
@@ -459,7 +466,7 @@ def index_rows(rows):
         if not tgt or (tgt, code) in _plain:
             continue
         _alias_best[(tgt, code)] = r
-        _alias_seen.setdefault((tgt, code), []).append((_p, pnum(r.get("VALUE"))))
+        _alias_seen.setdefault((tgt, code), []).append((_p, _pnum_code(code, r.get("VALUE"))))
     _CONSUMED_ALIAS.clear()
     _ALIAS_CONFLICTS.clear()
     for (tgt, code), seen in sorted(_alias_seen.items()):
@@ -497,7 +504,7 @@ def index_rows(rows):
             continue
         if _restated_target(per) or _alias_target(per):
             continue
-        by_period.setdefault(per, {})[code] = pnum(r.get("VALUE"))
+        by_period.setdefault(per, {})[code] = _pnum_code(code, r.get("VALUE"))
         _m = _unit_mark(r.get("VALUE"))
         if _m:
             _UNIT_MARKS.setdefault(code, set()).add(_m)
@@ -517,6 +524,10 @@ _TAKE_LATEST |= {c for k in (set(PCT_METRICS) | {"affo_per_share", "tbv_per_shar
                  for c in (C.get(k) or [])}
 
 
+_HALF_SUM = {c for k in ("eps", "dps", "affo_per_share") for c in (C.get(k) or [])}
+_HALF_FOLDS = []
+
+
 def _fold_half_years(by_period, end_dates):
     halves = {}
     for per in list(by_period):
@@ -529,17 +540,26 @@ def _fold_half_years(by_period, end_dates):
         if yr in by_period or set(parts) != {"1", "2"}:
             continue
         h1, h2 = by_period[parts["1"]], by_period[parts["2"]]
-        merged = {}
+        merged, partial = {}, []
         for code in set(h1) | set(h2):
             a, b = h1.get(code), h2.get(code)
-            if code.startswith(_STOCK_PREFIX) or code in _TAKE_LATEST:
-                merged[code] = b if b is not None else a
+            if code in _HALF_SUM:
+                if a is not None and b is not None:
+                    merged[code] = a + b
+                else:
+                    partial.append(code)
+            elif code.startswith(_STOCK_PREFIX) or code in _TAKE_LATEST:
+                if b is not None:
+                    merged[code] = b
+                else:
+                    partial.append(code)
             elif a is None or b is None:
-                merged[code] = a if b is None else b
+                partial.append(code)
             else:
                 merged[code] = a + b
         by_period[yr] = merged
         end_dates[yr] = end_dates.get(parts["2"], yr)
+        _HALF_FOLDS.append((yr, parts["1"], parts["2"], sorted(partial)))
 
 
 def provenance_summary():
@@ -557,7 +577,7 @@ _PROVENANCE = {}
 
 def monitor_thresholds(computed):
     def num(v):
-        m = re.search(r"-?\d+(?:\.\d+)?", str(v or "").replace(",", ""))
+        m = re.search(r"-?\d+(?:\.\d+)?", str(v or "").replace(",", "").replace("\u2212", "-"))
         return float(m.group()) if m and not str(v).lower().startswith(("n/a", "not ")) else None
 
     bs = computed.get("balance_sheet") or {}
@@ -571,50 +591,50 @@ def monitor_thresholds(computed):
     if lev is not None and _lev_unit == "%":
         _dtc_hi = RV("balance_sheet", "dtc_high")
         out.append({"lead": "Leverage.",
-                    "text": "Debt / total capital is %.1f%%. The balance-sheet score steps down "
-                            "above %.0f%%; headroom is %.1f percentage points."
-                            % (lev, _dtc_hi, max(0.0, _dtc_hi - lev))})
+                    "text": "Debt / total capital is %s. The balance-sheet score steps down "
+                            "above %.0f%%; headroom is %s percentage points."
+                            % (fmt_pct(lev), _dtc_hi, _fx(max(0.0, _dtc_hi - lev), 1))})
     elif lev is not None:
         _lev_hi = RV("balance_sheet", "lev_mid")
         out.append({"lead": "Leverage.",
-                    "text": "Net debt / EBITDA is %.2fx. The balance-sheet score steps down above "
-                            "%.1fx; headroom is %.2fx of EBITDA."
-                            % (lev, _lev_hi, max(0.0, _lev_hi - lev))})
+                    "text": "Net debt / EBITDA is %s. The balance-sheet score steps down above "
+                            "%.1fx; headroom is %s of EBITDA."
+                            % (fmt_x(lev), _lev_hi, fmt_x(max(0.0, _lev_hi - lev)))})
     pay = num(dv.get("payout_ratio"))
     if pay is not None:
         out.append({"lead": "Dividend payout.",
-                    "text": "%.1f%% of earnings. The dividend score steps down above %.0f%%; "
-                            "headroom is %.1f percentage points."
-                            % (pay, RV("dividends", "payout_high"),
-                               max(0.0, RV("dividends", "payout_high") - pay))})
+                    "text": "%s of earnings. The dividend score steps down above %.0f%%; "
+                            "headroom is %s percentage points."
+                            % (fmt_pct(pay), RV("dividends", "payout_high"),
+                               _fx(max(0.0, RV("dividends", "payout_high") - pay), 1))})
     cov = num(dv.get("fcf_coverage"))
     if cov is not None and bool(dv.get("fcf_coverage_meaningful", True)):
         out.append({"lead": "Distribution cover.",
-                    "text": "Dividends are covered %.2fx by free cash flow. Below 1.0x the payout "
-                            "is being funded from sources other than free cash flow." % cov})
+                    "text": "Dividends are covered %s by free cash flow. Below 1.0x the payout "
+                            "is being funded from sources other than free cash flow." % fmt_x(cov)})
     ci = num(cx.get("capex_intensity"))
     if ci is not None and ci < 6.0:
         out.append({"lead": "Reinvestment intensity.",
-                    "text": "Capex is %.1f%% of revenue against a 3.0%% reference. A sustained "
+                    "text": "Capex is %s of revenue against a 3.0%% reference. A sustained "
                             "reading below that reference is what triggers the under-investment "
-                            "flag; the gap is %.1f percentage points." % (ci, ci - 3.0)})
+                            "flag; the gap is %s percentage points." % (fmt_pct(ci), _fx(ci - 3.0, 1))})
     _roe, _eq, _as = num(vc.get("roe")), num(bs.get("equity_raw")), num(bs.get("assets_raw"))
     if _roe is not None and _roe > 40:
         out.append({"lead": "Return on equity base.",
-                    "text": "Reported return on equity is %.1f%%. Sustained buybacks have reduced "
+                    "text": "Reported return on equity is %s. Sustained buybacks have reduced "
                             "the equity base, so this ratio is arithmetically inflated by a small "
                             "denominator and is not comparable with peers carrying normal equity."
-                            % _roe})
+                            % fmt_pct(_roe)})
     roic, hurdle = num(vc.get("roic")) or num(vc.get("roe")), num(vc.get("cost_of_capital"))
     if roic is not None and hurdle is not None:
         _sp = roic - hurdle
-        out.append({"lead": "Return on capital.",
-                    "text": ("%.1f%% against a %.1f%% hurdle, a %.1f-point spread; the "
+        out.append({"lead": "Return on capital." if num(vc.get("roic")) else "Return on equity.",
+                    "text": ("%s against a %s hurdle, a %s-point spread; the "
                              "value-creation score falls once that spread closes."
-                             % (roic, hurdle, _sp)) if _sp > 0 else
-                            ("%.1f%% against a %.1f%% hurdle - already %.1f points below it. "
+                             % (fmt_pct(roic), fmt_pct(hurdle), _fx(_sp, 1))) if _sp > 0 else
+                            ("%s against a %s hurdle - already %s points below it. "
                              "Returns above the hurdle are what would lift the value-creation "
-                             "score." % (roic, hurdle, abs(_sp)))})
+                             "score." % (fmt_pct(roic), fmt_pct(hurdle), _fx(abs(_sp), 1)))})
     return out[:5]
 
 
@@ -675,6 +695,28 @@ def series(by_period, years, keyset, absolute=False):
     return out
 
 
+def eps_growth(by_period, years):
+    pick = None
+    for i, code in enumerate(C.get("eps") or []):
+        ser = [by_period.get(y, {}).get(code) for y in years]
+        ix = [k for k, v in enumerate(ser) if v is not None]
+        if len(ix) < 2:
+            continue
+        full = ix[0] == 0 and ix[-1] == len(ser) - 1
+        if pick is None or full:
+            pick = (i, ser, ix)
+        if full:
+            break
+    if pick is None:
+        return None, None
+    i, ser, ix = pick
+    try:
+        n = int(years[ix[-1]]) - int(years[ix[0]])
+    except (TypeError, ValueError):
+        n = ix[-1] - ix[0]
+    return cagr(ser[ix[0]], ser[ix[-1]], n), ("adjusted" if i == 0 else "GAAP")
+
+
 def cagr(first, last, years):
     if first is None or last is None or years is None or years <= 0 or first <= 0 or last <= 0:
         return None
@@ -711,22 +753,34 @@ def ssum(lst):
 
 _xr = _MR._xr
 _sep = _MR._sep
+_fx = _MR._fx
 
 
 def _rf(v, d):
     return float(_xr(v, d))
 
 
-def fmt_usd(mn, cur="$"):
+def fmt_usd(mn, cur="$", ref=None):
     if mn is None:
         return "n/a"
-    a = abs(mn)
-    sign = "-" if mn < 0 else ""
-    if a >= 1e6:
-        return f"{sign}{cur}{_sep(_xr(a/1e6, 2))}T"
-    if a >= 1e3:
-        return f"{sign}{cur}{_sep(_xr(a/1e3, 2))}B"
-    return f"{sign}{cur}{_sep(_xr(a, 0))}M"
+    s, u = _usd_unit(mn if ref is None else ref)
+    return _fx(mn / s, 2, cur) + u
+
+
+def _usd_unit(ref):
+    a = abs(ref)
+    return (1e6, "T") if a >= 1e6 else (1e3, "B") if a >= 1e3 else (1.0, "M")
+
+
+def usd_shown(mn, ref=None):
+    s = _usd_unit(mn if ref is None else ref)[0]
+    return float(_xr(mn / s, 2)) * s
+
+
+def pct_of(x, base, xref=None, bref=None):
+    if abs(base) >= 1e3:
+        x, base = usd_shown(x, xref), usd_shown(base, bref)
+    return x / base * 100 if base else None
 
 
 def fmt_pct(p, signed=False, dp=1, small=False):
@@ -734,23 +788,25 @@ def fmt_pct(p, signed=False, dp=1, small=False):
         return "n/a"
     if small and 0 < p < 0.05:
         return "<0.1%"
-    return f"{'+' if (signed and p >= 0) else ''}{_xr(p, dp)}%"
+    return _fx(p, dp, signed=signed) + "%"
 
 
 def fmt_x(x, dp=2):
-    return "n/a" if x is None else f"{_xr(x, dp)}x"
+    return "n/a" if x is None else _fx(x, dp) + "x"
 
 
 def fmt_sh(mn):
     if mn is None:
         return "n/a"
-    if abs(mn) >= 1e3:
-        return f"{_sep(_xr(mn/1e3, 2))}B"
-    return f"{_sep(_xr(mn, 0))}M"
+    return _fx(mn / 1e3, 2) + "B" if abs(mn) >= 1e3 else _fx(mn, 2) + "M"
+
+
+def sh_shown(mn):
+    return float(_xr(mn / 1e3, 2)) * 1e3 if abs(mn) >= 1e3 else float(_xr(mn, 2))
 
 
 def fmt_ps(x, cur="$"):
-    return "n/a" if x is None else f"{cur}{_sep(_xr(x, 2))}"
+    return "n/a" if x is None else _fx(x, 2, cur)
 
 
 MONITOR_CODES = tuple(C[k][0] for k in ("ocf", "capex", "buyback_usd", "dividend"))
@@ -788,6 +844,63 @@ def quarterly_depth(rows):
             "codes_missing": sorted(c for c in MONITOR_CODES if c not in have)}
 
 
+def dps_in_window(raw, d0, d1):
+    import datetime as _dt
+    try:
+        a, b = _dt.date.fromisoformat(str(d0)[:10]), _dt.date.fromisoformat(str(d1)[:10])
+    except (TypeError, ValueError):
+        return None, "no window dates were sent"
+    def _rows(key, fold):
+        rs = unwrap(raw.get(key))
+        best = {}
+        for r in (fold_restated_quarters(rs) if fold else rs) or []:
+            if r.get("LTCODE") != "CF_P_105":
+                continue
+            if bool(re.search(r"\d[QH]\d", str(r.get("FISCALPERIOD", "")).upper())) != fold:
+                continue
+            v, e = pnum(r.get("VALUE")), str(r.get("QUARTERENDDATE") or "")[:10]
+            if v is None or not e:
+                continue
+            plain = not str(r.get("FISCALPERIOD", "")).upper().startswith("R")
+            if e not in best or (plain and not best[e][1]):
+                best[e] = (v, plain)
+        out = {}
+        for e, (v, _p) in best.items():
+            try:
+                out[_dt.date.fromisoformat(e)] = v
+            except ValueError:
+                pass
+        return out
+    yrs = _rows("actuals_annual", False)
+    qtrs = {**_rows("actuals_annual", True), **_rows("actuals_quarterly", True)}
+    last = max(yrs) if yrs else None
+    spans = [(e - _dt.timedelta(days=365), e, v) for e, v in yrs.items()]
+    spans += [(e - _dt.timedelta(days=91), e, v) for e, v in qtrs.items() if last is None or e > last]
+    total, covered = 0.0, 0
+    for s_, e_, v in spans:
+        lo, hi = max(s_, a), min(e_, b)
+        if hi > lo:
+            n = (hi - lo).days
+            total += v * n / (e_ - s_).days
+            covered += n
+    if covered < 0.9 * (b - a).days:
+        return None, "reported dividends per share (CF_P_105) cover %d of the %d days in the window" % (covered, (b - a).days)
+    return round(total, 4), "reported dividends per share (CF_P_105), each fiscal period spread evenly over its days in the window"
+
+
+def _own_rows(rows, p, notes):
+    ids = {str(r.get("TICKER_ID") or r.get("TICKER") or "") for r in rows} - {""}
+    if len(ids) <= 1:
+        return rows
+    keys = {str(p.get(k)) for k in ("ticker_id", "ticker") if p.get(k) is not None}
+    own = [r for r in rows if str(r.get("TICKER_ID") or "") in keys or str(r.get("TICKER") or "") in keys]
+    if own:
+        notes.append("peer %s: the rows hold %d companies; only its own %d rows were used" % (p.get("ticker"), len(ids), len(own)))
+    else:
+        notes.append("peer %s: the rows hold %d companies and none matches its ticker or ticker_id; peer left out (add the peer's ticker_id)" % (p.get("ticker"), len(ids)))
+    return own
+
+
 def compute(raw):
     meta = raw.get("meta", {}) or {}
     extra = meta.get("acquisition_codes") or meta.get("acquisition_code")
@@ -803,6 +916,7 @@ def compute(raw):
 
 def _compute_inner(raw):
     _PROVENANCE.clear()
+    _HALF_FOLDS.clear()
     meta = raw.get("meta", {})
     cur = meta.get("currency", "$")
     coc = float(meta.get("cost_of_capital", 9.0))
@@ -822,6 +936,9 @@ def _compute_inner(raw):
     q_rows = unwrap(raw.get("actuals_quarter"))
     _restated = annual_restatements(ann_rows)
     by_period, _ = index_rows(ann_rows)
+    for _fy, _h1, _h2, _part in list(_HALF_FOLDS):
+        warnings.append("DISCLOSURE: FY%s is built from %s + %s (no annual row in the feed)%s."
+                        % (_fy, _h1, _h2, ("; left blank, only one half reported: " + ", ".join(_part)) if _part else ""))
     for _ay, _ac, _av in _ALIAS_CONFLICTS:
         warnings.append(
             "WITHHELD DATA: fiscal year %s is served under more than one label for %s with "
@@ -929,7 +1046,13 @@ def _compute_inner(raw):
         fcf_s.append(f)
     bb_s = series(by_period, years, "buyback_usd", absolute=True)
     div_s = series(by_period, years, "dividend", absolute=True)
-    acq_s = series(by_period, years, "acq", absolute=True)
+    _acq_raw = series(by_period, years, "acq")
+    acq_s = [(-v if v < 0 else 0.0) if v is not None else None for v in _acq_raw]
+    _acq_in = [(y, v) for y, v in zip(years, _acq_raw) if v is not None and v > 0]
+    if _acq_in:
+        warnings.append("DISCLOSURE: the acquisitions line is a net inflow in %s (divestiture proceeds), "
+                        "so it is not counted as acquisition spending."
+                        % ", ".join("FY%s %s" % (y, fmt_usd(v, cur)) for y, v in _acq_in))
     rev_s = series(by_period, years, "revenue")
     ni_s = series(by_period, years, "net_income")
     eps_s = series(by_period, years, "eps")
@@ -1061,8 +1184,23 @@ def _compute_inner(raw):
                             and sh_reduction is not None
                             and sh_reduction <= 0.005)
     num_s = series(by_period, years, "buyback_num", absolute=True)
-    tot_bb_usd = ssum(bb_s)
-    tot_bb_num = ssum(num_s)
+    _bb_pairs = [(y, u, n) for y, u, n in zip(years, bb_s, num_s) if u is not None and n]
+    _bb_px = sorted(u / n for _, u, n in _bb_pairs)
+    _bb_med = _bb_px[len(_bb_px) // 2] if _bb_px else None
+    _bb_out = [(y, u / n) for y, u, n in _bb_pairs if _bb_med and not (_bb_med / 3.0 <= u / n <= _bb_med * 3.0)]
+    if _bb_out and len(_bb_pairs) - len(_bb_out) >= 2:
+        _bb_pairs = [(y, u, n) for y, u, n in _bb_pairs if y not in {o[0] for o in _bb_out}]
+        warnings.append("WITHHELD DATA: repurchase cash and share count do not reconcile in %s (implied %s a "
+                        "share against about %s in the other years), so those years are left out of the "
+                        "average repurchase price."
+                        % (", ".join("FY%s" % y for y, _ in _bb_out),
+                           ", ".join(fmt_ps(p, cur) for _, p in _bb_out), fmt_ps(_bb_med, cur)))
+    elif _bb_out:
+        warnings.append("WITHHELD DATA: repurchase cash and share counts do not reconcile across the years "
+                        "reported, so no average repurchase price is shown.")
+        _bb_pairs = []
+    tot_bb_usd = ssum([u for _, u, _ in _bb_pairs])
+    tot_bb_num = ssum([n for _, _, n in _bb_pairs])
     avg_rep_px = safe_div(tot_bb_usd, tot_bb_num) if tot_bb_num else None
     rep_vs_price = None
     if avg_rep_px is not None and price:
@@ -1149,11 +1287,11 @@ def _compute_inner(raw):
         sustain = "n/a"
     elif _mid and dividend and dividend > 0:
         if _dcf_cov is not None and _dcf_cov >= RV("dividends", "dcf_cov_strong"):
-            d_score += RD("dividends", "dcf_cov_strong"); d_flags.append("distributions covered %.2fx by distributable cash flow" % _dcf_cov)
+            d_score += RD("dividends", "dcf_cov_strong"); d_flags.append("distributions covered %s by distributable cash flow" % fmt_x(_dcf_cov))
         elif _dcf_cov is not None and _dcf_cov >= RV("dividends", "dcf_cov_ok"):
-            d_score += RD("dividends", "dcf_cov_ok"); d_flags.append("distributions covered %.2fx by distributable cash flow" % _dcf_cov)
+            d_score += RD("dividends", "dcf_cov_ok"); d_flags.append("distributions covered %s by distributable cash flow" % fmt_x(_dcf_cov))
         elif _dcf_cov is not None:
-            d_score += RD("dividends", "dcf_cov_short"); d_flags.append("distributions not covered by distributable cash flow (%.2fx)" % _dcf_cov)
+            d_score += RD("dividends", "dcf_cov_short"); d_flags.append("distributions not covered by distributable cash flow (%s)" % fmt_x(_dcf_cov))
         d_flags.append("earnings payout and free-cash-flow cover are not the midstream tests: free "
                        "cash flow is struck after growth capital expenditure, while distributions "
                        "are paid from distributable cash flow")
@@ -1272,7 +1410,7 @@ def _compute_inner(raw):
         "materiality_basis": _mat_basis,
         "materiality_prose": _MAT_PROSE[_mat_basis],
         "cumulative_ocf": fmt_usd(_mat_denom, cur) if _mat_denom is not None else "n/a",
-        "roic_change_bps": (f"{roic_change*100:+.0f} bps" if roic_change is not None
+        "roic_change_bps": (f"{_fx(roic_change * 100, 0, signed=True)} bps" if roic_change is not None
                             else ("n/a - return on invested capital is not positive at the end of "
                                   "the period, so the change in it is not readable as an outcome"
                                   if not _roic_readable else "n/a")),
@@ -1345,9 +1483,10 @@ def _compute_inner(raw):
     growth_decel = (rev_yoy_latest is not None and rev_yoy_prior is not None
                     and rev_yoy_latest < rev_yoy_prior - 0.10)
     ri = reinvest_intensity
-    _RAIL = any(k in " ".join(str((raw.get("meta") or {}).get(k, "")) for k in
-                              ("industry", "classification", "company_name")).lower()
-                for k in ("railroad", "rail ", "transportation and logistics", "union pacific"))
+    _idn = " ".join(str((raw.get("meta") or {}).get(k, "")) for k in
+                    ("industry", "classification", "company_name")).lower()
+    _RAIL = bool(re.search(r"\b(railroads?|railways?|rail)\b", _idn)) or any(
+        n in _idn for n in ("union pacific", "csx", "norfolk southern", "canadian pacific"))
     _RI_FLOOR = {"Energy": 0.12, "Utilities": 0.12, "Industrials": 0.07, "Materials": 0.08,
                  "Telecom": 0.10, "REIT": 0.08, "Software": 0.08, "Healthcare": 0.08,
                  "Consumer": 0.03, "Banks": None, "Insurance": None}
@@ -1432,6 +1571,13 @@ def _compute_inner(raw):
         leverage = (safe_div(total_debt, _tot_cap) * 100.0) if (_tot_cap and _tot_cap > 0) else None
         leverage_unit = "%"
     _sti = gv(cur_bs, "short_term_investments")
+    _cash_code = _resolve(cur_bs, "cash")[1]
+    _cash_only = cur_bs.get("BS_P_141")
+    _sti_in_cash = bool(_cash_code == "BS_P_101" and _sti is not None and cash_now is not None
+                        and _cash_only is not None
+                        and abs(_cash_only + _sti - cash_now) <= max(1.0, 0.01 * abs(cash_now)))
+    if _sti_in_cash:
+        _sti = None
     _sti_name = None
     for _r in list(unwrap(raw.get("actuals_annual"))) + list(unwrap(raw.get("actuals_quarter"))):
         if _r.get("LTCODE") in (C.get("short_term_investments") or []) and _r.get("LINEITEM"):
@@ -1441,7 +1587,7 @@ def _compute_inner(raw):
     _nd_calc = None
     if total_debt is not None and cash_now is not None:
         _nd_calc = total_debt - cash_now
-    _sti_reported = gv(cur_bs, "short_term_investments") is not None
+    _sti_reported = gv(cur_bs, "short_term_investments") is not None and not _sti_in_cash
     _nd_calc_b = (_nd_calc - _sti) if (_nd_calc is not None and _sti is not None) else None
     _nd_recon, _nd_via_sti = None, False
     if _nd_calc is not None and net_debt is not None:
@@ -1507,7 +1653,7 @@ def _compute_inner(raw):
     st_invest = None
     bs_reconciles = None
     if total_debt is not None and cash_now is not None and net_debt is not None:
-        st_invest = gv(cur_bs, "short_term_investments")
+        st_invest = None if _sti_in_cash else gv(cur_bs, "short_term_investments")
         _tol = max(1000.0, 0.02 * abs(net_debt))
         _ties = (_nd_recon is True) if _nd_recon is not None else \
                 (abs((total_debt - cash_now) - net_debt) <= _tol)
@@ -1524,6 +1670,7 @@ def _compute_inner(raw):
         "short_term_investments_label": (_sti_name or "Short-term investments"),
         "short_term_investments_liquid": _sti_liquid,
         "net_debt_via_investments": _nd_via_sti,
+        "cash_includes_investments": _sti_in_cash,
         "reconciles": bs_reconciles,
         "leverage_nd_ebitda": ((fmt_pct(leverage) if leverage_unit == "%" else fmt_x(leverage))
                                if leverage is not None
@@ -1540,8 +1687,9 @@ def _compute_inner(raw):
         "leverage_unit": leverage_unit,
         "net_debt_bridge": [_r for _r in [
             ("Total debt", fmt_usd(total_debt, cur)),
-            ("Less: cash and equivalents", fmt_usd(cash_now, cur) if cash_now is not None
-             else "not reported in source"),
+            ("Less: cash, equivalents and marketable securities" if _sti_in_cash
+             else "Less: cash and equivalents",
+             fmt_usd(cash_now, cur) if cash_now is not None else "not reported in source"),
             ("Less: %s" % (_sti_name or "short-term investments"),
              fmt_usd(_sti, cur)) if _nd_via_sti else None,
             ("= Net debt (%s)" % ("total debt less cash less investments" if _nd_via_sti
@@ -1552,7 +1700,7 @@ def _compute_inner(raw):
              (fmt_usd(_nd_residual, cur) if _nd_residual not in (None, 0)
               else "none - the bridge ties exactly") if _nd_residual is not None
              else "not determinable"),
-            None if _nd_via_sti else
+            None if (_nd_via_sti or _sti_in_cash) else
             ("Memo: %s (not netted)" % (_sti_name or "short-term investments"),
              (fmt_usd(_sti, cur) + ("" if _sti_liquid else
                                     " - not a liquid short-term investment balance; not eligible "
@@ -1563,6 +1711,8 @@ def _compute_inner(raw):
             "Total debt less cash and equivalents less %s - the formula that reconciles to the "
             "source's reported figure." % (_sti_name or "short-term investments")
             if _nd_via_sti else
+            "Total debt less cash, equivalents and marketable securities, as reported by the "
+            "source." if _sti_in_cash else
             "Total debt less cash and equivalents, as reported by the source."),
         "net_debt_reconciled": _nd_recon,
         "interest_coverage": (fmt_x(int_cov) if int_cov is not None
@@ -1576,9 +1726,7 @@ def _compute_inner(raw):
     fcf_ps_first = safe_div(fcf_s[0], sh_s[0]) if (fcf_s and fcf_s[0] and sh_s and sh_s[0]) else None
     fcf_ps_last = safe_div(fcf_s[-1], sh_s[-1]) if (fcf_s and fcf_s[-1] and sh_s and sh_s[-1]) else None
     fcf_ps_cagr = cagr(fcf_ps_first, fcf_ps_last, span)
-    _eps_f = next((v for v in eps_s if v is not None), None) if eps_s else None
-    _eps_l = next((v for v in reversed(eps_s) if v is not None), None) if eps_s else None
-    eps_cagr = cagr(_eps_f, _eps_l, span) if (_eps_f and _eps_l) else None
+    eps_cagr, eps_basis = eps_growth(by_period, years)
     bvps_first = safe_div(eq_s[0], sh_s[0]) if (eq_s and eq_s[0] and sh_s and sh_s[0]) else None
     bvps_last = safe_div(eq_s[-1], sh_s[-1]) if (eq_s and eq_s[-1] and sh_s and sh_s[-1]) else None
     bvps_cagr = cagr(bvps_first, bvps_last, span)
@@ -1590,12 +1738,32 @@ def _compute_inner(raw):
         roe_now = _roe_reported
         _roe_basis = "as reported by the source (RT_P_102)"
     tsr = raw.get("tsr") or {}
+    _tsr_div_text = "Annualised price change plus cumulative dividends per share."
     _tsr_d0 = tsr.get("price_start_date") or tsr.get("date_start")
     _tsr_d1 = tsr.get("price_end_date") or tsr.get("date_end")
     tsr_ann = None
     if tsr.get("price_start") and tsr.get("price_end") and tsr.get("years"):
         ps, pe, ny = tsr["price_start"], tsr["price_end"], tsr["years"]
-        divc = tsr.get("div_per_share_cumulative", 0) or 0
+        try:
+            import datetime as _dt
+            _ny = (_dt.date.fromisoformat(str(_tsr_d1)[:10])
+                   - _dt.date.fromisoformat(str(_tsr_d0)[:10])).days / 365.25
+        except (TypeError, ValueError):
+            _ny = None
+        if _ny and _ny > 0.5:
+            if abs(_ny - float(ny)) > 0.25:
+                warnings.append("DISCLOSURE: the TSR window %s to %s is %.1f years, not the %s years stated; "
+                                "the return is annualised over the dates." % (_tsr_d0, _tsr_d1, _ny, ny))
+            ny = _ny
+        divc = tsr.get("div_per_share_cumulative") or 0
+        if not divc:
+            _dv, _dn = dps_in_window(raw, _tsr_d0, _tsr_d1)
+            if _dv is None:
+                warnings.append("DISCLOSURE: TSR is price only - %s; dividends are not included." % _dn)
+                _tsr_div_text = "Annualised price change only: dividends are not included (%s)." % _dn
+            else:
+                divc = _dv
+                _tsr_div_text = "Annualised price change plus %s." % _dn
         tsr_ann = ((pe + divc) / ps) ** (1.0 / ny) - 1.0
         tsr_ann *= 100.0
     cum_return = ssum([ssum(bb_s), ssum(div_s)])
@@ -1609,9 +1777,9 @@ def _compute_inner(raw):
     vc_drivers, vc_constraints = [], []
     if roic_now is not None:
         if roic_now > coc + RV("value_creation", "roic_above"):
-            vc_score += RD("value_creation", "roic_above"); vc_flags.append(f"ROIC {roic_now:.1f}% above the ~{coc:.0f}% hurdle"); vc_drivers.append(f"ROIC {roic_now:.1f}% vs a ~{coc:.0f}% hurdle")
+            vc_score += RD("value_creation", "roic_above"); vc_flags.append(f"ROIC {fmt_pct(roic_now)} above the ~{coc:.0f}% hurdle"); vc_drivers.append(f"ROIC {fmt_pct(roic_now)} vs a ~{coc:.0f}% hurdle")
         elif roic_now < coc:
-            vc_score += RD("value_creation", "roic_below"); vc_flags.append(f"ROIC {roic_now:.1f}% below the ~{coc:.0f}% hurdle"); vc_constraints.append(f"ROIC {roic_now:.1f}% below the ~{coc:.0f}% hurdle")
+            vc_score += RD("value_creation", "roic_below"); vc_flags.append(f"ROIC {fmt_pct(roic_now)} below the ~{coc:.0f}% hurdle"); vc_constraints.append(f"ROIC {fmt_pct(roic_now)} below the ~{coc:.0f}% hurdle")
     if fcf_ps_cagr is not None:
         if fcf_ps_cagr > RV("value_creation", "fcfps_strong"):
             vc_score += RD("value_creation", "fcfps_strong"); vc_flags.append(f"FCF/share compounding {fmt_pct(fcf_ps_cagr, signed=True)}"); vc_drivers.append(f"FCF per share {fmt_pct(fcf_ps_cagr, signed=True)} a year")
@@ -1681,7 +1849,7 @@ def _compute_inner(raw):
              if (_tsr_d0 and _tsr_d1)
              else "%g yr%s, annualised" % (tsr.get("years"), "" if tsr.get("years") == 1 else "s"))
             if tsr_ann is not None else None),
-        "tsr_basis": ("Annualised price change plus cumulative dividends per share."
+        "tsr_basis": (_tsr_div_text
                       if tsr_ann is not None else
                       "Total shareholder return is not scored in this framework: over a five-year "
                       "window it reflects the change in valuation multiple as much as the allocation "
@@ -1691,6 +1859,7 @@ def _compute_inner(raw):
                       "score coverage rather than treated as a missing input."),
         "fcf_per_share_cagr": fmt_pct(fcf_ps_cagr, signed=True) if fcf_ps_cagr is not None else "n/a",
         "eps_cagr": fmt_pct(eps_cagr, signed=True) if eps_cagr is not None else "n/a",
+        "eps_basis": eps_basis,
         "share_count_change": fmt_pct(-sh_reduction * 100, signed=True) if sh_reduction is not None else "n/a",
         "share_count_period": _sh_period,
         "book_value_per_share_cagr": fmt_pct(bvps_cagr, signed=True) if bvps_cagr is not None else "n/a",
@@ -1719,7 +1888,7 @@ def _compute_inner(raw):
             "div_s": div_s, "sh_s": sh_s, "eq_s": eq_s, "bb_s": bb_s, "fcf_s": fcf_s,
             "sh_first_obs": sh_first, "sh_last_obs": sh_last,
             "sh_obs_idx": _sh_idx, "sh_span_obs": _sh_span, "sh_period_obs": _sh_period,
-            "ni_s": ni_s, "eps_s": eps_s, "acq_s": acq_s, "capex_s": capex_s, "rev_s": rev_s,
+            "ni_s": ni_s, "eps_s": eps_s, "eps_cagr": eps_cagr, "acq_s": acq_s, "capex_s": capex_s, "rev_s": rev_s,
             "intang_s": series(by_period, years, "intangibles"),
             "affo_yield_base": mcap,
             "roe_canonical": roe_now, "roe_basis": _roe_basis,
@@ -1757,7 +1926,7 @@ def _compute_inner(raw):
     if _out_score is None:
         _out_score = vc_score
     def _num(v):
-        m = re.search(r"[-+]?\d+(?:\.\d+)?", str(v or "").replace(",", ""))
+        m = re.search(r"[-+]?\d+(?:\.\d+)?", str(v or "").replace(",", "").replace("\u2212", "-"))
         return float(m.group()) if (m and not str(v).lower().startswith(("n/a", "not "))) else None
 
     _fav, _tot = 0, 0
@@ -1844,9 +2013,11 @@ def _compute_inner(raw):
                   "Acquisition-Led; else the dominant bucket sets the tilt: >=60% = Oriented "
                   "(split into Dividend-Led / Buyback-Led by the return channel), "
                   "50-60% and largest = Led/Leaning, otherwise Balanced (<50% either side).")
-    class_basis = (f"Reinvestment (capex+M&A) {fmt_pct(rr*100)} vs Shareholder Return "
-                   f"(buyback+dividend) {fmt_pct(rs*100)} of capital deployed; acquisitions "
-                   f"{fmt_pct((r_acq or 0)*100)}, debt reduction {fmt_pct((r_debt or 0)*100)}. "
+    _shp = {k: (pct_of(a, pool) if (a is not None and pool) else None)
+           for k, a in (("reinv", reinvest), ("shret", shret), ("debt", debt_reduction_cum), ("acq", acq_cum))}
+    class_basis = (f"Reinvestment (capex+M&A) {fmt_pct(_shp['reinv'] or 0)} vs Shareholder Return "
+                   f"(buyback+dividend) {fmt_pct(_shp['shret'] or 0)} of capital deployed; acquisitions "
+                   f"{fmt_pct(_shp['acq'] or 0)}, debt reduction {fmt_pct(_shp['debt'] or 0)}. "
                    f"Applying the rule -> {label}.")
     def _amt_txt(v):
         return fmt_usd(v, cur) if v is not None else "n/a"
@@ -1854,10 +2025,10 @@ def _compute_inner(raw):
     classification = {
         "label": label, "rule": class_rule, "basis": class_basis,
         "period_basis": "cumulative, %s-%s" % (first, latest),
-        "reinvestment_pct": fmt_pct(r_reinv * 100) if r_reinv is not None else "n/a",
-        "shareholder_return_pct": fmt_pct(r_shret * 100) if r_shret is not None else "n/a",
-        "debt_reduction_pct": fmt_pct(r_debt * 100) if r_debt is not None else "n/a",
-        "acquisition_pct": fmt_pct(r_acq * 100) if r_acq is not None else "n/a",
+        "reinvestment_pct": fmt_pct(_shp["reinv"]) if r_reinv is not None else "n/a",
+        "shareholder_return_pct": fmt_pct(_shp["shret"]) if r_shret is not None else "n/a",
+        "debt_reduction_pct": fmt_pct(_shp["debt"]) if r_debt is not None else "n/a",
+        "acquisition_pct": fmt_pct(_shp["acq"]) if r_acq is not None else "n/a",
         "reinvestment_amt": _amt_txt(reinvest),
         "shareholder_return_amt": _amt_txt(shret),
         "debt_reduction_amt": _amt_txt(debt_reduction_cum),
@@ -1879,6 +2050,7 @@ def _compute_inner(raw):
         "leverage": (leverage if leverage_unit == "x" else None),
         "capital_return_fcf": cap_return_of_fcf,
         "reinvestment_rate": reinvest_rate,
+        "market_cap": mcap,
     })
     warnings.extend(peer_rows.get("peer_warnings", []))
 
@@ -2007,7 +2179,10 @@ def _compute_inner(raw):
     nd_first = gv(by_period.get(first, {}), "net_debt")
     if ((not _sector_active) and cap_return_of_fcf is not None and cap_return_of_fcf > 0.9 and net_debt is not None
             and nd_first is not None and net_debt > nd_first and net_debt > 0):
-        quality_flags.append({"severity": "Material", "flag": "Distributions exceeded free cash flow while net debt rose",
+        quality_flags.append({"severity": "Material",
+                              "flag": ("Distributions exceeded free cash flow while net debt rose"
+                                       if cap_return_of_fcf > 1.0 else
+                                       "Distributions near free cash flow while net debt rose"),
                               "text": f"Net debt rose from {fmt_usd(nd_first, cur)} to {fmt_usd(net_debt, cur)} while "
                                       f"{fmt_pct(cap_return_of_fcf*100)} of cumulative free cash flow ({first}-{latest}) "
                                       f"was returned. Coincident over the period, not attributed: a complete "
@@ -2108,15 +2283,15 @@ def _compute_inner(raw):
                                       f"the deployment plan is not self-funding."})
     if leverage is not None and leverage_unit == "x" and leverage >= 3.0:
         quality_flags.append({"severity": "Monitoring", "flag": "Elevated leverage",
-                              "text": f"Net debt / EBITDA was {leverage:.2f}x"
+                              "text": f"Net debt / EBITDA was {fmt_x(leverage)}"
                                       + (f" with {balance_sheet['interest_coverage']} interest cover"
                                          if not str(balance_sheet.get('interest_coverage','n/a')).startswith('n/a') else "")
                                       + "; the capital plan carries balance-sheet risk."})
     if _sh_first and _sh_last and _sh_last > _sh_first * 1.02:
         _bb_any = ssum([v for v in bb_s if v is not None])
         quality_flags.append({"severity": "Monitoring", "flag": "Share count increased",
-                              "text": (f"Diluted shares rose from {_sh_first:,.0f}M to {_sh_last:,.0f}M over the "
-                                       f"window ({fmt_pct((_sh_last / _sh_first - 1.0) * 100, signed=True)}); ")
+                              "text": (f"Diluted shares rose from {fmt_sh(_sh_first)} to {fmt_sh(_sh_last)} over the "
+                                       f"window ({fmt_pct((sh_shown(_sh_last) / sh_shown(_sh_first) - 1.0) * 100, signed=True)}); ")
                                       + ("repurchases did not offset issuance and stock compensation."
                                          if _bb_any else
                                          "no repurchase is reported in any year of the window, so the "
@@ -2133,7 +2308,7 @@ def _compute_inner(raw):
             return ""
         mvp = mv if (key in _PEER_ALREADY_PCT or key in _PEER_NOT_A_PCT) else mv * 100
         side = "above" if (val_pct > mvp) == higher_better else "below"
-        return f", {side} the {mvp:.1f}{unit} peer median"
+        return f", {side} the {_fx(mvp, 1)}{unit} peer median"
     _bb_pk = _vs_peer("buyback_yield", (bb_yield * 100 if bb_yield is not None else None))
     _cx_pk = _vs_peer("capex_intensity", (capex_intensity * 100 if capex_intensity is not None else None))
     _rc_pk = _vs_peer("roic", roic_now)
@@ -2299,7 +2474,7 @@ def _compute_inner(raw):
             if d != d or d in (float("inf"), float("-inf")):
                 _bad.append(k)
         sr_t, sr_m = tgt.get("share_count_change"), med.get("share_count_change")
-        _dir = (f"share count change {sr_t*100:+.1f}% vs peer median {sr_m*100:+.1f}% "
+        _dir = (f"share count change {fmt_pct(sr_t*100, signed=True)} vs peer median {fmt_pct(sr_m*100, signed=True)} "
                 f"({'diluting more than' if (sr_t or 0) > (sr_m or 0) else 'shrinking more than'} the peer group)"
                 if (sr_t is not None and sr_m is not None) else "share count change not comparable")
         _peer_ok = not _bad
@@ -2442,16 +2617,16 @@ def _compute_inner(raw):
         _lat_thin = next((t for t in _ROE_THIN if roe_now is not None
                           and abs((t[0] or 0) - roe_now) < 0.05), None)
         if _lat_thin is not None:
-            _msg = ("Return on equity is published against a thin equity base: %.1f%% on book "
-                    "equity of %s. " % (_lat_thin[0], fmt_usd(_lat_thin[1], cur))) + _why
+            _msg = ("Return on equity is published against a thin equity base: %s on book "
+                    "equity of %s. " % (fmt_pct(_lat_thin[0]), fmt_usd(_lat_thin[1], cur))) + _why
             if abs(_tr - _lat_thin[0]) >= 0.05:
                 _msg += (" Book equity is thin in %d of the years measured; the widest reading in "
-                         "the window is %.1f%%." % (len(_ROE_THIN), _tr))
+                         "the window is %s." % (len(_ROE_THIN), fmt_pct(_tr)))
         else:
             _msg = ("Return on equity in %d of the years measured is against a thin equity base "
-                    "(the widest reading is %.1f%% on book equity of %s); the latest-year figure "
+                    "(the widest reading is %s on book equity of %s); the latest-year figure "
                     "the document publishes is not among them. "
-                    % (len(_ROE_THIN), _tr, fmt_usd(_te, cur))) + _why
+                    % (len(_ROE_THIN), fmt_pct(_tr), fmt_usd(_te, cur))) + _why
         warnings.append(_msg)
     if _DEBT_ISSUED_NET:
         warnings.append(
@@ -2544,7 +2719,7 @@ def _compute_inner(raw):
             "ADVISORY: the quarterly pull returned %d of the %d fiscal quarters the Quarterly "
             "Monitor and the twelve-month comparison need, so those two analyses are omitted. "
             "This is a truncated fetch, not an issuer that reports fewer quarters - re-fetch "
-            "actuals_quarterly with an explicit limit (32 rows for 8 quarters x 4 codes; the "
+            "actuals_quarterly with an explicit limit (40 rows for 8 quarters x 5 codes; the "
             "vendor default pages at 25) and re-run."
             % (_qdepth["quarters"], _qdepth["expected"]))
     if q_rows_all:
@@ -2569,10 +2744,11 @@ def _compute_inner(raw):
                 q["div"] = abs(v)
         order = sorted(qmap.keys())
         qs = [qmap[k] for k in order]
-        if len(qs) >= 8:
+        _ppy = 2 if qs and all(re.fullmatch(r"[12]H\d{2}", str(w.get("label", "")), re.I) for w in qs) else 4
+        if len(qs) >= 2 * _ppy:
             def _wsum(win, key):
                 return ssum([w.get(key) for w in win])
-            curw, priw = qs[-4:], qs[-8:-4]
+            curw, priw = qs[-_ppy:], qs[-2 * _ppy:-_ppy]
             def _win(win):
                 o = _wsum(win, "ocf"); cx = _wsum(win, "capex")
                 bb = _wsum(win, "bb"); dv = _wsum(win, "div")
@@ -2581,7 +2757,17 @@ def _compute_inner(raw):
                         "div_pct": safe_div(dv, o), "res": (o - (cx or 0) - (dv or 0)) if o is not None else None}
             _LW, _PW = _win(curw), _win(priw)
             def _pp(a, b):
-                return _rf((a - b) * 100, 1) if (a is not None and b is not None) else None
+                return _rf(_rf(a * 100, 1) - _rf(b * 100, 1), 1) if (a is not None and b is not None) else None
+
+            def _usd3(p, l, pct=False):
+                vals = [x for x in (p, l) if x is not None]
+                ref = max(map(abs, vals)) if vals else None
+                out = [fmt_usd(p, cur, ref), fmt_usd(l, cur, ref)]
+                if p is None or l is None or (pct and not p):
+                    return dict(zip(("prior", "ltm", "chg"), out + ["n/a"]))
+                a, b = (usd_shown(p, ref), usd_shown(l, ref)) if (not pct or abs(p) >= 1e3) else (p, l)
+                return dict(zip(("prior", "ltm", "chg"), out + [
+                    fmt_pct((b - a) / a * 100, signed=True) if pct else fmt_usd(b - a, cur, ref)]))
             qtbl = []
             for w in qs[-6:]:
                 o = w.get("ocf")
@@ -2595,21 +2781,18 @@ def _compute_inner(raw):
             _ratio_rows = [
                     {"metric": "Reinvestment Rate (capex / OCF)", "prior": fmt_pct(_PW["reinv"]*100) if _PW["reinv"] is not None else "n/a",
                      "ltm": fmt_pct(_LW["reinv"]*100) if _LW["reinv"] is not None else "n/a",
-                     "chg": (f"{_pp(_LW['reinv'], _PW['reinv']):+.1f} pp" if _pp(_LW["reinv"], _PW["reinv"]) is not None else "n/a")},
+                     "chg": (f"{_fx(_pp(_LW['reinv'], _PW['reinv']), 1, signed=True)} pp" if _pp(_LW["reinv"], _PW["reinv"]) is not None else "n/a")},
                     {"metric": "Buybacks % of OCF", "prior": fmt_pct(_PW["bb_pct"]*100) if _PW["bb_pct"] is not None else "n/a",
                      "ltm": fmt_pct(_LW["bb_pct"]*100) if _LW["bb_pct"] is not None else "n/a",
-                     "chg": (f"{_pp(_LW['bb_pct'], _PW['bb_pct']):+.1f} pp" if _pp(_LW["bb_pct"], _PW["bb_pct"]) is not None else "n/a")},
+                     "chg": (f"{_fx(_pp(_LW['bb_pct'], _PW['bb_pct']), 1, signed=True)} pp" if _pp(_LW["bb_pct"], _PW["bb_pct"]) is not None else "n/a")},
                     {"metric": "Dividends % of OCF", "prior": fmt_pct(_PW["div_pct"]*100) if _PW["div_pct"] is not None else "n/a",
                      "ltm": fmt_pct(_LW["div_pct"]*100) if _LW["div_pct"] is not None else "n/a",
-                     "chg": (f"{_pp(_LW['div_pct'], _PW['div_pct']):+.1f} pp" if _pp(_LW["div_pct"], _PW["div_pct"]) is not None else "n/a")},
-                    {"metric": "OCF - capex - dividends", "prior": fmt_usd(_PW["res"], cur), "ltm": fmt_usd(_LW["res"], cur),
-                     "chg": (fmt_usd(_LW["res"]-_PW["res"], cur) if (_LW["res"] is not None and _PW["res"] is not None) else "n/a")},
+                     "chg": (f"{_fx(_pp(_LW['div_pct'], _PW['div_pct']), 1, signed=True)} pp" if _pp(_LW["div_pct"], _PW["div_pct"]) is not None else "n/a")},
+                    {"metric": "OCF - capex - dividends", **_usd3(_PW["res"], _LW["res"])},
             ]
             _cash_rows = [
-                    {"metric": "Buybacks", "prior": fmt_usd(_PW["bb"], cur), "ltm": fmt_usd(_LW["bb"], cur),
-                     "chg": (fmt_usd(_LW["bb"]-_PW["bb"], cur) if (_LW["bb"] is not None and _PW["bb"] is not None) else "n/a")},
-                    {"metric": "Dividends", "prior": fmt_usd(_PW["div"], cur), "ltm": fmt_usd(_LW["div"], cur),
-                     "chg": (fmt_usd(_LW["div"]-_PW["div"], cur) if (_LW["div"] is not None and _PW["div"] is not None) else "n/a")},
+                    {"metric": "Buybacks", **_usd3(_PW["bb"], _LW["bb"])},
+                    {"metric": "Dividends", **_usd3(_PW["div"], _LW["div"])},
             ]
             monitor = {
                 "available": True,
@@ -2622,8 +2805,7 @@ def _compute_inner(raw):
                 "ltm_label": f"{curw[0]['label']}-{curw[-1]['label']}",
                 "prior_label": f"{priw[0]['label']}-{priw[-1]['label']}",
                 "rows": [
-                    {"metric": "Operating Cash Flow", "prior": fmt_usd(_PW["ocf"], cur), "ltm": fmt_usd(_LW["ocf"], cur),
-                     "chg": (fmt_pct(safe_div(_LW["ocf"]-_PW["ocf"], _PW["ocf"])*100, signed=True) if (_LW["ocf"] and _PW["ocf"]) else "n/a")},
+                    {"metric": "Operating Cash Flow", **_usd3(_PW["ocf"], _LW["ocf"], pct=True)},
                 ] + (_ratio_rows if _ocf_ratios else _cash_rows),
             }
             if _LW["reinv"] is not None:
@@ -2727,6 +2909,7 @@ def _compute_inner(raw):
             ("TOTAL_DEBT", total_debt, "$", "LQ", "reported"),
             ("CASH", cash_now, "$", "LQ", "reported"),
             ("REINVESTMENT_RATE", (reinvest_rate * 100.0 if reinvest_rate is not None else None), "%", "LFY", "reported"),
+            ("CAPEX_INTENSITY", (capex_intensity * 100.0 if capex_intensity is not None else None), "%", "LFY", "reported"),
             ("SHARE_COUNT_CHANGE", (-sh_reduction * 100.0 if sh_reduction is not None else None), "%", "CUM5", "n/a")):
         if _val is not None:
             _store.register(_mid, _val, period=_per, basis=_bas, unit=_unit,
@@ -2801,8 +2984,10 @@ def rate(score):
             else "Neutral" if score >= 4 else "Poor")
 
 
-def _peer_metrics(actuals_annual, market_cap, coc):
+def _peer_metrics(actuals_annual, market_cap, coc, who=None, notes=None):
     rows = unwrap(actuals_annual)
+    if who is not None:
+        rows = _own_rows(rows, who, notes if notes is not None else [])
     by, _ = index_rows(rows)
     yrs = annual_years(by)
     if len(yrs) < 2:
@@ -2884,14 +3069,14 @@ def _peer_metrics(actuals_annual, market_cap, coc):
 def _bs_evidence_clauses(bs):
     parts = []
     _lev = str(bs.get("leverage_nd_ebitda", "") or "")
-    if _lev and not _lev.lower().startswith(("n/a", "withheld", "-")):
+    if _lev and not _lev.lower().startswith(("n/a", "withheld", "-", "\u2212")):
         parts.append("leverage was %s" % _lev)
     _cov = str(bs.get("interest_coverage", "") or "")
     if _cov and not _cov.lower().startswith(("n/a", "withheld")):
         parts.append("interest cover was %s" % _cov)
     _nd = str(bs.get("net_debt", "") or "")
     if _nd and not _nd.lower().startswith(("n/a", "withheld")):
-        parts.append("the company held net cash" if _nd.startswith("-")
+        parts.append("the company held net cash" if _nd.startswith(("-", "\u2212"))
                      else "the company held net debt of %s" % _nd)
     if not parts:
         return ("no leverage, interest-cover or net-debt measure is available for the period, "
@@ -2997,7 +3182,7 @@ def compute_peers(raw, coc, canonical=None):
     target_m = _peer_metrics(raw.get("actuals_annual"), raw.get("market", {}).get("market_cap")
                              or (raw.get("market", {}).get("price") and None), coc)
     mkt = raw.get("market", {})
-    tmc = mkt.get("market_cap")
+    tmc = (canonical or {}).get("market_cap") or mkt.get("market_cap")
     if tmc is None and mkt.get("price"):
         rows = unwrap(raw.get("actuals_annual"))
         by, _ = index_rows(rows)
@@ -3014,9 +3199,10 @@ def compute_peers(raw, coc, canonical=None):
                 target_m[_k] = _v
 
     rows = []
+    _own_notes = []
     collected = {k: [] for k in metrics_keys}
     for p in peers:
-        m = _peer_metrics(p.get("actuals_annual"), p.get("market_cap"), coc)
+        m = _peer_metrics(p.get("actuals_annual"), p.get("market_cap"), coc, who=p, notes=_own_notes)
         if not m:
             continue
         rows.append({"name": f"{p.get('name', p.get('ticker'))}", "metrics": m})
@@ -3028,7 +3214,7 @@ def compute_peers(raw, coc, canonical=None):
              "reinvestment_rate": (0.0, 3.0), "capital_return_fcf": (-1.0, 5.0),
              "roic": (-50.0, 200.0), "leverage": (-10.0, 15.0), "fcf_conversion": (-5.0, 5.0),
              "share_count_change": (-0.5, 0.5)}
-    peer_warnings = []
+    peer_warnings = list(_own_notes)
     for row in rows:
         m = row["metrics"]
         row["flags"] = []
@@ -3087,11 +3273,11 @@ def compute_peers(raw, coc, canonical=None):
         if abs(dev) < thr:
             continue
         if unit == "pp":
-            mag = f"{dev:+.0f}pp"
+            mag = _fx(float(_xr(tv, 1)) - float(_xr(mv, 1)), 1, signed=True) + "pp"
         elif unit == "x":
-            mag = f"{dev:+.2f}x"
+            mag = _fx(float(_xr(tv, 2)) - float(_xr(mv, 2)), 2, signed=True) + "x"
         else:
-            mag = f"{dev*100:+.1f}pp"
+            mag = _fx(float(_xr(tv * 100, 1)) - float(_xr(mv * 100, 1)), 1, signed=True) + "pp"
         why = _dev_reason(k, tv, dev)
         dev_notes.append(f"{lbl[k]} {mag} vs peer median - {why}.")
     return {"available": True, "target": target_m, "median": median,

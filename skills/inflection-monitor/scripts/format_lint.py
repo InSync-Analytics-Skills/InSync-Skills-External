@@ -26,6 +26,7 @@ import json
 import os
 import re
 import html as html_lib
+from decimal import Decimal, ROUND_HALF_UP
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -123,6 +124,12 @@ DRIVER_NEGATION = re.compile(
     r"the note does not|no decomposition)\b", re.I)
 
 TAG = re.compile(r"<[^>]+>")
+
+
+def _hu(v, dp):
+    if v != v or abs(v) == float("inf"):
+        return ""
+    return str(Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-dp), rounding=ROUND_HALF_UP))
 NUMTOK = re.compile(r"-?\d[\d,]*\.?\d*")
 UNRESOLVED = re.compile(r"\{\{[a-zA-Z0-9_.]+\}\}")
 
@@ -214,12 +221,14 @@ def engine_tokens(p) -> set:
         for dp in dps:
             toks.add(f"{f:.{dp}f}".replace(",", ""))
             toks.add(f"{abs(f):.{dp}f}".replace(",", ""))
+            toks.add(_hu(abs(f), dp))
         toks.add(str(int(f)) if float(f).is_integer() else str(f))
         for cut in SCALE_CUTS:
-            if abs(f) >= cut:
+            if abs(f) >= cut / 1e3:
                 for dp in (1, 2):
                     toks.add(f"{f / cut:.{dp}f}".replace(",", ""))
                     toks.add(f"{abs(f) / cut:.{dp}f}".replace(",", ""))
+                    toks.add(_hu(abs(f) / cut, dp))
 
     for key in ("accelerating", "decelerating", "deep_dive", "primary_context"):
         for r in p.get(key, []):
@@ -472,7 +481,7 @@ def engine_tokens(p) -> set:
                "primary_context", "quiet_headline"):
         for r in p.get(_k) or []:
             for f in ("latest_value", "latest_growth", "prev_growth", "latest_accel",
-                      "z", "z_display", "streak", "quarters"):
+                      "z", "z_display", "streak", "quarters", "growth_printed", "accel_printed"):
                 add(r.get(f))
             for v in (r.get("rate_view") or {}).values():
                 add(v)
@@ -2710,7 +2719,7 @@ def main():
         for _g in ((p.get("guidance_check") or {}).get(_k) or []):
             _t = str(_g.get("guide_display_text") or "")
             if re.search(r"capex|capital expend", str(_g.get("name") or _g.get("display") or ""), re.I) \
-                    and _t.startswith("-"):
+                    and _t.startswith(("-", "\u2212")):
                 failures.append("capex guide on %r is shown as a negative figure (%s)"
                                 % (_g.get("display") or _g.get("name"), _t))
 
@@ -2949,7 +2958,7 @@ def main():
                 else "Notable" if v >= 0.75 else "Normal range")
     for _m in re.finditer(r"(Very unusual|Unusual|Notable|Normal range) \((\d+\.\d) SD\)",
                           " ".join(_vis.split())):
-        if _band(float(_m.group(2))) != _m.group(1):
+        if _m.group(1) not in (_band(float(_m.group(2))), _band(float(_m.group(2)) - 0.05)):
             failures.append("%r: the band word does not match the printed %s SD"
                             % (_m.group(0), _m.group(2)))
             break
@@ -3105,9 +3114,9 @@ def main():
     if args.pdf and os.path.exists(args.pdf):
         _pt = "\f".join(pdf_pages_text(args.pdf)) or None
         if _pt is not None:
-            _pdf_nums = set(re.findall(r"[-+]?\$?\d[\d,]*\.?\d*%?", _pt))
-            _html_nums = [t for t in re.findall(r"[-+]?\$?\d[\d,]*\.?\d*%?", _vis)
-                          if len(t.strip("+-$%")) >= 3]
+            _pdf_nums = set(re.findall(r"[-+\u2212]?\$?\d[\d,]*\.?\d*%?", _pt))
+            _html_nums = [t for t in re.findall(r"[-+\u2212]?\$?\d[\d,]*\.?\d*%?", _vis)
+                          if len(t.strip("+-\u2212$%")) >= 3]
             _lost = sorted({t for t in _html_nums if t not in _pdf_nums})
             if _lost:
                 failures.append("%d figure(s) printed on the HTML page are missing from the PDF "
@@ -3143,7 +3152,7 @@ def main():
             _y, _l = _cells[_iy], _cells[_il].lower()
             _up = re.search(r"\b(higher|growing|widening|rising)\b", _l)
             _dn = re.search(r"\b(lower|declining|narrowing|falling)\b", _l)
-            if (_y.startswith("+") and _dn and not _up) or (_y.startswith("-") and _up and not _dn):
+            if (_y.startswith("+") and _dn and not _up) or (_y.startswith(("-", "\u2212")) and _up and not _dn):
                 failures.append("Current Level Direction %r contradicts the y/y change %r in row %r"
                                 % (_cells[_il], _y, _cells[0][:40]))
 

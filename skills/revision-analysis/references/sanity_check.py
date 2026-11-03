@@ -31,9 +31,9 @@ sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 from jscompat import (UNDEFINED as U, js_stdio, js_str, js_number, js_to_fixed,
                       js_parse_float, js_cmp_sort, _js_read_json, _truthy, _utf16_key)
 import revision_common
-from revision_common import money_fmt
+from revision_common import hu_fixed, money_fmt
 
-VERSION = '2.5.0'
+VERSION = '2.5.2'
 
 
 def _isnum(v):
@@ -856,7 +856,7 @@ def main():
             INFO("Current column: %d cells tie to the contract%s" % (checked, (", %d differ" % bad) if bad else ""))
         lim = col_idx(O(cur_col, "D")) + 7
         panel = [c["t"] for c in allc if col_idx(c["col"]) > lim and c["t"]]
-        bad_re = r"undefined|NaN|\bnull\b|Infinity|\[object|" + SYMRX + r"0m\b|\+0\.0%|−0\.0%|\bnull\b"
+        bad_re = r"undefined|NaN|\bnull\b|Infinity|\[object|" + SYMRX + r"0\.00M\b|\+0\.0%|−0\.0%|\bnull\b"
         if MF.sym != "$":
             for t in panel:
                 if test(r"(^|[^A-Z])\$\d", t):
@@ -887,12 +887,12 @@ def main():
         ep = lead("IS_S_657", "IS_P_128", "IS_P_127")
         line = next((t for t in panel if test(r"^•\s+" + q + " Revenue: ", t)), U)
         if truthy(line) and truthy(rvl) and truthy(per(rvl, "q")) and not nul(get(per(rvl, "q"), "cur")):
-            m = R(r"Revenue: (" + SYMRX + r"[\d.,]+(?:bn|m))(?:\s+\|\s+EPS " + SYMRX + r"([\d.]+))?").search(line)
+            m = R(r"Revenue: (" + SYMRX + r"[\d.,]+[MBT])(?:\s+\|\s+EPS " + SYMRX + r"([\d.]+))?").search(line)
             if m and m.group(1) != fBn(get(per(rvl, "q"), "cur")):
                 FAIL("Consensus Embeds revenue %s is not the lead flavour's %s (%s)" % (m.group(1), fBn(get(per(rvl, "q"), "cur")), S(get(rvl, "label"))))
             if (m and m.group(2) and truthy(ep) and truthy(per(ep, "q")) and not nul(get(per(ep, "q"), "cur"))
-                    and m.group(2) != js_to_fixed(N(get(per(ep, "q"), "cur")), 2)):
-                FAIL("Consensus Embeds EPS $%s is not the lead flavour's $%s (%s)" % (m.group(2), js_to_fixed(N(get(per(ep, "q"), "cur")), 2), S(get(ep, "label"))))
+                    and m.group(2) != hu_fixed(N(get(per(ep, "q"), "cur")), 2)):
+                FAIL("Consensus Embeds EPS $%s is not the lead flavour's $%s (%s)" % (m.group(2), hu_fixed(N(get(per(ep, "q"), "cur")), 2), S(get(ep, "label"))))
         H = get(I, "history")
         line = next((t for t in panel if test(r"^•\s+Cycle rank:", t)), U)
         if truthy(H) and truthy(line) and not jeq(get(H, "uniformBasis"), False):
@@ -932,10 +932,10 @@ def main():
                 i += 1
 
             def amt(t):
-                m = R(r":\s*([+−-])" + SYMRX + r"([\d.,]+)(bn|m)$").search(t)
+                m = R(r":\s*([+−-])" + SYMRX + r"([\d.,]+)([MBT])$").search(t)
                 if not m:
                     return None
-                v = js_parse_float(m.group(2).replace(",", "")) * (1000 if m.group(3) == "bn" else 1)
+                v = js_parse_float(m.group(2).replace(",", "")) * {"B": 1000, "T": 1e6}.get(m.group(3), 1)
                 return v if m.group(1) == "+" else -v
             segv = [v for v in (amt(t) for t in lines if not test(r"^•\s+Other contributors:", t)) if v is not None]
             if len(segv) and not jeq(jsign(segv[0]), get(A2, "dir")):

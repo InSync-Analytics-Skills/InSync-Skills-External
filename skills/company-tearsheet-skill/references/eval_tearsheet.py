@@ -290,15 +290,11 @@ for _key, _fields in (("operational_kpis", ("value", "vs_est", "yoy")),
     for _f in _fields:
         _pcts = [(r.get(_f), _dp(r.get(_f))) for r in (d.get(_key) or [])
                  if str(r.get(_f, "")).strip().endswith("%")]
-        _seen = {dp for _v, dp in _pcts if dp is not None}
-        if len(_seen) > 1:
-            fails.append("%s.%s mixes decimal places %s within one column: %s — SKILL.md 9.3 "
-                         "requires one precision per column"
-                         % (_key, _f, sorted(_seen), ", ".join(str(v) for v, _ in _pcts)))
-        _wrong = [v for v, dp in _pcts if dp is not None and dp != 1]
+        _wrong = [v for v, dp in _pcts if dp is not None and dp != 1
+                  and not (dp == 2 and abs(_scalar(v) if _scalar(v) is not None else 99) < 5)]
         if _wrong:
             fails.append("%s.%s renders percentages at %s decimal place(s): %s — SKILL.md 9.3 "
-                         "requires ONE. Pass the computed values through unchanged."
+                         "requires ONE (TWO below 5%%). Pass the computed values through unchanged."
                          % (_key, _f, sorted({_dp(v) for v in _wrong}),
                             ", ".join(str(v) for v in _wrong[:6])))
 

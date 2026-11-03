@@ -1,6 +1,6 @@
 # Company Tear Sheet
 
-*Version 8.1.0*
+*Version 8.1.2*
 `SKILL VERSION` banner in every file under `references/`.
 
 ## What this skill does

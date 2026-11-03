@@ -140,7 +140,7 @@ Every such warning names the exact ltcode, quarter and fetch window.
 On ANY `[completeness]` warning you MUST:
 1. Go back to Step 2 and re-fetch the named codes for the named windows
    (revision_series across prior-print−10d..today paginated fully; preprint_snapshots
-   per named quarter at print−21d..print−1d). Add the rows to input.json.
+   per named quarter with the §7 plain call). Add the rows to input.json.
 2. Re-run compute. Repeat until zero `[completeness]` warnings remain.
 3. Only if a value is TRULY absent from InSync after re-fetching (the tool returns no
    rows) may a "—" stand — and you must say so explicitly in the final report.
@@ -162,7 +162,7 @@ evolution cells that should hold data; the docx text carries the company name, t
 quarter and all 10 section headings MINUS any card Rules 3/4 legitimately omitted, that
 omission disclosed; no retired-card
 headings, no stray tickers; file
-> 50KB and unzips as valid OOXML. `python references/check_masthead.py <rendered.pdf>` also checks masthead geometry when you can produce a PDF; the normative spec is `references/MASTHEAD-STANDARD.md`, measurements in `references/masthead-geometry.md`. **Printed precision:** per-share and money 2 dp, percentages 1 dp, counts 0 dp, multiples 1 dp and 2 dp below 1x.
+> 50KB and unzips as valid OOXML. `python references/check_masthead.py <rendered.pdf>` also checks masthead geometry when you can produce a PDF; the normative spec is `references/MASTHEAD-STANDARD.md`, measurements in `references/masthead-geometry.md`. **Printed precision:** money, per-share and multiples 2 dp, percentages 1 dp (2 dp on a rate row under 5%), bps and counts 0 dp, rounded once half-up, negatives `−$1.20B` (`references/money-units.md`).
 ~~~~
 
 ## From `references/valuation-card.md`
@@ -212,7 +212,7 @@ and warned above max(0.1%, $50M). Detail: `references/valuation-card.md`.
 
 ~~~~text
 5. **Sub-rows are DATABASE-FIRST:** the DB's own -Y/-Q/-M derived items win wherever
-   InSync carries them and their consensus values are authoritative; FIXED importance
+   InSync carries them and a level is not printed (else the printed levels decide, R1); FIXED importance
    defaults are computed only where the DB lacks them (Revenue & EPS -> Y/Y + seq;
    EBITDA/EBIT -> Y/Y + Margin; every currency KPI -> Y/Y, seq and % of Total Revenue).
    A computed "% of Total Revenue" NEVER appears on a non-currency (`#`), a per-unit (`$`),
@@ -229,7 +229,7 @@ and warned above max(0.1%, $50M). Detail: `references/valuation-card.md`.
 ### Rule 8: money units
 
 ~~~~text
-8. **Money units: ONE MAGNITUDE PER ROW, carried on the cell** (`₹1.25T`) — the Wrap/Flash vocabulary; decimals widen 2→4 dp so a row's own cells stay distinct. Rule, rationale and gates: `references/money-units.md`.
+8. **Money units: ONE MAGNITUDE PER ROW, carried on the cell** (`₹1.25T`) — the Wrap/Flash vocabulary; 2 dp, no widening. Rule, rationale and gates: `references/money-units.md`.
 ~~~~
 
 ## From `references/reporting-frequency.md`
@@ -343,7 +343,7 @@ rules; tables with HORIZONTAL RULES ONLY (#BBBBBB under a header row, #EEEEEE ha
 between body rows, no vertical gridlines and no outer box), #EDEDED header bands, #F5F0E8
 zebra on alternate body rows, #F6F3EE callout blocks; SIGN COLOUR on a CHANGE cell that renders
 an explicit sign (#1E7A34 +, #B02A1F −) while every LEVEL stays ink #1A1A1A **including a
-parenthesised negative**, and a change rounding to
+negative (`−$1.20B`)**, and a change rounding to
 zero at the printed precision takes #6E6E6E and NO sign glyph;
 (Estimate)/(Actual) sub-labels on Summary Financials, Calibri numbers, THE SETUP
 bar, the 10 sections in locked order (Valuation, Summary Financials, Earnings Setup,

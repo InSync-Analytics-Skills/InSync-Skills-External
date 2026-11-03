@@ -17,7 +17,7 @@ import sys, os, json, base64, subprocess, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-VERSION = "7.13.1"
+VERSION = "7.13.5"
 
 BROKER_FLOOR = 1
 
@@ -47,7 +47,7 @@ def md(s):
 
 def pct(a,b): return (a/b-1)*100.0
 
-_SPCT_ZERO = re.compile(r"^[-+]?[^0-9]*0(?:\.0+)?\s*(?:%|pp|bps|x)?$")
+_SPCT_ZERO = re.compile(r"^[-+\u2212]?[^0-9]*0(?:\.0+)?\s*(?:%|pp|bps|x)?$")
 
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -62,9 +62,8 @@ def house_fmt(v, dp, sep=False):
     d = Decimal(repr(float(v))).quantize(q, rounding=ROUND_HALF_UP)
     if d == 0:
         d = abs(d)
-    return ("{:,.{p}f}" if sep else "{:.{p}f}").format(d, p=int(dp))
-
-_MAX_DEC, _MAX_PCT_DEC = 4, 2
+    s = ("{:,.{p}f}" if sep else "{:.{p}f}").format(d, p=int(dp))
+    return "\u2212" + s[1:] if s.startswith("-") else s
 
 def _unit_dp(u):
     if str(u).startswith("%"): return PCT_DP
@@ -74,47 +73,27 @@ def _unit_dp(u):
     m = _UNIT_RE.match(u or "")
     return MONEY_DP if (m and (m.group(1) or m.group(2))) else None
 
-def _flash_verdict(a, c, u):
-    if a is None or c is None or not c: return None
-    if str(u).startswith("%"):
-        d = a - c
-        return 1 if d >= 0.25 else (-1 if d <= -0.25 else 0)
-    d = (a - c) / abs(c) * 100.0
-    return 1 if d > 1.0 else (-1 if d < -1.0 else 0)
-
-def row_dp(a, c, py, u):
+def row_dp(vals, u):
     if u == "#": return 0
     dp = _unit_dp(u)
-    if dp is None: return None
-    cap = _MAX_PCT_DEC if str(u).startswith("%") else _MAX_DEC
-    gaps = [(x, y) for x, y in ((a, c), (a, py))
-            if x is not None and y is not None and x != y]
-    while dp < cap and any(house_round(x, dp) == house_round(y, dp) for x, y in gaps):
-        dp += 1
-    want = _flash_verdict(a, c, u)
-    if want is not None:
-        while dp < cap and _flash_verdict(house_round(a, dp),
-                                          house_round(c, dp), u) != want:
-            dp += 1
-    if (a is not None and c is not None and c and a * c > 0
-            and not str(u).startswith("%")):
-        def _tol(d):
-            h = 0.5 * 10 ** (-d)
-            qa, qc = house_round(a, d), house_round(c, d)
-            if not qc: return float("inf"), 0.0
-            return (100.0 * (h + abs(qa / qc) * h) / abs(qc) + 0.05,
-                    abs(100.0 * (qa - qc) / abs(qc)))
-        while dp < cap:
-            t, sv = _tol(dp)
-            if t <= max(sv, 10 ** -0.05):
-                break
-            dp += 1
+    if dp is not None and str(u).startswith("%") and max([abs(x) for x in vals if x is not None] or [0]) < 5:
+        return 2
     return dp
+
+_MAG_SCALE = {"T": 1e12, "B": 1e9, "M": 1e6, "": 1.0}
+def _small_base(b, u):
+    m = None if str(u).startswith("%") else _UNIT_RE.match(u or "")
+    if b is None or not (m and (m.group(1) or m.group(2))): return False
+    mag = m.group(2) or ""
+    return abs(b) * _MAG_SCALE[mag] < (1e9 if mag else 1.0)
+
+def _r1(a, b, u, q):
+    return (a, b) if _small_base(b, u) else (q(a), q(b))
 
 def results_dp_map(cfg):
     if not isinstance(cfg, dict):
         return {}
-    return {r.get("name"): row_dp(r.get("a"), r.get("c"), r.get("py"), r.get("u"))
+    return {r.get("name"): row_dp((r.get("a"), r.get("c"), r.get("py"), r.get("pq")), r.get("u"))
             for sec in (cfg.get("results") or ())
             for r in (sec.get("rows") or ())}
 
@@ -148,30 +127,13 @@ def dp_quantizer(dp):
         return lambda v: v
     return lambda v: house_round(v, dp)
 
-def widened_rows(cfg):
-    out = []
-    for sec in ((cfg or {}).get("results") or ()):
-        for r in (sec.get("rows") or ()):
-            u = r.get("u")
-            base, dp = _unit_dp(u), row_dp(r.get("a"), r.get("c"), r.get("py"), u)
-            if base is not None and dp is not None and dp > base:
-                out.append((str(r.get("name")), base, dp))
-    return out
-
-def widened_disclosure(rows):
-    if not rows:
-        return ""
-    return ("Precision note: %s print more decimals than the house format - at the house "
-            "precision the surprise on those rows would have rounded away or changed "
-            "direction." % ", ".join(n for n, _b, _d in rows))
-
 MONEY_DP = 2
 PCT_DP   = 1
 COUNT_DP = 2
 
 RETIRED_UNITS = {
     "%2": ("%",  "percentages print ONE decimal under the house policy (74.9%, not 74.85%); "
-                 "a Results row that NEEDS more gets it from row_dp, not from the config"),
+                 "a rate row under 5% gets two decimals from row_dp, not from the config"),
     "1d": ("2d", "bare numbers print TWO decimals under the house policy (64.44, not 64.4)"),
 }
 
@@ -187,7 +149,7 @@ def change(a, b, u, absolute_unit=None, dp=None):
     if _crosses_zero(a, b):
         d = a - b
         body = fmtVal(abs(d), absolute_unit or u, dp)
-        return (("+" + body) if d > 0 else ("-" + body if d < 0 else body), d, False)
+        return (("+" + body) if d > 0 else ("\u2212" + body if d < 0 else body), d, False)
     s = (a - b) / abs(b) * 100.0
     return (_spct(s), s, True)
 
@@ -218,9 +180,9 @@ def _money(v,sym,mag,dp=None):
             "B, T and M (upper case), or none at all for a per-share or unit figure." % mag)
     dp=_house if dp is None else dp
     body=house_fmt(abs(v),dp)+mag
-    return ("-"+sym+body) if v<0 else (sym+body)
+    return ("\u2212"+sym+body) if (v<0 and any(ch in "123456789" for ch in body)) else (sym+body)
 UNIT_VOCABULARY = {
-    "%":   "rate, ONE decimal (45.1%). Every percentage on every note. Differenced in pp, "
+    "%":   "rate, ONE decimal (45.1%); TWO on a row whose largest value is under 5% (2.45%). Differenced in pp, "
            "never ratioed.",
     "x":   "multiple, two decimals (24.80x).",
     "2d":  "bare number, two decimals (16.72). Use when no unit fits.",
@@ -278,7 +240,8 @@ def deltaCons(a,c,u,inv=False,dp=None):
         sign=0 if _SPCT_ZERO.match(dtxt) else (1 if raw>0 else (-1 if raw<0 else 0))
     else:
         thr=0.15 if str(u).startswith("%") else 0.5
-        sign=1 if raw>thr else (-1 if raw<-thr else 0)
+        rr=house_round(raw,PCT_DP)
+        sign=1 if rr>thr else (-1 if rr<-thr else 0)
     if inv: sign=-sign
     return (dtxt,sign)
 
@@ -379,7 +342,7 @@ def tbl(head,rows,w,delta_cols=None,inv_rows=(),noinv_rows=()):
             decorate = (j>0) if dc is None else (j in dc)
             if decorate and s.startswith("+"):
                 cell='<span class="%s">&#8593; %s</span>'%("dn" if inv else "up",esc(c))
-            elif decorate and len(s)>1 and s[0]=="-" and s[1] in "0123456789$.":
+            elif decorate and len(s)>1 and s[0] in "-\u2212" and s[1] in "0123456789$.":
                 cell='<span class="%s">&#8595; %s</span>'%("up" if inv else "dn",esc(c))
             tds+=f'<td class="{cls}">{cell}</td>'
         _tr = z.tr()
@@ -434,21 +397,21 @@ def kpiHistoryTable(kt, inv=(), noinv=(), shared_dp=None):
     orows=[]
     for r in rows:
         u=r.get("u","2d"); kind=r.get("kind","level"); vals=r["vals"]
+        _sh=(shared_dp or {}).get(_ct_key(r["name"]))
+        _rd=(PCT_DP if kind=="growth" else _sh[1] if (_sh is not None and _sh[0]==u and _sh[1] is not None)
+             else row_dp(vals,u))
         cells=[r["name"]]
         for v in vals:
             if v is None: cells.append("n/a"); continue
             if kind=="growth":
                 cells.append((("+" if v>=0 else "")+house_fmt(v,PCT_DP)+"%"))
             else:
-                cells.append(fmtVal(v,u))
+                cells.append(fmtVal(v,u,_rd))
         yy=r.get("yoy")
         if yy is None and ya_idx is not None:
             f=vals[ya_idx]; l=vals[-1]
-            _sh=(shared_dp or {}).get(_ct_key(r["name"]))
-            if _sh is not None and _sh[0]==u and _sh[1] is not None and kind!="growth":
-                f=f if f is None else house_round(f,_sh[1])
-                l=l if l is None else house_round(l,_sh[1])
             if f is not None and l is not None:
+                l,f=_r1(l,f,u,dp_quantizer(_rd))
                 if kind in ("rate","growth") or str(u).startswith("%"):
                     yy=_fmt_pp(_xdiff(l,f))
                 else:
@@ -637,7 +600,7 @@ def _delta_cell(v, arrow=True, inv=False):
     s=str(v).strip()
     if s=="": return ""
     up=s.startswith("+")
-    dn=len(s)>1 and s[0]=="-" and s[1] in "0123456789$."
+    dn=len(s)>1 and s[0] in "-\u2212" and s[1] in "0123456789$."
     if not (up or dn): return esc(s)
     tri=("&#8593; " if up else "&#8595; ") if arrow else ""
     good = (not up) if inv else up
@@ -646,7 +609,7 @@ def _delta_cell(v, arrow=True, inv=False):
 def _change_cell(v, inv=False):
     s=str(v).strip()
     if s=="": return ""
-    if s[0] in "+-" or s.startswith("&#8593;") or s.startswith("&#8595;"):
+    if s[0] in "+-\u2212" or s.startswith("&#8593;") or s.startswith("&#8595;"):
         return _delta_cell(s, True, inv)
     return '<span class="mid">'+esc(s)+'</span>'
 
@@ -658,7 +621,7 @@ def _snap_cells(row):
     cells = list(row) + ["", "", ""]
     return (cells[0], cells[1], cells[2], cells[3] or None, None)
 
-_SNAP_NUMERIC = re.compile(r"^\s*[+-]?\s*[\u00a3\u20ac\u00a5$]?\s*[\d,]+\.?\d*\s*(?:%|pp|bps|x|B|M|T|K)?\s*$")
+_SNAP_NUMERIC = re.compile(r"^\s*[+\-\u2212]?\s*[\u00a3\u20ac\u00a5$]?\s*[\d,]+\.?\d*\s*(?:%|pp|bps|x|B|M|T|K)?\s*$")
 
 def normalise_snapshot(cfg):
     snap = cfg.get("snapshot") or {}
@@ -673,13 +636,13 @@ def normalise_snapshot(cfg):
     for row in rows:
         label, actual, chg, ref, raw = _snap_cells(row)
         if raw is not None and raw.get("a") is not None:
-            actual = fmtVal(raw.get("a"), raw.get("u"))
+            _sh = _shared.get(_ct_key(raw.get("name") or label))
+            _sdp = (_sh[1] if (_sh is not None and _sh[0] == raw.get("u") and _sh[1] is not None)
+                    else row_dp((raw.get("a"), raw.get("py")), raw.get("u")))
+            actual = fmtVal(raw.get("a"), raw.get("u"), _sdp)
             if raw.get("py") is not None:
-                _ra, _rp = raw.get("a"), raw.get("py")
-                _sh = _shared.get(_ct_key(raw.get("name") or label))
-                if _sh is not None and _sh[0] == raw.get("u") and _sh[1] is not None:
-                    _ra, _rp = house_round(_ra, _sh[1]), house_round(_rp, _sh[1])
-                chg = change(_ra, _rp, raw.get("u"))[0]
+                chg = change(*_r1(raw.get("a"), raw.get("py"), raw.get("u"), dp_quantizer(_sdp)),
+                             raw.get("u"), None, _sdp)[0]
         elif ref:
             src = results.get(str(ref))
             if src is None:
@@ -689,7 +652,7 @@ def normalise_snapshot(cfg):
             _sdp = _dpm.get(str(ref))
             _sq = dp_quantizer(_sdp)
             actual = fmtVal(_sq(src.get("a")), src.get("u"), _sdp)
-            chg = change(_sq(src.get("a")), _sq(src.get("py")), src.get("u"), None, _sdp)[0]
+            chg = change(*_r1(src.get("a"), src.get("py"), src.get("u"), _sq), src.get("u"), None, _sdp)[0]
         elif chg and _SNAP_NUMERIC.match(str(chg)):
             raise SystemExit(
                 "SNAPSHOT-CONTRACT GATE FAIL: snapshot row %r types %r into the Change column. "
@@ -755,8 +718,9 @@ def resultsTable(sections, inv=(), seq_head="Q/Q", cfg=None, ltcodes=None):
             _dp = _DPM.get(r.get("name"))
             _q  = dp_quantizer(_dp)
             _a, _c   = _q(r.get("a")), _q(r.get("c"))
-            _py, _pq = _q(r.get("py")), _q(r.get("pq"))
-            dtxt,dsign=deltaCons(_a,_c,_u,_inv,_dp)
+            _yp = yoy(*_r1(r.get("a"), r.get("py"), _u, _q), _u)
+            _yq = yoy(*_r1(r.get("a"), r.get("pq"), _u, _q), _u)
+            dtxt,dsign=deltaCons(*_r1(r.get("a"), r.get("c"), _u, _q),_u,_inv,_dp)
             dcol="up" if dsign>0 else ("dn" if dsign<0 else "mid")
             dirs=('<span class="up">&#8593;</span>' if dsign>0 else
                   ('<span class="dn">&#8595;</span>' if dsign<0 else '<span class="mid">&mdash;</span>'))
@@ -768,16 +732,16 @@ def resultsTable(sections, inv=(), seq_head="Q/Q", cfg=None, ltcodes=None):
                   f'<td class="l">{esc(r["name"])}{_GROWTH_MARK if r.get("kind")=="growth" else ""}</td>'
                   f'<td class="r"><b>{fmtVal(_a,_u,_dp)}</b></td>'
                   f'<td class="r">{fmtVal(_c,_u,_dp)}</td>'
-                  f'<td class="r sm">{yoy(_a,_py,_u)}</td>'
-                  f'<td class="r sm">{yoy(_a,_pq,_u)}</td>'
+                  f'<td class="r sm">{_yp}</td>'
+                  f'<td class="r sm">{_yq}</td>'
                   f'<td class="r {dcol}"><b>{dtxt}</b></td>'
                   f'<td class="r">{dirs}</td></tr>')
             else:
                 body+=(_tr+
                   f'<td class="l">{esc(r["name"])}{_GROWTH_MARK if r.get("kind")=="growth" else ""}</td>'
                   f'<td class="r"><b>{fmtVal(_a,_u,_dp)}</b></td>'
-                  f'<td class="r sm">{yoy(_a,_py,_u)}</td>'
-                  f'<td class="r sm">{yoy(_a,_pq,_u)}</td></tr>')
+                  f'<td class="r sm">{_yp}</td>'
+                  f'<td class="r sm">{_yq}</td></tr>')
     return f'<table class="data">{colgroup(CW)}<tr>{h}</tr>{body}</table>'
 
 _PERIOD_PREFIX = re.compile(r"^\s*(?:(?:FY|CY)?\d{2,4}|[1-4][QH]\d{2}|[12]H\d{2})\s+", re.I)
@@ -795,17 +759,19 @@ def revisionsTable(rows, cfg=None):
     h="".join(f'<th class="{ "l" if i==0 else "r" }">{esc(c)}</th>' for i,c in enumerate(head))
     body=""; z=_Zebra()
     for r in rows:
-        up=(r["after"]-r["before"])>0
+        _rd=row_dp((r["before"],r["after"]),r.get("u"))
+        _af,_bf=_r1(r["after"],r["before"],r.get("u"),dp_quantizer(_rd))
+        up=(_af-_bf)>0
         if r.get("u")=="%":
-            d=_xdiff(r["after"],r["before"]); chg=_spp(d)
+            d=_xdiff(_af,_bf); chg=_spp(d)
         else:
-            s=pct(r["after"],r["before"]); chg=_spct(s)
+            s=pct(_af,_bf); chg=_spct(s)
         good = up != _revision_inverted(cfg, r)
         arrow="&#8593;" if up else "&#8595;"; cls="up" if good else "dn"
         body+=(z.tr()+
           f'<td class="l">{esc(r["name"])}</td>'
-          f'<td class="r">{fmtVal(r["before"],r.get("u"))}</td>'
-          f'<td class="r"><b>{fmtVal(r["after"],r.get("u"))}</b></td>'
+          f'<td class="r">{fmtVal(r["before"],r.get("u"),_rd)}</td>'
+          f'<td class="r"><b>{fmtVal(r["after"],r.get("u"),_rd)}</b></td>'
           f'<td class="r {cls}">{arrow} {chg}</td></tr>')
     return f'<table class="data">{colgroup(W)}<tr>{h}</tr>{body}</table>'
 
@@ -1172,6 +1138,7 @@ _BROKER_EXEMPT_BLOCKS = frozenset((
     "priceBasis", "guidanceFreshness", "documentAttempts", "sectorProfile",
     "kpiUniverse", "kpiProvenance", "kpiDiscovery", "kpiSubstitutions",
     "revisionsScope", "guidanceBasis", "consensusBasis", "valFxBasis",
+    "forwardConsensus",
 ))
 
 
@@ -1259,7 +1226,7 @@ def basis_band_rows(cfg):
 def basis_disclosure(rows):
     if not rows:
         return ""
-    names = ", ".join("%s (%+.0f%%)" % (n, s) for n, s in rows)
+    names = ", ".join("%s (%s%%)" % (n, ("+" if s > 0 else "") + house_fmt(s, 0)) for n, s in rows)
     return ("Basis note: %s printed a surprise beyond %.0f%%, a size usually driven by "
             "definition rather than result; confirm both sides sit on the same basis before "
             "reading the delta as a beat or a miss." % (names, BASIS_BAND_PCT))
@@ -1268,7 +1235,6 @@ def _results_cap(cfg):
     base = str(cfg.get("resultsCap") or "").strip()
     for d in (thin_panel_disclosure(cfg),
               basis_disclosure(basis_band_rows(cfg)),
-              widened_disclosure(widened_rows(cfg)),
               growth_disclosure(cfg, _seq_head(cfg.get("quarter")))):
         if d and d not in base:
             base = (base + " " + d).strip()
@@ -1513,6 +1479,7 @@ def prose_figure_advisory(html):
 
 GUIDANCE_HEAD_LEGACY = ["Guide Metric", "Prior [G]", "New [G]", "Consensus [E]"]
 GUIDANCE_HEAD = ["Guide Metric", "Prior [G]", "New [G]", "Pre-print [E]", "Post-print [E]"]
+GUIDANCE_HEAD_NO_POST = GUIDANCE_HEAD[:4]
 FORWARD_HEAD = ["Forward Metric", "Consensus [E]", "Basis"]
 
 def table_contract(cfg):
@@ -1520,7 +1487,8 @@ def table_contract(cfg):
     gt = cfg.get("guidanceTable")
     if gt:
         head = [str(h).strip() for h in (gt.get("head") or [])]
-        if head != GUIDANCE_HEAD:
+        want = GUIDANCE_HEAD_NO_POST if cfg.get("_postPrintDropped") else GUIDANCE_HEAD
+        if head != want:
             fails.append("guidanceTable head is %r; the contract is %r. Prior [G] is the guide "
                          "the company had given FOR the printed quarter (the bar it set), New [G] "
                          "is the guide issued ON the call, Pre-print [E] is the Street mark "
@@ -1528,7 +1496,7 @@ def table_contract(cfg):
                          "Street moved after. An Actual column belongs in Section 4, not here. "
                          "(v7.10.0 split the single Consensus column: one number cannot answer "
                          "both questions, and the four-column table answered only the second.)"
-                         % (head, GUIDANCE_HEAD))
+                         % (head, want))
     ft = cfg.get("forwardTable")
     if ft:
         head = [str(h).strip() for h in (ft.get("head") or [])]
@@ -1915,7 +1883,7 @@ def guidance_consensus_gate(cfg):
     if not _wrap_parse_date(probe.get("asOf")):
         fails.append("guidanceConsensusProbe.asOf is missing or unparseable. The pre-print "
                      "comparator is only meaningful with the date it was taken.")
-    if not _wrap_parse_date(probe.get("postAsOf")):
+    if not cfg.get("_postPrintDropped") and not _wrap_parse_date(probe.get("postAsOf")):
         fails.append("guidanceConsensusProbe.postAsOf is missing. The post-print column needs "
                      "its own stamp — the two columns are different dates by definition.")
     pr = probe.get("probed")
@@ -2475,8 +2443,182 @@ def kpi_gate_check(cfg):
                          "company (%s)." % (cfg["primaryKpi"], why))
 
 
+_FC_SCALE = {"T": 1e12, "B": 1e9, "M": 1e6, "K": 1e3, "": 1.0}
+POST_MIN_SHARE = 0.4
+
+
+def _fc_value(raw, u):
+    if raw is None or isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        num, mag, neg = abs(float(raw)), "", raw < 0
+    else:
+        s = str(raw).strip()
+        m = re.search(r"(\d[\d,]*\.?\d*|\.\d+)\s*([TBMK])?(?![A-Za-z])", s)
+        if not m:
+            return None
+        try:
+            num = float(m.group(1).replace(",", ""))
+        except ValueError:
+            return None
+        mag, neg = m.group(2) or "", bool(re.search(r"[-−(]", s[:m.start()]))
+    v = num * _FC_SCALE[mag]
+    u = str(u or "")
+    cm = _COUNT_MAG.get(u)
+    if cm:
+        v = v / _FC_SCALE[cm[0]]
+    elif not (u.startswith("%") or u in ("x", "2d", "bn", "#")):
+        um = _UNIT_RE.match(u)
+        if um and um.group(2):
+            v = v / _MAG_SCALE[um.group(2)]
+    return -v if neg else v
+
+
+def _fc_post_from(cfg):
+    import datetime as _dt
+    gf = cfg.get("guidanceFreshness") or {}
+    day = _wrap_parse_date(gf.get("callDate"))
+    if day is None:
+        m = re.search(r"(\d{2})\.(\d{2})\.(\d{2})_\d{2}\.\d{2}", str(gf.get("releaseFile") or ""))
+        if m:
+            try:
+                day = _dt.date(2000 + int(m.group(3)), int(m.group(1)), int(m.group(2)))
+            except ValueError:
+                day = None
+    return day + _dt.timedelta(days=1) if day is not None else None
+
+
+def resolve_forward_consensus(cfg):
+    fc = cfg.get("forwardConsensus")
+    if not isinstance(fc, dict):
+        if '"fwd"' not in json.dumps([cfg.get(k) for k in
+                                      ("guidanceTable", "forwardTable", "revisions")]):
+            return cfg, []
+        fc = {}
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    from forward_consensus import pick_forward_consensus, drop_notes
+    pf = _wrap_parse_date(fc.get("postFrom")) or _fc_post_from(cfg)
+    rows = [r for r in (fc.get("rows") or []) if isinstance(r, dict)]
+    picked, dropped = pick_forward_consensus(rows, post_from=pf.isoformat() if pf else None,
+                                             min_share=POST_MIN_SHARE)
+    warns = drop_notes(dropped)
+    if pf is None:
+        warns.append("[forward consensus] no release stamp or call date, so the post-print "
+                     "columns took the newest full-panel row with no print cut-off.")
+    nk = lambda lt, per: (str(lt or "").strip(), _norm_period(str(per or "")))
+    index = {nk(lt, per): p for (lt, per), p in picked.items()}
+    gone = {nk(lt, per) for lt, per, _ in dropped}
+    for (lt, per), p in picked.items():
+        newer = [r for r in rows if nk(r.get("LTCODE"), r.get("FISCALPERIOD")
+                                       or r.get("CALENDARIZED_FISCALPERIOD")) == nk(lt, per)
+                 and str(r.get("UPDATEDATE") or "")[:10] > p["asof"]]
+        if newer:
+            warns.append("[forward consensus] %s %s: %d newer row(s) skipped as a partial panel; "
+                         "used %s (%d brokers, deepest panel in the window %d)."
+                         % (lt, per, len(newer), p["asof"], p["brokers"], p["full_panel"]))
+    asofs = []
+
+    def _resolve(cell):
+        ref = cell.get("fwd") if isinstance(cell.get("fwd"), dict) else {}
+        k = nk(ref.get("ltcode"), ref.get("period"))
+        p = index.get(k)
+        if p is None:
+            if k not in gone:
+                warns.append("[forward consensus dropped] %s %s: no history row was pasted for "
+                             "it, so the line item was removed." % k)
+            return None, None
+        row = p["row"]
+        v = _fc_value(row["VALUE"] if "VALUE" in row else row.get("value"), cell.get("u"))
+        if v is None:
+            warns.append("[forward consensus dropped] %s %s: VALUE %r is unreadable, so the line "
+                         "item was removed." % (k[0], k[1], row.get("VALUE")))
+            return None, None
+        if p["status"] != "not_revised":
+            asofs.append(p["asof"])
+        out = {kk: vv for kk, vv in cell.items() if kk not in ("fwd", "abs")}
+        out["v"] = abs(v) if cell.get("abs") else v
+        return out, p["status"]
+
+    is_fwd = lambda c: isinstance(c, dict) and "fwd" in c
+    cfg = dict(cfg)
+    cfg.pop("forwardConsensus", None)
+
+    for tname in ("guidanceTable", "forwardTable"):
+        t = cfg.get(tname)
+        if not (isinstance(t, dict) and any(is_fwd(c) for r in (t.get("rows") or []) for c in r)):
+            continue
+        new_rows, names = [], []
+        for r in t.get("rows") or []:
+            r2, lost = list(r), False
+            for i, c in enumerate(r2):
+                if is_fwd(c):
+                    c2, st = _resolve(c)
+                    if c2 is None or st == "not_revised":
+                        r2[i], lost = "", True
+                        if st == "not_revised":
+                            names.append(str(r2[0]))
+                    else:
+                        r2[i] = c2
+            if lost and tname == "forwardTable":
+                continue
+            new_rows.append(r2)
+        if tname == "forwardTable" and not new_rows:
+            new_rows = [[("" if is_fwd(c) else c) for c in r] for r in t.get("rows") or []]
+            warns.append("[forward consensus] every forwardTable line was dropped, so its "
+                         "Consensus [E] cells are empty.")
+        t = dict(t, rows=new_rows)
+        if tname == "guidanceTable" and any(r[4] == "" for r in new_rows if len(r) > 4):
+            keep = [i for i in range(len(t.get("head") or [])) if i != 4]
+            t["head"] = [t["head"][i] for i in keep]
+            if t.get("w"):
+                t["w"] = [t["w"][i] for i in keep if i < len(t["w"])]
+            t["rows"] = [[c for i, c in enumerate(r) if i != 4] for r in new_rows]
+            cfg["_postPrintDropped"] = True
+            warns.append("[forward consensus] post-print coverage is under %d%% of the full panel "
+                         "on at least one guided line, so the Post-print [E] column was removed."
+                         % round(POST_MIN_SHARE * 100))
+        cfg[tname] = t
+        if names:
+            warns.append("[forward consensus] consensus has not revised since the print on %s, "
+                         "so the %s value is left out; say so in the chat summary."
+                         % (" and ".join(names),
+                            "Post-print [E]" if tname == "guidanceTable" else "Consensus [E]"))
+
+    revs = cfg.get("revisions")
+    if isinstance(revs, list) and any(is_fwd(r.get("after")) for r in revs if isinstance(r, dict)):
+        keep, flat = [], []
+        for r in revs:
+            if not (isinstance(r, dict) and is_fwd(r.get("after"))):
+                keep.append(r)
+                continue
+            c2, st = _resolve(dict(r["after"], u=r.get("u")))
+            if c2 is None:
+                continue
+            if st == "not_revised":
+                flat.append(str(r.get("name")))
+                continue
+            keep.append(dict(r, after=c2["v"]))
+        if flat:
+            warns.append("[forward consensus] consensus has not revised since the print on %s, "
+                         "so those rows left the revisions grid; say so in revisionsScope."
+                         % " and ".join(flat))
+        if not keep:
+            warns.append("[forward consensus] the revisions grid is empty and is omitted; "
+                         "revisionsScope must say consensus has not revised.")
+        cfg["revisions"] = keep
+
+    gp = cfg.get("guidanceConsensusProbe")
+    if asofs and isinstance(gp, dict) and not _wrap_parse_date(gp.get("postAsOf")):
+        cfg["guidanceConsensusProbe"] = dict(gp, postAsOf=max(asofs))
+    return cfg, warns
+
+
 def render(cfg, out_pdf):
     _tk = str(cfg.get("ticker",""))
+    cfg, _fcw = resolve_forward_consensus(cfg)
+    for _w in _fcw:
+        sys.stderr.write("WARN forward_consensus " + _tk + ": " + _w + "\n")
     _enforce("UNIT GATE", _tk, unit_contract(cfg))
     cfg, _thin_rows = ungrade_thin_panels(cfg)
     for _n in _thin_rows:

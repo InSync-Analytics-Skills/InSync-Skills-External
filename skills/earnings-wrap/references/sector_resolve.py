@@ -71,7 +71,7 @@ def match_row(subindustry, doc=None):
 
 
 _GUIDE_NOISE = re.compile(r"^\s*(?:Y/Y|Q/Q|% Revenue)\s*-|\bETR\b|\btax|share count|\bFDS\b|"
-                         r"diluted shares|interest|amorti[sz]ation|\bSBC\b|stock.based|"
+                         r"diluted shares|(?<!non )(?<!non-)interest expense|interest coverage|interest rate|amorti[sz]ation|\bSBC\b|stock.based|"
                          r"depreciation|\bFX\b|exchange rate|[A-Z]{3}/[A-Z]{3}", re.I)
 _GUIDE_CORE = "revenue sales eps ebit ebitda income margin ffo"
 _WORD = re.compile(r"[a-z]{2,}")

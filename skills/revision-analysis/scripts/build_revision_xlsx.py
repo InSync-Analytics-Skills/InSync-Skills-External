@@ -29,9 +29,9 @@ from functools import lru_cache
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from jscompat import (js_str, js_to_fixed, js_round, js_parse_float, js_number, js_keys,
                       js_cmp_sort, js_stdio, _js_read_json, _truthy, UNDEFINED)
-from revision_common import money_fmt, STRICT_CHECKS
+from revision_common import hu_fixed, money_fmt, STRICT_CHECKS
 
-VERSION = '2.5.0'
+VERSION = '2.5.2'
 U = UNDEFINED
 
 
@@ -574,17 +574,17 @@ def main(argv):
         return s
 
     numFmts = [
-        {'id': 164, 'code': '#,##0.0;(#,##0.0)'}, {'id': 165, 'code': '#,##0.00;(#,##0.00)'}, {'id': 166, 'code': '0.0%;(0.0%)'},
-        {'id': 167, 'code': '#,##0.0'}, {'id': 168, 'code': '0.00"x"'}, {'id': 169, 'code': '#,##0'},
-        {'id': 170, 'code': '#,##0.0" ▲";#,##0.0" ▼";"–"'},
+        {'id': 164, 'code': '#,##0.00;(#,##0.00)'}, {'id': 165, 'code': '#,##0.00;(#,##0.00)'}, {'id': 166, 'code': '0.0%;(0.0%)'},
+        {'id': 167, 'code': '#,##0.00'}, {'id': 168, 'code': '0.00"x"'}, {'id': 169, 'code': '#,##0'},
+        {'id': 170, 'code': '#,##0.00" ▲";#,##0.00" ▼";"–"'},
         {'id': 171, 'code': '#,##0.00" ▲";#,##0.00" ▼";"–"'},
         {'id': 172, 'code': '0.0%" ▲";0.0%" ▼";"–"'},
         {'id': 173, 'code': '#,##0" bps ▲";#,##0" bps ▼";"–"'},
         {'id': 174, 'code': '0.00%" ▲";0.00%" ▼";"–"'},
         {'id': 177, 'code': '+0.000;-0.000;"–"'},
-        {'id': 178, 'code': '0%;(0%)'},
+        {'id': 175, 'code': '0.00%;(0.00%)'},
     ]
-    NF = {'money': 164, 'eps': 165, 'pct': 166, 'shares': 167, 'ratio': 168, 'num': 167, 'days': 167}
+    NF = {'money': 164, 'eps': 165, 'pct': 166, 'pct2': 175, 'shares': 167, 'ratio': 168, 'num': 167, 'days': 169}
     fonts = [
         {'color': 'FF243141'}, {'b': 1, 'color': 'FF12314C'}, {'b': 1, 'sz': 9, 'color': 'FFFFFFFF'}, {'b': 1, 'sz': 14, 'color': 'FFFFFFFF'},
         {'i': 1, 'color': 'FF5B6B7B'}, {'b': 1, 'sz': 10, 'color': 'FFFFFFFF'}, {'i': 1, 'sz': 8, 'color': 'FF6B7A8A'}, {'color': 'FF5B6B7B'},
@@ -786,12 +786,9 @@ def main(argv):
     def gSty(b):
         return xf({'f': 0, 'fill': 6 if b else 0, 'h': 'right', 'bd': 1, 'nf': 166})
 
-    def gStyBig(b):
-        return xf({'f': 0, 'fill': 6 if b else 0, 'h': 'right', 'bd': 1, 'nf': 178})
-
     def gCell(r, c, v, b):
         if nn(v):
-            s1.N(r, c, v, gStyBig(b) if ABS(v) >= 1 else gSty(b))
+            s1.N(r, c, v, gSty(b))
         else:
             s1.T(r, c, '', blank(b))
 
@@ -1011,6 +1008,8 @@ def main(argv):
             for it in items:
                 p = G(G(it, 'per'), key)
                 k = G(it, 'kind')
+                if SEQ(k, 'pct') and all(ABS(v) < 0.05 for v in (G(p, x) for x in ANCH + ['cur', 'low', 'high']) if nn(v)):
+                    k = 'pct2'
                 isP = G(it, 'isPct')
                 d = G(it, 'fav') if G(it, 'fav') is not U else ('up' if SEQ(G(sec, 'key'), 'seg') else dirOf(G(it, 'label')))
                 twin = T(G(it, 'gaapTwin'))
@@ -1036,7 +1035,7 @@ def main(argv):
                 def have(a, b):
                     return nn(G(p, a)) and nn(G(p, b))
                 CL = colL(CURC)
-                dec = 2 if (SEQ(k, 'eps') or SEQ(k, 'ratio')) else 1
+                dec = 2
                 cur_, pre_ = G(p, 'cur'), G(p, 'pre')
                 nil = have('cur', 'pre') and ((ABS(SUB(cur_, pre_) * 10000) < 0.5) if T(isP) else (ABS(SUB(cur_, pre_)) < 0.5 * POW10N(dec)))
                 if stale or nil:
@@ -1251,7 +1250,7 @@ def main(argv):
         a = ABS(v)
         if a < 0.0005:
             return '0.0%'
-        return ('+' if GE(v, 0) else '−') + js_to_fixed(abs(MUL(v, 100)), 1) + '%'
+        return ('+' if GE(v, 0) else '−') + hu_fixed(abs(MUL(v, 100)), 1) + '%'
 
     def _nanfix(f, v, sign):
         if not nn(v):
@@ -1267,7 +1266,7 @@ def main(argv):
     def fEps(v):
         if not nn(v):
             return 'n/a'
-        return MF.sym + js_to_fixed(N(v), 2)
+        return MF.perShare(N(v))
 
     def fM(v):
         return _nanfix(MF.signed, v, True)
@@ -1453,7 +1452,7 @@ def main(argv):
                 if T(att):
                     sh = G(att, 'share')
                     if nn(sh) and GT(sh, 0) and LE(sh, 1):
-                        tail = f", with {S(G(att, 'label'))} {S(js_round(MUL(sh, 100)))}% of the segment-level revision"
+                        tail = f", with {S(G(att, 'label'))} {hu_fixed(MUL(sh, 100), 0)}% of the segment-level revision"
                     else:
                         tail = f", led by {S(G(att, 'label'))} at {fM(G(att, 'dollar'))}"
                 else:
@@ -1625,7 +1624,7 @@ def main(argv):
                     pLbl('Other contributors:', f"{fM(restSum)}{' combined' if len(rest) > 1 else ''}", 13, True)
                 pos = js_cmp_sort([x for x in shown if GT(G(x, 'dollar'), 0)], lambda a, b: SUB(G(b, 'dollar'), G(a, 'dollar')))
                 neg = js_cmp_sort([x for x in shown if LT(G(x, 'dollar'), 0)], lambda a, b: SUB(G(a, 'dollar'), G(b, 'dollar')))
-                if pos and neg:
+                if pos and neg and not T(g2(I, 'attribution', 'unreconciled')):
                     if GT(G(pos[0], 'dollar'), ABS(G(neg[0], 'dollar'))):
                         pTxt(f"   {short(G(pos[0], 'label'))} more than offset the reduction in {short(G(neg[0], 'label'))}.", 7)
                     elif GT(ABS(G(neg[0], 'dollar')), G(pos[0], 'dollar')):
@@ -1690,7 +1689,7 @@ def main(argv):
             broad = GE(G(RP, 'agree'), 3) and GE(DIV(G(RP, 'agree'), G(RP, 'of')), 0.6)
             if SEQ(G(RP, 'key'), 'Reset & Hold') or SEQ(G(RP, 'dominant'), 'Reset & Hold'):
                 flTxt = ('The full reset landed within 10 days of the print' if fl >= 0.98
-                         else f'{S(js_round(JMIN(fl, 1) * 100))}% of the reset landed within 10 days of the print')
+                         else f'{hu_fixed(JMIN(fl, 1) * 100, 0)}% of the reset landed within 10 days of the print')
                 pBul(f"{flTxt} and has {'broadly held' if broad else 'held on the headline line'} since.", 13)
             elif T(G(RP, 'note')):
                 note = G(RP, 'note')
@@ -1739,7 +1738,7 @@ def main(argv):
                     return f in outcomes
                 gm = G(G(I, 'derived'), 'Gross margin') if T(G(I, 'derived')) else G(I, 'derived')
                 if TEST(r'\bcogs\b|cost of', G(x, 'label'), 'i') and T(gm) and T(G(gm, 'q')):
-                    f = js_to_fixed(MUL(G(G(gm, 'q'), 'cur'), 100), 1) + '%'
+                    f = hu_fixed(MUL(G(G(gm, 'q'), 'cur'), 100), 1) + '%'
                     if not already(f):
                         lvl.append(f'Gross margin {f}')
                     continue
@@ -1747,7 +1746,7 @@ def main(argv):
                 if not T(it) or not T(qof(it)) or not nn(G(qof(it), 'cur')):
                     continue
                 if T(G(it, 'isPct')):
-                    f = js_to_fixed(MUL(G(qof(it), 'cur'), 100), 1) + '%'
+                    f = hu_fixed(MUL(G(qof(it), 'cur'), 100), 1) + '%'
                     if not already(f):
                         lvl.append(f"{S(G(x, 'label'))} {f}")
                 else:
@@ -1844,7 +1843,7 @@ def main(argv):
             att = OR(g2(I, 'attribution', 'driver'), None)
             if T(att):
                 sh = G(att, 'share')
-                share_txt = (S(js_round(MUL(sh, 100))) + '% of the segment move') if (nn(sh) and GT(sh, 0) and LE(sh, 1)) else fM(G(att, 'dollar'))
+                share_txt = (hu_fixed(MUL(sh, 100), 0) + '% of the segment move') if (nn(sh) and GT(sh, 0) and LE(sh, 1)) else fM(G(att, 'dollar'))
                 pLbl('Street View.', f"The {'revision' if GT(G(att, 'dollar'), 0) else 'cut'} is carried by {S(G(att, 'label'))} ({share_txt}).", 10)
 
         if T(vchange):
@@ -2009,7 +2008,7 @@ def main(argv):
         subs += ['revenue', 'EPS', 'EBITDA', 'EBIT', 'FCF', 'margin', 'shares', 'the index', 'consensus']
         subs = js_cmp_sort(subs, lambda a, b: N(LEN(b)) - N(LEN(a)))
         claims = {}
-        CLAIM_RX = rf'[+−-]?(?:{SYMRX})?[\d,]+(?:\.\d+)?\s?(?:bn|bps|bp|pp|m|M|%)(?![a-z])'
+        CLAIM_RX = rf'[+−-]?(?:{SYMRX})?[\d,]+(?:\.\d+)?\s?(?:bn|bps|bp|pp|m|M|B|T|%)(?![a-z])'
         subs_low = [LOW(S(s)) for s in subs]
         for L in lines:
             if L['r'] < EXEC_END:
@@ -2045,7 +2044,7 @@ def main(argv):
             v = LOW(' '.join(S(x) for x in (NG('variantChange'), NG('variant'), NG('assessment')) if T(x)))
             if T(CDb) and v and not any(T(p) and LOW(S(p)) in v for p in ARR(OR(G(CDb, 'probe'), []))):
                 warn.append(f"variant argues something other than the dominant contradiction ({S(G(CDb, 'subject'))}, score {FIXED(G(CDb, 'score'), 2)})")
-        MEAS = rf'({SYMRX}[\d,]|[\d,.]+\s?(?:bn|bp|%|M\b))'
+        MEAS = rf'({SYMRX}[\d,]|[\d,.]+\s?(?:bn|bp|%|[MBT]\b))'
         for f in ('base', 'extend', 'challenge'):
             raw = NG(f)
             t = (f"{S(OR(G(raw, 'threshold'), ''))} {S(OR(G(raw, 'implication'), ''))}"

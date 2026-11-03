@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 compute_tearsheet.py — deterministic math layer for company-tearsheet-skill.
-SKILL VERSION: 8.1.0 (must match SKILL.md frontmatter and README.md).
+SKILL VERSION: 8.1.2 (must match SKILL.md frontmatter and README.md).
 
 The LLM's ONLY numeric job is to paste raw MCP rows into raw_data.json.
 This script computes and formats EVERY derived number: YoY growth, gross
@@ -26,8 +26,12 @@ raw_data.json schema (all MCP rows pasted verbatim as returned):
               "fds_millions": 500.0, "dividend_annual": null },
   "actuals": [ ...get_actuals rows (both quarters)... ],
   "estimates_quarter": [ ...get_estimates rows, latest quarter... ],
-  "estimates_next_quarter": [ ...get_estimates rows, next quarter (EPS)... ],
-  "estimates_annual": [ ...get_estimates rows, FY1+FY2... ],
+  "estimates_next_quarter": [ ...get_estimates HISTORY rows, next quarter (EPS)... ],
+  "estimates_annual": [ ...get_estimates HISTORY rows for FY1+FY2 (and an open FY0);
+                        the latest row for a reported FY0... ],
+  8.1.2: forward blocks may hold several history rows per code and period; _pick_forward
+  keeps one (forward_consensus.py) and removes, with a warning, any item lacking
+  BROKERCOUNT / UPDATEDATE.
   "valuation": [ ...get_valuation rows (metric, value, DATE)... ],
   ---- or, for the same numbers with two thirds less typing (v7.2.28) ----
   "valuation_series": { "P/E_Adj_Ratio": {"2026-09-04": 25.1234, "2026-08-31": 24.9876},
@@ -154,7 +158,24 @@ def cur_sym(v):
 
 
 def _xr(v, d):
-    return str(Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-d), rounding=ROUND_HALF_UP))
+    q = Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-d), rounding=ROUND_HALF_UP)
+    return str(q if q else abs(q))
+
+
+def r1_levels(cur, pri, div=1.0, guard=0.0):
+    if cur is None or pri is None or pri <= 0 or abs(pri) < guard:
+        return cur, pri
+    d = div if callable(div) else (lambda v: div)
+    return tuple(_xrf(v / d(v), 2) * d(v) for v in (cur, pri))
+
+
+def _munit(mn):
+    a = abs(mn or 0)
+    return (1e6, "T") if a >= 1e6 else (1e3, "B") if a >= 1e3 else (1.0, "M")
+
+
+def _mdiv(mn):
+    return _munit(mn)[0]
 
 
 def _sep(t):
@@ -171,14 +192,6 @@ def _xrs(v, d, sep=False):
 
 def _xrf(v, d):
     return float(_xr(v, d))
-
-
-def fmt_musd(mn, cur="$"):
-    if abs(mn) >= 1e6:
-        return f"{cur}{_sep(_xr(mn / 1e6, 2))}T"
-    if abs(mn) >= 1e5:
-        return f"{cur}{_sep(_xr(mn / 1e3, 0))}B"
-    return f"{cur}{_sep(_xr(mn, 0))}M"
 
 
 def parse_abs(v):
@@ -208,17 +221,6 @@ SKILL_VERSION = _skill_version()
 
 
 
-def fmt_count(x, currency=False):
-    a, sign = abs(x), "-" if x < 0 else ""
-    d = currency if isinstance(currency, str) else ("$" if currency else "")
-    for lim, u in ((1e12, "T"), (1e9, "B"), (1e6, "M")):
-        if a >= lim:
-            v = a / lim
-            dp = 2 if v < 10 else 1 if v < 100 else 0
-            return f"{sign}{d}{_sep(_xr(v, dp))}{u}"
-    return f"{sign}{d}{_sep(_xr(a, 0))}"
-
-
 def kpi_scale(x):
     a = abs(x or 0)
     for lim, u in ((1e12, "T"), (1e9, "B"), (1e6, "M")):
@@ -231,8 +233,9 @@ def fmt_kpi(x, scale, currency=False, signed=False, dp=KPI_DP):
     div, u = scale
     sym = currency if isinstance(currency, str) else ("$" if currency else "")
     v = (x or 0) / div
-    sign = "-" if v < 0 else ("+" if signed else "")
-    return f"{sign}{sym}{_sep(_xr(abs(v), dp))}{u}"
+    t = _sep(_xr(abs(v), dp))
+    sign = "-" if (v < 0 and t.strip("0.,")) else ("+" if signed else "")
+    return f"{sign}{sym}{t}{u}"
 
 
 def fmt_growth_str(g, signed=True):
@@ -244,7 +247,7 @@ def fmt_growth_str(g, signed=True):
         return "—"
 
 
-def fmt_x(v, dp=1):
+def fmt_x(v, dp=2):
     if v is None or not isinstance(v, (int, float)):
         return None
     return f"{_xr(v, dp)}x"
@@ -253,7 +256,12 @@ def fmt_x(v, dp=1):
 def fmt_pct(p, signed=True, dp=1):
     if p is None:
         return None
-    return f"{'+' if (signed and p >= 0) else ''}{_xr(p, dp)}%"
+    t = _xr(p, dp)
+    return f"{'+' if (signed and not t.startswith('-')) else ''}{t}%"
+
+
+def pct_dp(*vals):
+    return 2 if max((abs(v) for v in vals if v is not None), default=0) < 5 else 1
 
 
 NOT_MEANINGFUL = "n/m"
@@ -379,6 +387,63 @@ def _expand_compact(raw):
     return raw
 
 
+def _period_year(p):
+    s = norm_period(p)
+    m = re.fullmatch(r"(\d{4})", s)
+    if m:
+        return int(m.group(1)), True
+    m = re.fullmatch(r"([1-4])Q(\d{2})", s)
+    if m:
+        return 2000 + int(m.group(2)), m.group(1) == "4"
+    m = re.fullmatch(r"([12])H(\d{2})", s)
+    if m:
+        return 2000 + int(m.group(2)), m.group(1) == "2"
+    return None, False
+
+
+def _pick_forward(raw, meta, warnings):
+    import os
+    _here = os.path.dirname(os.path.abspath(__file__))
+    if _here not in sys.path:
+        sys.path.insert(0, _here)
+    from forward_consensus import pick_forward_consensus, drop_notes
+    lq_year, lq_end = _period_year(meta.get("latest_fiscal_quarter"))
+    fy1 = str(meta.get("fy1") or "")
+
+    def reported_year(p):
+        s = norm_period(p)
+        if not re.fullmatch(r"\d{4}", s):
+            return False
+        y = int(s)
+        if lq_year is None:
+            return fy1.isdigit() and y < int(fy1)
+        return y < lq_year or (y == lq_year and lq_end)
+
+    for block in ("estimates_next_quarter", "estimates_annual"):
+        rows = raw.get(block)
+        if not isinstance(rows, list) or not rows:
+            continue
+        fwd_rows = [r for r in rows if not (block == "estimates_annual" and isinstance(r, dict)
+                                            and reported_year(r.get("FISCALPERIOD")))]
+        if not fwd_rows:
+            continue
+        picked, dropped = pick_forward_consensus(fwd_rows)
+        chosen = {id(p["row"]) for p in picked.values()}
+        fwd_ids = {id(r) for r in fwd_rows}
+        raw[block] = [r for r in rows if id(r) not in fwd_ids or id(r) in chosen]
+        warnings.extend(drop_notes(dropped))
+        for (lt, per), p in picked.items():
+            newer = [r for r in fwd_rows if isinstance(r, dict)
+                     and str(r.get("LTCODE") or "") == lt
+                     and str(r.get("FISCALPERIOD") or r.get("CALENDARIZED_FISCALPERIOD") or "") == per
+                     and str(r.get("UPDATEDATE") or "")[:10] > p["asof"]]
+            if newer:
+                warnings.append(
+                    "[forward consensus] %s %s: %d newer row(s) skipped as a partial panel; used "
+                    "%s (%d brokers, deepest panel in the window %d)."
+                    % (lt, per, len(newer), p["asof"], p["brokers"], p["full_panel"]))
+
+
 def main(raw_path, out_path):
     raw = _expand_compact(json.load(open(raw_path, encoding="utf-8")))
     meta, mkt = raw["meta"], raw["market"]
@@ -416,8 +481,9 @@ def main(raw_path, out_path):
     pri = rows_by_code(raw.get("actuals"), pq)
     est_q = rows_by_code(raw.get("estimates_quarter"), lq)
     warnings = []
+    _pick_forward(raw, meta, warnings)
 
-    def growth_cell(cur_v, pri_v, who):
+    def growth_cell(cur_v, pri_v, who, div=1.0, guard=0.0):
         _why = growth_reason(cur_v, pri_v)
         if _why is not None:
             warnings.append(
@@ -426,7 +492,7 @@ def main(raw_path, out_path):
                 "(and the renderer painted it green). Quote the direction in prose, never a "
                 "rate." % (who, NOT_MEANINGFUL, _why))
             return NOT_MEANINGFUL
-        return fmt_pct(yoy(cur_v, pri_v)) or "—"
+        return fmt_pct(yoy(*r1_levels(cur_v, pri_v, div, guard))) or "—"
 
 
     _detected = ""
@@ -531,13 +597,13 @@ def main(raw_path, out_path):
             _undeclared_polarity.append((code, fin_names[code]))
         if cu_ == "x":
             _r = {"metric": label, "value": f"{_xr(c, 2)}x",
-                  "yoy": (f"{_xrs(c - p, 2)}x" if p is not None else "—")}
+                  "yoy": (f"{_xrs(_xrf(c, 2) - _xrf(p, 2), 2)}x" if p is not None else "—")}
             _r["lower_is_better" if _cost_row else "ungraded"] = True
             key_financials.append(_r)
             continue
         if cu_ == "%":
             bps_ = int(_xr((c - p) * 100, 0)) if p is not None else None
-            _r = {"metric": label, "value": f"{_xr(c, 1)}%",
+            _r = {"metric": label, "value": f"{_xr(c, pct_dp(c))}%",
                   "yoy": (f"{'+' if bps_ >= 0 else ''}{bps_}bps" if bps_ is not None else "—")}
             if _cost_row:
                 _r["lower_is_better"] = True
@@ -547,31 +613,15 @@ def main(raw_path, out_path):
         _sym = cur_sym(cur.get(code, {}).get("VALUE"))
         key_financials.append({
             "metric": label + (" ($/sh)" if is_eps else ""),
-            "value": f"{_sym}{_xr(c, 2)}" if is_eps else None,
-            "yoy": growth_cell(c, p, fin_names[code]),
+            "value": fmt_kpi(c, (1.0, ""), _sym) if is_eps else None,
+            "yoy": (growth_cell(c, p, fin_names[code], guard=1.0) if is_eps else
+                    growth_cell(c, p, fin_names[code], _mdiv, 1e3)),
             **({"lower_is_better": True} if _cost_row else {}),
         })
         if not is_eps:
             money_rows.append((len(key_financials) - 1, c, _sym))
-    if money_rows:
-        _mx = max(abs(mn) for _, mn, _ in money_rows)
-        if _mx >= 1e6:
-            _div, _unit = 1e6, "T"
-        elif _mx >= 1e5:
-            _div, _unit = 1e3, "B"
-        else:
-            _div, _unit = 1.0, "M"
-        _small_m = min((abs(mn) for _, mn, _ in money_rows if mn), default=0.0)
-        while _div > 1.0 and _small_m and _small_m / _div < 0.001:
-            _div, _unit = (1e3, "B") if _div == 1e6 else (1.0, "M")
-        if _unit == "M":
-            _dp = 0
-        else:
-            _small = min((abs(mn) / _div for _, mn, _ in money_rows if mn), default=1.0)
-            _int_digits = len(str(int(_small))) if _small >= 1 else 0
-            _dp = max(1, min(3, 3 - _int_digits))
-        for _i, _mn, _sy in money_rows:
-            key_financials[_i]["value"] = f"{_sy}{_sep(_xr(_mn / _div, _dp))}{_unit}"
+    for _i, _mn, _sy in money_rows:
+        key_financials[_i]["value"] = fmt_kpi(_mn, _munit(_mn), _sy)
     _fin_floor = profile.get("min_fin_rows", MIN_FIN_ROWS)
     if len(key_financials) < _fin_floor:
         warnings.append(f"THIN FINANCIALS: only {len(key_financials)} of the prescribed rows "
@@ -586,8 +636,9 @@ def main(raw_path, out_path):
         gm_c = gp_c / rev_c * 100.0
         gm_p = (gp_p / rev_p * 100.0) if (rev_p and gp_p) else None
         bps = int(_xr((gm_c - gm_p) * 100, 0)) if gm_p is not None else None
+        _gr, _rr = r1_levels(gp_c, rev_c, _mdiv, 1e3)
         key_financials.append({
-            "metric": _gm_label, "value": f"{_xr(gm_c, 1)}%",
+            "metric": _gm_label, "value": f"{_xr(_gr / _rr * 100.0, 1)}%",
             "yoy": (f"{'+' if bps >= 0 else ''}{bps}bps" if bps is not None else "—"),
         })
 
@@ -688,10 +739,10 @@ def main(raw_path, out_path):
             if e is None:
                 vs = "—"
             elif k.get("lower_is_better"):
-                vs = f"{'Beat' if c <= e else 'Miss'} ({_xr(e, 2)}xE)"
+                vs = f"{'Beat' if _xrf(c, 2) <= _xrf(e, 2) else 'Miss'} ({_xr(e, 2)}xE)"
             else:
                 vs = f"{_xr(e, 2)}xE"
-            growth = f"{_xrs(c - p, 2)}x" if p is not None else "—"
+            growth = f"{_xrs(_xrf(c, 2) - _xrf(p, 2), 2)}x" if p is not None else "—"
         elif div:
             ca, pa, ea = (parse_abs(cur.get(code, {}).get("VALUE")),
                           parse_abs(pri.get(code, {}).get("VALUE")),
@@ -701,28 +752,32 @@ def main(raw_path, out_path):
                 rawv = str(cur.get(code, {}).get("VALUE", ""))
                 curflag = cur_sym(rawv) if currency_of(rawv) else False
                 _sc = kpi_scale(ca)
+                _r1 = (_sc[0], 1e9 if curflag else 0.0)
                 value = fmt_kpi(ca, _sc, curflag)
                 if ea is None:
                     vs = "—"
                 else:
                     _d = fmt_kpi(ca - ea, _sc, curflag, signed=True)
-                    vs = f"{'Beat' if ca <= ea else 'Miss'} ({_d})" if _inv else _d
+                    vs = f"{'Beat' if _xrf((ca - ea) / _sc[0], 2) <= 0 else 'Miss'} ({_d})" if _inv else _d
             else:
                 d = ca / div
+                _r1 = (div, 0.0)
                 value = _sep(_xr(d, KPI_DP))
                 if ea is None:
                     vs = "—"
                 else:
                     _d = fmt_kpi(ca - ea, (div, ""), False, signed=True)
-                    vs = f"{'Beat' if ca <= ea else 'Miss'} ({_d})" if _inv else _d
-            growth = growth_cell(ca, pa, k["name"])
+                    vs = f"{'Beat' if _xrf((ca - ea) / div, 2) <= 0 else 'Miss'} ({_d})" if _inv else _d
+            growth = growth_cell(ca, pa, k["name"], *_r1)
         elif cu == "%":
-            value = f"{_xr(c, 1)}%"
+            _pd = pct_dp(c, e)
+            value = f"{_xr(c, _pd)}%"
             if e is None:
                 vs = "—"
             else:
-                better = (c <= e) if k.get("lower_is_better") else (c >= e)
-                vs = f"{'Beat' if better else 'Miss'} ({_xr(e, 1)}%E)"
+                _cp, _ep = _xrf(c, _pd), _xrf(e, _pd)
+                better = (_cp <= _ep) if k.get("lower_is_better") else (_cp >= _ep)
+                vs = f"{'In-line' if _cp == _ep else 'Beat' if better else 'Miss'} ({_xr(e, _pd)}%E)"
             growth = f"{'+' if c - p >= 0 else ''}{int(_xr((c - p) * 100, 0))}bps" if p is not None else "—"
         elif universe and code in universe:
             ca, pa, ea = (parse_abs(cur.get(code, {}).get("VALUE")),
@@ -737,10 +792,10 @@ def main(raw_path, out_path):
             else:
                 _d = fmt_kpi(ca - ea, _sc, curflag, signed=True)
                 if k.get("lower_is_better"):
-                    vs = f"{'Beat' if ca <= ea else 'Miss'} ({_d})"
+                    vs = f"{'Beat' if _xrf((ca - ea) / _sc[0], 2) <= 0 else 'Miss'} ({_d})"
                 else:
                     vs = _d
-            growth = growth_cell(ca, pa, k["name"])
+            growth = growth_cell(ca, pa, k["name"], _sc[0], 1e9 if curflag else 0.0)
         else:
             _ca, _pa, _ea = (parse_abs(cur.get(code, {}).get("VALUE")),
                              parse_abs(pri.get(code, {}).get("VALUE")),
@@ -754,10 +809,10 @@ def main(raw_path, out_path):
             else:
                 _d = fmt_kpi(_ca - _ea, _sc, _curflag, signed=True)
                 if k.get("lower_is_better"):
-                    vs = f"{'Beat' if _ca <= _ea else 'Miss'} ({_d})"
+                    vs = f"{'Beat' if _xrf((_ca - _ea) / _sc[0], 2) <= 0 else 'Miss'} ({_d})"
                 else:
                     vs = _d
-            growth = growth_cell(_ca, _pa, k["name"])
+            growth = growth_cell(_ca, _pa, k["name"], _sc[0], 1e9 if _curflag else 0.0)
         if str(vs).strip() in ("—", "-", "", "n/a"):
             warnings.append(
                 "KPI %s (%s) has a %s actual but NO estimate, so its vs-Est cell is a dash. "
@@ -817,9 +872,9 @@ def main(raw_path, out_path):
             fwd[key] = {"value": v, "growth": g}
             if g is not None:
                 _fwd_base[key] = "A" if key == "fy1_eps" else "E"
-    for _k, _base_period in (("fy1_eps", "fy0"), ("fy1_rev", "fy0")):
+    for _k in ("fy1_eps", "fy1_rev", "fy2_eps", "fy2_rev"):
         _e = fwd.get(_k)
-        if not _e or _e.get("growth") is not None or _e.get("value") is None:
+        if not _e or _e.get("value") is None:
             continue
         _code = "IS_P_128" if _k.endswith("eps") else "IS_P_101"
         _fy0 = str(int(fy1) - 1) if str(fy1).isdigit() else None
@@ -832,11 +887,17 @@ def main(raw_path, out_path):
         else:
             _prior = (eps_row(_fy0) if _k.endswith("eps") else ann_row(_code, _fy0)) if _fy0 else None
         _pv, _ = parse_value(_prior.get("VALUE")) if _prior else (None, None)
-        if isinstance(_pv, (int, float)) and _pv > 0:
-            _e["growth"] = round((_e["value"] / _pv - 1) * 100.0, 2)
+        if _k.startswith("fy2"):
+            _pv, _base_kind, _fy0 = (fwd.get("fy1" + _k[3:]) or {}).get("value"), "E", str(fy1)
+        if isinstance(_pv, (int, float)) and _pv > 0 and (_k.startswith("fy2") or _e.get("growth") is None):
+            if _e.get("growth") is None:
+                warnings.append(f"{_k} YOY_GROWTH absent from MCP — derived from FY{_fy0[-2:]} "
+                                f"{'actual' if _base_kind == 'A' else 'estimate'}")
+            _e["growth"] = yoy(*(r1_levels(_e["value"], _pv, guard=1.0) if _k.endswith("eps")
+                                 else r1_levels(_e["value"], _pv, _mdiv, 1e3)))
             _fwd_base[_k] = _base_kind
-            warnings.append(f"{_k} YOY_GROWTH absent from MCP — derived from FY{_fy0[-2:]} "
-                            f"{'actual' if _base_kind == 'A' else 'estimate'}")
+        elif _e.get("growth") is not None or _k.startswith("fy2"):
+            continue
         elif isinstance(_pv, (int, float)) and _pv <= 0:
             _dir = ("a LOSS turning into a PROFIT" if _e["value"] > 0 else
                     "a loss on both sides" if _e["value"] < 0 else "a swing to breakeven")
@@ -969,7 +1030,7 @@ def main(raw_path, out_path):
     pe_key, pe_basis = pick("P/E_Adj_Ratio", "P/E_Ratio")
     ev_key, ev_basis = pick("EV/EBITDA_Adj", "EV/EBITDA")
 
-    def vs(met, key, dp=1):
+    def vs(met, key, dp=2):
         if met not in val_stats:
             return None
         if key == "avg5y" and (val_stats[met].get("thin")
@@ -978,12 +1039,8 @@ def main(raw_path, out_path):
             return None
         if key == "current" and val_stats[met].get("not_meaningful"):
             return None
-        return round(val_stats[met][key], dp)
-
-    def vs_raw(met, key):
-        if vs(met, key) is None:
-            return None
-        return val_stats[met][key]
+        _v = val_stats[met][key]
+        return _v if dp is None else _xrf(_v, dp)
 
     def not_meaningful(met):
         return bool(met and (val_stats.get(met) or {}).get("not_meaningful"))
@@ -994,10 +1051,8 @@ def main(raw_path, out_path):
             return {"label": label, "current": "n/a",
                     "context": f"negative {met.replace('_Ratio', '').replace('_Adj', ' (Adj)')}"
                                f" ({_raw:,.4g}x) — not a multiple"}
-        _p = prem(vs_raw(met, "current") if met else cur,
-                  vs_raw(met, "avg5y") if met else avg)
         return {"label": label, "current": fmt_x(cur) if cur else "—",
-                "context": f"{avg_window(window_key or met)} {fmt_x(avg)} ({_p or prem(cur, avg)})"
+                "context": f"{avg_window(window_key or met)} {fmt_x(avg)} ({prem(cur, avg)})"
                            if avg else "—"}
 
     def prem(cur_v, base_v):
@@ -1009,7 +1064,7 @@ def main(raw_path, out_path):
     ev_eb, ev_eb_avg = (vs(ev_key, "current"), vs(ev_key, "avg5y")) if ev_key else (None, None)
     ev_s, ev_s_avg = vs("EV/Sales", "current"), vs("EV/Sales", "avg5y")
     pb, pb_avg = vs("P/B_Ratio", "current"), vs("P/B_Ratio", "avg5y")
-    dy_raw = vs("Dividend_Yield", "current", 4)
+    dy_raw = vs("Dividend_Yield", "current", None)
     _dy_stale_days = None
     if dy_raw is not None:
         _dy_date = (val_stats.get("Dividend_Yield") or {}).get("current_date")
@@ -1077,10 +1132,10 @@ def main(raw_path, out_path):
                     "figure renders as a dash. Re-run get_estimates for that period; do not "
                     "hand-fill it." % (key, _v))
             return "—"
-        return f"{meta.get('currency_symbol', '$')}{_xr(_v, 2)}{suffix}"
+        return fmt_kpi(_v, (1.0, ""), meta.get('currency_symbol', '$')) + suffix
 
     price, fds = mkt.get("price"), mkt.get("fds_millions")
-    mcap_b = _xrf(price * fds / 1000.0, 0) if (price and fds) else None
+    mcap_b = price * fds / 1000.0 if (price and fds) else None
     eps_g1 = fwd.get("fy1_eps", {}).get("growth")
 
     PEG_MIN, PEG_MAX = 0.1, 10.0
@@ -1097,12 +1152,12 @@ def main(raw_path, out_path):
                 "this issuer; quote the P/E and describe the earnings direction in words."
                 % (fy1[-2:], fmt_pct(eps_g1)))
         else:
-            _peg_raw = pe / eps_g1
-            _peg_shown = _xrf(_peg_raw, 1)
+            _peg_raw = pe / (_xrf(eps_g1, 1) or eps_g1)
+            _peg_shown = _xrf(_peg_raw, 2)
             if _peg_shown < PEG_MIN or _peg_raw > PEG_MAX:
                 _why = ("above" if _peg_raw > PEG_MAX else "below")
                 peg_note = ("PEG %s from FY%s EPS growth of %s — not a usable denominator"
-                            % ((_xr(_peg_raw, 1) + "x" if _peg_raw >= 0.05 else "under 0.1x"),
+                            % ((_xr(_peg_raw, 2) + "x" if _peg_raw >= 0.005 else "under 0.01x"),
                                fy1[-2:], fmt_pct(eps_g1, signed=False)))
                 warnings.append(
                     "PEG SUPPRESSED: P/E %.1fx over FY%s EPS growth of %s gives %.4gx, %s the "
@@ -1115,14 +1170,15 @@ def main(raw_path, out_path):
                     % (pe, fy1[-2:], fmt_pct(eps_g1, signed=False), _peg_raw, _why,
                        PEG_MIN, PEG_MAX))
             else:
-                peg = round(_peg_raw, 2)
-    pos_high = (price / mkt["week52_high"] - 1) * 100 if (price and mkt.get("week52_high")) else None
+                peg = _peg_raw
+    _px, _hi = r1_levels(price, mkt.get("week52_high"), guard=1.0)
+    pos_high = (_px / _hi - 1) * 100 if (price and mkt.get("week52_high")) else None
     eps_g2 = fwd.get("fy2_eps", {}).get("growth")
     market_snapshot = [
         {"label": "PRICE", "value": f"{_px_sym}{_sep(_xr(price, 2))}",
          "context": f"as of {mkt.get('price_date', 'n/a')}"},
-        {"label": "MARKET CAP", "value": f"{_px_sym}{_sep(_xr(mcap_b, 0))}B" if mcap_b else "—",
-         "context": f"{_sep(_xr(mkt.get('fds_millions', 0), 0))}M shares"},
+        {"label": "MARKET CAP", "value": fmt_kpi(mcap_b * 1e9, kpi_scale(mcap_b * 1e9), _px_sym) if mcap_b else "—",
+         "context": f"{fmt_kpi((fds or 0) * 1e6, kpi_scale((fds or 0) * 1e6))} shares"},
         {"label": "52W POSITION", "value": fmt_pct(pos_high) if pos_high is not None else "—",
          "context": f"H {_px_sym}{_sep(_xr(mkt['week52_high'], 2))} / L {_px_sym}{_sep(_xr(mkt['week52_low'], 2))}"},
         {"label": "NEXT EARNINGS", "value": meta["next_earnings"]["date"],
@@ -1172,7 +1228,7 @@ def main(raw_path, out_path):
         g = nq_eps.get("YOY_GROWTH")
         if isinstance(v, (int, float)):
             valuation_metrics.append({"label": f"{meta.get('next_quarter','NQ')}E {_ps_lbl or 'EPS'}",
-                                      "current": f"{meta.get('currency_symbol', '$')}{_xr(v, 2)}",
+                                      "current": fmt_kpi(v, (1.0, ""), meta.get('currency_symbol', '$')),
                                       "context": f"{fmt_growth_str(g, signed=False)} YoY" if g else "—"})
         else:
             warnings.append(
@@ -1183,13 +1239,13 @@ def main(raw_path, out_path):
     if pb is not None:
         _optional.append({"label": "P/B (NTM)", "current": fmt_x(pb),
                           "context": f"{avg_window('P/B_Ratio')} {fmt_x(pb_avg)} "
-                                     f"({prem(vs_raw('P/B_Ratio', 'current'), vs_raw('P/B_Ratio', 'avg5y'))})"
+                                     f"({prem(pb, pb_avg)})"
                           if pb_avg else "—"})
     if div_yield_pct is not None:
-        _optional.append({"label": "Div Yield", "current": f"{_xr(div_yield_pct, 1)}%",
+        _optional.append({"label": "Div Yield", "current": f"{_xr(div_yield_pct, pct_dp(div_yield_pct))}%",
                           "context": "from MCP Dividend_Yield series"})
     elif (div := mkt.get("dividend_annual")) and price:
-        _optional.append({"label": "Div Yield", "current": f"{_xr(div / price * 100, 1)}%",
+        _optional.append({"label": "Div Yield", "current": f"{_xr(div / price * 100, pct_dp(div / price * 100))}%",
                                   "context": "computed from annualized dividend"})
     elif div_yield_pct is None and not mkt.get("dividend_annual") and _dy_stale_days is None:
         warnings.append("no dividend yield source supplied — slot omitted (do NOT estimate it)")
@@ -1202,10 +1258,10 @@ def main(raw_path, out_path):
     eps_act = vals[_eps_code][0] if _eps_code else None
     eps_est = parse_value(est_q.get(_eps_code, {}).get("VALUE"))[0] if _eps_code else None
     signals = {
-        "pct_below_52w_high": round((mkt["week52_high"] - price) / mkt["week52_high"] * 100, 1),
-        "pct_above_52w_low": round((price - mkt["week52_low"]) / mkt["week52_low"] * 100, 1),
-        "revenue_beat_musd": round(rev_c - rev_est) if (rev_c and rev_est) else None,
-        "revenue_beat_pct": round(yoy(rev_c, rev_est) if rev_est else 0, 1) if (rev_c and rev_est) else None,
+        "pct_below_52w_high": _xrf((_hi - _px) / _hi * 100, 1),
+        "pct_above_52w_low": _xrf(yoy(*r1_levels(price, mkt["week52_low"], guard=1.0)), 1),
+        "revenue_beat_musd": _xrf(rev_c - rev_est, 2) if (rev_c and rev_est) else None,
+        "revenue_beat_pct": _xrf(yoy(rev_c, rev_est), 1) if (rev_c and rev_est and rev_est > 0) else None,
         "eps_actual_vs_est": [eps_act, eps_est] if eps_est is not None else [eps_act, None],
     }
 
@@ -1242,7 +1298,7 @@ def main(raw_path, out_path):
         return x
 
     def fmt_mult(x):
-        return f"{_xr(x, 1)}x" if isinstance(x, (int, float)) and x is not None else "—"
+        return f"{_xr(x, 2)}x" if isinstance(x, (int, float)) and x is not None else "—"
 
     GROWTH_MAX = 1000.0
 
@@ -1348,7 +1404,7 @@ def main(raw_path, out_path):
             _p["ev_ebitda"] = None
         _peers_in.append(_p)
 
-    _tgt_growth_raw = yoy(rev_c, rev_p)
+    _tgt_growth_raw = yoy(*r1_levels(rev_c, rev_p, _mdiv, 1e3))
     _tgt_growth_ok = sane_growth(_tgt_growth_raw, "target revenue growth")
     _tgt_growth_cell = (
         NOT_MEANINGFUL if (growth_reason(rev_c, rev_p) is not None
@@ -1449,15 +1505,9 @@ def main(raw_path, out_path):
             _own_ok = in_bound(_own, _key)
             if len(_peers) >= 2 and _own_ok:
                 _med = median_of(_peers)
-                _own_exact = {"pe": vs_raw(pe_key, "current") if pe_key else None,
-                              "ev": vs_raw(ev_key, "current") if ev_key else None,
-                              "es": vs_raw("EV/Sales", "current"),
-                              "pb": vs_raw("P/B_Ratio", "current")}.get(_key)
-                if _own_exact is None or in_bound(_own_exact, _key) is None:
-                    _own_exact = _own_ok
                 peer_median_note = {
                     "label": f"vs Peer Median ({_name})",
-                    "current": prem(_own_exact, _med) or "—",
+                    "current": prem(_own_ok, _xrf(_med, 2)) or "—",
                     "context": f"{_name} prem/(disc) to median {fmt_x(_med)} "
                                f"of {len(_peers)} peers"}
                 break
@@ -1553,7 +1603,7 @@ def main(raw_path, out_path):
           mkt["week52_low"] * 0.99 <= price <= mkt["week52_high"] * 1.01 if price else False)
     check("market cap computed and positive (price x FDS)", bool(mcap_b and mcap_b > 0))
     check("no out-of-bound PEG reached the payload",
-          peg is None or (round(peg, 1) >= PEG_MIN and peg <= PEG_MAX))
+          peg is None or (_xrf(peg, 2) >= PEG_MIN and peg <= PEG_MAX))
     check("gross margin (GP/Rev) inside 0-100%",
           (not (rev_c and gp_c)) or (0 < gp_c / rev_c < 1))
     check("no discarded peer multiple reached a rank or the peer median",

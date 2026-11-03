@@ -1,6 +1,6 @@
 ---
 name: earnings-review
-version: 2.0.3
+version: 2.0.10
 description: "A post-earnings review that grades a reported quarter line by line against pre-results consensus and the company's guidance. It picks out the three to five changes that matter, KPI trends, new guidance against expectations, valuation and shifts in management tone, in a four to five page PDF. For the story of the quarter use Earnings Wrap; for a quick read use Earnings Flash."
 argument-hint: TICKER [nQyy]
 ---
@@ -29,8 +29,9 @@ list, buy-side column, read-across, inline REPORTED/VIEW tags, legends.
 ## Rules (validator-enforced unless marked *)
 1. **Reported quarters only.** build_dataset refuses an unreported period (exit 2) and a period when a LATER one has already reported
    (exit 3: ask the user; `--confirm-stale "<their reason>"` only on their choice). Route unreported quarters to earnings-preview-portal.
-2. **InSync is the only consensus.** Latest DATED InSync pre-print snapshot on or before the cut-off (`--frozen`). ≤2 brokers =
-   graded, verdict flagged † (`MISS†`). Post-print = latest snapshot. No other consensus source, no cross-check.
+2. **InSync is the only consensus.** The printed quarter's plain (frozen) InSync estimate; no cut-off applies to it. ≤2 brokers =
+   graded, verdict flagged † (`MISS†`). Post-print (forward periods) = history pull; the script picks the newest row with at least 40% of
+   the deepest panel's brokers, dated after the cut-off; under that the next-period consensus column comes out (data-collection §4). No other consensus source, no cross-check.
 3. **One line item per metric.** Actual, consensus, guide and forward pre/post use the same LTCODE (basis lock). Consensus that exists
    only on another line item is not graded (shown in Source). Overrides need `basis_override` with a reason.
 4. **Declared direction.** Every graded line has `better` (metric_map) or a registry entry (`assets/polarity_registry.json`); no default.

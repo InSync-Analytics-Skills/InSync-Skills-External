@@ -58,11 +58,12 @@ def short_value(v):
     if not m:
         return s
     sign, cur, num, suf = m.groups()
+    neg, num = (sign == "-" or num.startswith("-")), num.lstrip("-").replace(",", "")
     if suf == "%":
-        q = Decimal(num.replace(",", "")).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-        return "%s%s%s%s" % (sign, cur, "{:,.1f}".format(q) if abs(q) >= 1000 else "%.1f" % q, suf)
-    q = _round2(num.replace(",", ""))
-    return "%s%s%s%s" % (sign, cur, "{:,.2f}".format(q) if abs(q) >= 1000 else "%.2f" % q, suf)
+        q = Decimal(num).quantize(Decimal("0.01") if Decimal(num) < 5 else Decimal("0.1"), rounding=ROUND_HALF_UP)
+    else:
+        q = _round2(num)
+    return "%s%s%s%s" % ("\u2212" if (neg and q != 0) else "", cur, "{:,}".format(q), suf)
 
 
 def day_month(iso):
@@ -133,11 +134,22 @@ def _guide_display(text, scale, currency, name=None):
     if suf == "K":
         nums = [re.search(r"(-?[\d,]*\.?\d+)\)?$", p) for p in parts]
         if all(nums) and all(abs(float(n.group(1).replace(",", ""))) >= 1000 for n in nums):
-            parts = [p[:n.start(1)] + "%.2f" % (float(n.group(1).replace(",", "")) / 1000) + "M" + p[n.end(1):]
+            parts = [p[:n.start(1)] + str(_round2(float(n.group(1).replace(",", "")) / 1000)) + "M" + p[n.end(1):]
                      for p, n in zip(parts, nums)]
+            suf = ""
+    if suf in ("M", "B"):
+        nums = [re.search(r"(?<![A-Za-z\d.,])(-?[\d,]*\.?\d+)(\)?)$", p) for p in parts]
+        if all(nums):
+            vals = [float(n.group(1).replace(",", "")) for n in nums]
+            up = max(abs(v) for v in vals) >= 1000
+            parts = ["%s%s%s%s" % (p[:n.start(1)], "{:,.2f}".format(_round2(v / 1000 if up else v)),
+                                   {"M": "B", "B": "T"}[suf] if up else suf, p[n.end(1):])
+                     for p, n, v in zip(parts, nums, vals)]
             suf = ""
     if suf:
         parts = [re.sub(r"(?<![A-Za-z\d.,])([\d.,]+)(\)?)$", r"\1" + suf + r"\2", p) for p in parts]
+    parts = [re.sub(r"^\(([^\d()]*)([\d.,]+[A-Za-z%]*)\)$", lambda m: "\u2212" + m.group(1) + m.group(2), p)
+             for p in parts]
     return "-".join(parts)
 
 
@@ -153,7 +165,7 @@ _MAG_F = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12}
 
 
 def in_consensus_format(text, scale, cons_value):
-    c = re.match(r"^(-?)([^\d\-]*?)(-?[\d,]*\.?\d+)([KMBT])$", short_value(cons_value))
+    c = re.match(r"^([-\u2212]?)([^\d\-\u2212]*?)(-?[\d,]*\.?\d+)([KMBT])$", short_value(cons_value))
     f = _factor(text, scale)
     if not c or not c.group(2) or f is None or "%" in str(text or ""):
         return None
@@ -169,7 +181,7 @@ def in_consensus_format(text, scale, cons_value):
         if q.startswith("(") or q.startswith("-"):
             v = -abs(v)
         r = _round2(v)
-        out.append("%s%s%s%s" % ("-" if r < 0 else "", c.group(2), "{:,.2f}".format(abs(r)), c.group(4)))
+        out.append("%s%s%s%s" % ("\u2212" if r < 0 else "", c.group(2), "{:,.2f}".format(abs(r)), c.group(4)))
     return "-".join(out)
 
 
@@ -199,7 +211,10 @@ def _fp_norm(fp):
     return ("20" + m.group(1)[-2:]) if m else t
 
 
-def _tag(cur, prior, cur_scale=None, prior_scale=None):
+_SPEND = {"CF_P_109"}
+
+
+def _tag(cur, prior, cur_scale=None, prior_scale=None, spend=False):
     if prior is None:
         return "NEW"
     a, b = _nums(cur), _nums(prior)
@@ -209,6 +224,8 @@ def _tag(cur, prior, cur_scale=None, prior_scale=None):
     if not a or not b:
         return "MAINTAINED" if _norm_name(cur) == _norm_name(prior) else "NEW"
     ma, mb = sum(a) / len(a), sum(b) / len(b)
+    if spend and ma < 0 and mb < 0:
+        ma, mb = -ma, -mb
     if abs(ma - mb) <= 1e-9 * max(1.0, abs(mb)):
         return "MAINTAINED"
     return "RAISED" if ma > mb else "LOWERED"
@@ -289,7 +306,7 @@ def _one_off_note(computed, inp, rows):
         return None
     diff = _round2(a.group(2).replace(",", "")) - _round2(b.group(2).replace(",", ""))
     return {"reported": rep_p, "ex_one_off": adj_p,
-            "difference": "%s%s%s" % (a.group(1), "{:,.2f}".format(diff), a.group(3)),
+            "difference": "%s%s%s%s" % ("\u2212" if diff < 0 else "", a.group(1), "{:,.2f}".format(abs(diff)), a.group(3)),
             "revenue_row": rev.get("name") if rev else "Total Revenue",
             "profit_rows": [r.get("name") for r in profit],
             "eps_row": eps.get("name") if eps else None,
@@ -359,7 +376,7 @@ def fact_sheet(computed, inp, company_name=None):
                 "guide": _cf or guide_display(cur_t, scale, ccy, _k(r, "LINEITEM", "li")),
                 "prior_guide": (_pf if _cf else None) or (guide_display(pri_t, pr.get("SCALE"), pr.get("CURRENCY"),
                                                                         _k(pr, "LINEITEM", "li")) if pr else None),
-                "tag": _tag(cur_t, pri_t, scale, pr.get("SCALE") if pr else None),
+                "tag": _tag(cur_t, pri_t, scale, pr.get("SCALE") if pr else None, spend=lt in _SPEND),
                 "guide_date": _k(r, "GUIDEDATE", "gd"),
                 "consensus": short_value(c["value"]) if c else None,
                 "consensus_as_of": stale_asof(c.get("asof"), computed.get("earningsDate")) if c else None})
@@ -598,6 +615,8 @@ def tag_release_guides(entries, prior_guides, pinned=None):
             rec["why"] = "the two guides are in different units: tag it yourself"
         else:
             ma, mb = (a[0] + a[1]) / 2, (b[0] + b[1]) / 2
+            if lt in _SPEND and ma < 0 and mb < 0:
+                ma, mb = -ma, -mb
             if abs(ma - mb) <= 1e-9 * max(1.0, abs(mb)):
                 rec["tag"] = "MAINTAINED"
                 if (a[0], a[1]) != (b[0], b[1]):

@@ -1,11 +1,11 @@
 ---
 name: company-tearsheet-skill
-version: "8.1.0"
+version: "8.1.2"
 description: "A one-page tear sheet or company profile: a quick deep dive on any company in any sector. It covers price, key financials, operating KPIs, valuation against its own history, the bull and bear case, key debates, peers and upcoming catalysts, in Word and PDF. For a single quarter's results use Earnings Flash or Earnings Wrap."
 ---
 # Tear Sheet
 
-**Version: 8.1.0**  ·  Requires `python3` only (standard library; no Node, no npm); see §5.
+**Version: 8.1.2**  ·  Requires `python3` only (standard library; no Node, no npm); see §5.
 
 This file is the specification. `references/rules.md` holds the detail of what the scripts decide
 for you; open it where a line below points there.
@@ -144,7 +144,13 @@ Expect thinner KPI and peer coverage on these names, and say so in the delivery 
 ### 6.5 Estimates
 `get_estimates` for latest-quarter consensus, next-quarter EPS and forward annuals. **Annual
 tokens are BARE YEARS: `"2025,2026,2027"`**, not `2026FY` or `FY26`. Include FY0 so the script can
-derive FY1 growth.
+derive FY1 growth. The latest reported quarter and a fully reported FY0 keep
+`"latest": {"enabled": true, "limit": 1}`. **Forward periods** (next quarter, FY1, FY2, open FY0) come
+from history, separately:
+`{"latest":{"enabled":false},"updatedate_start":"<today-30d>","updatedate_end":"today","limit":"100"}`,
+all pages (FactSet wrapper: flat `"latest_enabled": false`; empty: retry with 120 days).
+Paste every row; compute picks. A forward item lacking `BROKERCOUNT`/`UPDATEDATE` is dropped
+(named in warnings and the chat summary).
 
 **Real Estate:** growth boxes and the next-quarter slot use FFO/share (`CF_P_202`), never EPS:
 fetch its FY0-FY2 and next-quarter consensus, and its FY0 actual (`get_actuals`, bare year).
@@ -305,11 +311,9 @@ kept (missing quarters read `n/a`). Only an exhausted priority order leaves a sl
   list the ltcode under the sector's `lower_is_better_codes`. It sets the `Beat (…)` / `Miss (…)`
   verdict and the Y/Y colour. Eval rejects a verdict that contradicts the figures and warns when a
   name reads as inverted with no flag.
-- **Decimals and rounding are compute's:** multiples 1 dp, percentages 1 dp (Div Yield
-  included), per-share figures 2 dp, other KPI values 2 dp. Never hand-format or round a number
-  into the payload. Eval fails a percentage column that mixes decimal places.
-- **Per-share rows name their unit** (`EPS (Adj) ($/sh)`); the Key Financials header carries the
-  shared money unit (`Latest ($B)`).
+- **Decimals and rounding are compute's** (rules.md §7.10b): 2 dp money, per-share, multiples;
+  % 1 dp (2 below 5%). Never hand-format or round a number; prose quotes it exactly as printed.
+- **Per-share rows name their unit** (`EPS (Adj) ($/sh)`); each money row carries its own unit.
 
 ## 10. Build commands
 
@@ -396,8 +400,8 @@ refuses a `computed.json` with `qc.failed` above zero or no `qc` verdict at all.
                 "QUARTERENDDATE": "2026-06-30", "YOY_GROWTH": "20.00%"} ],
   "estimates_quarter": [ {"LTCODE": "IS_P_101", "FISCALPERIOD": "2Q26", "VALUE": "$9.9000B",
                           "BROKERCOUNT": 20, "UPDATEDATE": "2026-08-04"} ],
-  "estimates_next_quarter": [ ... same shape, next period ... ],
-  "estimates_annual":       [ ... same shape, bare-year periods ... ],
+  "estimates_next_quarter": [ ... same shape, every history row (§6.5) ... ],
+  "estimates_annual":       [ ... same shape, bare years; forward: every history row ... ],
   "valuation_series": { "P/E_Adj_Ratio": {"2026-09-04": 30.0, "2026-08-31": 29.0},
                         "EV/Sales":      {"2026-09-04": 10.0} },
   "peers": [ {"name": "Example Co (EXM)", "is_target": true},
@@ -454,7 +458,8 @@ masthead loses the quarter. **Every figure on the sheet comes from `computed.jso
 is wrong, fix `raw_data.json` and re-run Step 1, never write it into `prose.json`.
 
 `trend` maps each KPI **name**, exactly as `computed.json` prints it, to `Stable` / `Accel` /
-`Decel`, and every KPI row needs one. **Accel and Decel describe the DIRECTION OF THE BUSINESS,
+`Decel`, and every KPI row needs one. **Set it from the change in Y/Y vs the
+prior quarter's Y/Y:** within ±1.0pp `Stable`, else `Accel`/`Decel`. **Accel and Decel describe the DIRECTION OF THE BUSINESS,
 not the sign of the number:** for an inverted metric (`lower_is_better`, or a code in the
 sector's `lower_is_better_codes`) a FALLING value is the improvement, so an efficiency ratio down
 500bps is **`Accel`** and a cost line up 20.0% is **`Decel`**. Eval REJECTS `Accel` against an
@@ -468,23 +473,19 @@ You never author this file. The row shapes (values illustrative; compute produce
 ```json
 {
   "market_snapshot":      [ { "label": "PRICE", "value": "$100.00", "context": "52W: $80-$120" } ],
-  "key_financials":       [ { "metric": "Revenue (1Q26)", "value": "$10,000M", "yoy": "+5.0%" } ],
-  "operational_kpis":     [ { "name": "KPI Name", "value": "$1,000M", "vs_est": "+$50M",
+  "key_financials":       [ { "metric": "Revenue (1Q26)", "value": "$10.00B", "yoy": "+5.0%" } ],
+  "operational_kpis":     [ { "name": "KPI Name", "value": "$1.00B", "vs_est": "+$0.05B",
                               "yoy": "+10.0%", "trend": "Stable|Accel|Decel" } ],
-  "valuation_metrics":    [ { "label": "NTM P/E", "current": "20.0x",
-                              "context": "5Y Avg 18.0x (+11.1%)" } ],
-  "comparable_companies": [ { "name": "Company (TICK)", "pe": "20.0x", "ev_ebitda": "12.0x",
-                              "ev_sales": "4.0x", "pb": "3.0x", "rev_growth": "+5.0%",
+  "valuation_metrics":    [ { "label": "NTM P/E", "current": "20.00x",
+                              "context": "5Y Avg 18.00x (+11.1%)" } ],
+  "comparable_companies": [ { "name": "Company (TICK)", "pe": "20.00x", "ev_ebitda": "12.00x",
+                              "ev_sales": "4.00x", "pb": "3.00x", "rev_growth": "+5.0%",
                               "is_target": true } ],
   "key_debates":          [ { "question": "...?", "rationale": "... + falsifier" } ],
   "catalysts":            [ { "date": "Mon DD", "event": "..." } ],
   "min_fin_rows": 5, "qc": { "passed": 12, "failed": 0 }, "provenance": "Data as of: ..."
 }
 ```
-
-**ONE UNIT FOR THE WHOLE COLUMN.** Compute formats every Key Financials money row in one unit
-taken from the column's largest magnitude, and the renderer lifts it into the header. Pass
-computed values through UNCHANGED; never re-scale a row by hand.
 
 ## 13. Data sourcing rules
 

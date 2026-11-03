@@ -234,9 +234,9 @@ EBIT margin. Only gross profit and EBITDA are absent.
 | `IS_P_110-M` | Margin - EBIT (Ex- 1x Items) | **yes** |
 | `KM_S_375` | Total % Base Fee Rate | **yes** — **untagged** |
 
-AUM is trillion-scale: encode in billions. **Fee rate is unusable at the renderer's 1-decimal percentage
-precision** — it is ~15bp, so it renders "0.1–0.2%" and the signal is erased; the MCP also pre-rounds it to
-2dp, so bps cannot be recovered even with a better formatter. Ship it knowing that, or omit it. Searching
+AUM is trillion-scale: encode in billions. **Fee rate is coarse even at the renderer's 2dp precision
+for a rate row under 5%** — it is ~15bp, so it renders "0.14–0.16%"; the MCP also pre-rounds it to 2dp, so
+bps cannot be recovered with a better formatter. Ship it knowing that, or omit it. Searching
 "assets under management" returns junk — only the literal token "AUM" surfaces those lines. "Client assets"
 is a broker concept and does not exist for an asset manager. `get_guidance` can return quarterly guide rows
 for a company that does not guide quarterly; where that happens, treat its quarterly guide statistics as suspect.

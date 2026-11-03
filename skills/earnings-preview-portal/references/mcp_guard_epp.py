@@ -175,9 +175,9 @@ def _epp_rules(calls, notes):
                     "get_estimates: latest{enabled:true} together with an updatedate window. "
                     "Measured non-deterministic across windows - a few rows on one issuer, one on another, 0 then "
                     "dozens on a third - and zero rows from it looks exactly like 'no estimates exist'. "
-                    "Use latest{enabled:false} with the window (data-collection.md §5/§7), and "
-                    "only fall back to latest{enabled:true,limit:1} on a window that is genuinely "
-                    "empty, saying so in the report.")
+                    "Use latest{enabled:false} with the window (data-collection.md §4/§5). For a "
+                    "forward period (§4) an empty window is re-fetched once with 120 days, never "
+                    "through latest{enabled:true}.")
 
             fp = str(a.get("fiscal_period") or "")
             bad = [p.strip() for p in fp.split(",")
@@ -308,7 +308,7 @@ def selftest():
     st, p, _ = check([{"tool_name": "get_estimates",
                        "tool_arguments": {"ticker_id": "62", "ltcode": "IS_P_101",
                                           "latest": {"enabled": True, "limit": 1}}}])
-    ok("latest{enabled:true} with NO window passes (the §4 form)", st == "ok")
+    ok("latest{enabled:true} with NO window passes (not refused by the guard)", st == "ok")
 
     ok("fiscal_period FY27 refused",
        refused([{"tool_name": "get_estimates",

@@ -31,7 +31,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from compute import ticker_slug, fmt_number
+from compute import ticker_slug, fmt_number, fmt_pct_level, _money
 from binding import required_binding_words
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -444,6 +444,10 @@ def esc(s):
     return html.escape(str(s if s is not None else ""))
 
 
+def _nw(s):
+    return '<span style="white-space:nowrap">' + esc(s) + "</span>"
+
+
 FOOTNOTE_DIGIT = re.compile(r"(?<=[a-z\)])(\d)(?=[,.;:]|\s|$)")
 
 
@@ -462,21 +466,22 @@ def fnum(v, dp=1):
     return fmt_number(v, dp)
 
 
-def flevel(r):
+def flevel(r, ref=None):
     v = r.get("display_value", r.get("latest_value"))
     if v is None:
         return "n/a"
     if r.get("kind") == "pre_growth":
-        return f"{v:,.1f}%"
+        return fmt_number(v, 1) + "%"
     lab = r.get("unit_label")
     dp = r.get("unit_decimals", 2)
     status = r.get("unit_status")
+    ref = ref if lab in (None, "currency", "%") else None
     if status == "conflicted":
         return '<span class="tag">level withheld, unit unresolved</span>'
     if lab == "%":
-        return f"{v:,.2f}%"
+        return fmt_pct_level(v, ref)
     if lab == "x":
-        return f"{v:,.2f}x"
+        return fmt_number(v, 2) + "x"
     if lab in ("billions", "millions", "thousands"):
         if r.get("latest_value") is not None:
             v = r["latest_value"]
@@ -489,21 +494,15 @@ def flevel(r):
         a = abs(v)
         for cut, suf in ((1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K")):
             if a >= cut:
-                return f"{v / cut:,.2f}{suf}"
-        return f"{v:,.0f}"
+                return fmt_number(v / cut, 2) + suf
+        return fmt_number(v, 0)
     if lab and lab != "currency":
         if abs(v) >= 1e6:
             for cut, suf in ((1e12, "T"), (1e9, "B"), (1e6, "M")):
                 if abs(v) >= cut:
-                    return f"{v / cut:,.2f}{suf} {esc(lab)}"
-        return f"{v:,.{dp}f} {esc(lab)}"
-    _c = esc(r.get("currency") or "")
-    a = abs(v)
-    sg = "-" if v < 0 else ""
-    for cut, suf in ((1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K")):
-        if a >= cut:
-            return f"{sg}{_c}{a / cut:,.2f}{suf}"
-    return f"{sg}{_c}{a:,.2f}"
+                    return fmt_number(v / cut, 2) + f"{suf} {esc(lab)}"
+        return fmt_number(v, dp) + f" {esc(lab)}"
+    return _money(v, esc(r.get("currency") or ""), ref)
 
 
 def fabs_change(r):
@@ -558,7 +557,7 @@ UNUSUAL_BANDS = [(2.5, "Very unusual"), (1.5, "Unusual"), (0.75, "Notable"),
 def unusual_label(z):
     if z is None:
         return "n/a"
-    a = round(abs(z), 1)
+    a = abs(z)
     for cut, word in UNUSUAL_BANDS:
         if a >= cut:
             return word
@@ -568,7 +567,7 @@ def unusual_label(z):
 def funusual(z):
     if z is None:
         return "n/a"
-    return unusual_label(z) + " (" + ("%.1f" % abs(z)) + " SD)"
+    return unusual_label(z) + " (" + fmt_number(abs(z), 1) + " SD)"
 
 
 def table_legend(rows):
@@ -697,12 +696,13 @@ def bullets(v, cls="blt"):
 
 
 def fz(v):
-    return "n/a" if v is None else f"{v:+.1f}"
+    return "n/a" if v is None else fmt_number(v, 1, True)
 
 
 def cls(v):
     if v is None:
         return ""
+    v = float(fmt_number(v, 1).replace(",", "").replace("\u2212", "-"))
     return "pos" if v > 0 else ("neg" if v < 0 else "")
 
 
@@ -1049,7 +1049,7 @@ def non_operating_window_text(items):
     for it in items or []:
         parts.append(esc(it.get("period")) + " (" + esc(it.get("role")) + ") included "
                      + esc(it.get("value_display")) + " of " + esc(it.get("display"))
-                     + ", " + esc("%.1f" % float(it.get("share_of_operating_profit_pct") or 0))
+                     + ", " + esc(fmt_number(float(it.get("share_of_operating_profit_pct") or 0), 1))
                      + "% of that quarter's operating profit")
     if not parts:
         return ""
@@ -1210,7 +1210,7 @@ def summary_bullets(p, prose):
                 _tag += (", but most of the move is one-time" if (_ae.get("kind") == "one-time" and not _al)
                          else ", but most of the move comes from items management sized")
         return ('<b>' + esc(r.get("display") or r["name"]) + '</b> ' + yy_pair(r)
-                + '; pace ' + faccel(r["latest_accel"], r["unit"]) + ', '
+                + '; pace ' + faccel(r.get("accel_printed", r["latest_accel"]), r["unit"]) + ', '
                 + esc(funusual(r["z_display"])).lower().replace(" sd)", " SD)") + '. '
                 + esc(r.get("implication")) + ' on pace' + _tag + '.' + _xtxt)
 
@@ -1253,8 +1253,8 @@ def summary_bullets(p, prose):
                         + 'The company-reported ' + esc(ex["base_display"]) + ' of '
                         + esc(ex["base_display_value"]) + ' includes it; ' + esc(ex["excl_display_value"])
                         + ' excluding it is an InSync line, not a company measure. The '
-                        + esc(ex["gap_display"]) + ' difference compares with '
-                        + (esc(ex["prior_gap_display"]) + ' in ' + esc(ex["prior_period"])
+                        + _nw(ex["gap_display"]) + ' difference compares with '
+                        + (_nw(ex["prior_gap_display"]) + ' in ' + esc(ex["prior_period"])
                            if ex.get("prior_gap_display") else 'no matching year-ago figure')
                         + '.' + ((' Growth excluding it: ' + esc(ex["excl_growth_display"])
                                   + ' y/y, against ' + esc(ex["base_growth_display"]) + ' reported.')
@@ -1268,8 +1268,8 @@ def summary_bullets(p, prose):
         cur, prev, pq, ya, yq, dq, dy = _rate_parts(r)
         used.add(r.get("ltcode"))
         ctxb.append('<b>' + esc(r.get("display") or r["name"]) + '</b> ' + rate_pair(r)
-                    + ': ' + faccel(dq, "pct") + ' vs last quarter'
-                    + ((', ' + faccel(dy, "pct") + ' vs a year ago') if dy is not None else '')
+                    + ': ' + faccel(dq, "pct", max(r.get("rate_decimals", 1), 1)) + ' vs last quarter'
+                    + ((', ' + faccel(dy, "pct", max(r.get("rate_decimals", 1), 1)) + ' vs a year ago') if dy is not None else '')
                     + '; ' + esc(funusual(r["z_display"])).lower().replace(" sd)", " SD)") + '. '
                     + esc(r.get("implication")) + ' on the change'
                     + ((', still below a year ago' if dy < 0 else ', above a year ago')
@@ -1312,9 +1312,9 @@ def headline_table(p):
         "<tr>"
         '<td class="name">' + esc(r.get("display") or r["name"]) + flag_tags(r) + "</td>"
         '<td class="num">' + flevel(r) + "</td>"
-        '<td class="num">' + fgrowth(r["latest_growth"], r["unit"]) + "</td>"
+        '<td class="num">' + fgrowth(r.get("growth_printed", r["latest_growth"]), r["unit"]) + "</td>"
         '<td class="num">' + fgrowth(r["prev_growth"], r["unit"]) + "</td>"
-        '<td class="num">' + faccel(r["latest_accel"], r["unit"]) + "</td>"
+        '<td class="num">' + faccel(r.get("accel_printed", r["latest_accel"]), r["unit"]) + "</td>"
         "<td>" + esc(direction_word(r)) + "</td>"
         '<td class="' + imp_class(r.get("implication")) + '">' + esc(r.get("implication")) + "</td>"
         "<td>" + level_cell(r) + "</td>"
@@ -1357,7 +1357,8 @@ def _rate_parts(r):
     if rv:
         return (rv.get("latest"), rv.get("prev"), rv.get("prev_period") or "last Q",
                 rv.get("year_ago"), rv.get("year_ago_period") or "a year ago",
-                rv.get("vs_last_q"), rv.get("vs_year_ago"))
+                rv.get("vs_last_q_printed", rv.get("vs_last_q")),
+                rv.get("vs_year_ago_printed", rv.get("vs_year_ago")))
     vs = r.get("value_series") or []
     ps = r.get("period_series") or []
     cur = vs[-1] if vs else r.get("latest_growth")
@@ -1397,8 +1398,8 @@ def rate_table(p):
             '<td class="num">' + F(r, cur) + "</td>"
             '<td class="num">' + F(r, prev) + "</td>"
             '<td class="num">' + F(r, ya) + "</td>"
-            '<td class="num">' + faccel(dq, "pct") + "</td>"
-            '<td class="num">' + faccel(dy, "pct") + "</td>"
+            '<td class="num">' + faccel(dq, "pct", max(r.get("rate_decimals", 1), 1)) + "</td>"
+            '<td class="num">' + faccel(dy, "pct", max(r.get("rate_decimals", 1), 1)) + "</td>"
             '<td class="' + imp_class(r.get("implication")) + '">' + esc(r.get("implication")) + "</td>"
             '<td class="num">' + esc(funusual(r["z_display"])) + "</td></tr>")
     return ('<table class="rates">' + head + "<tbody>" + "".join(body)
@@ -1447,7 +1448,7 @@ def adjusted_pair_note(rows, more=()):
     if not pairs:
         return ""
     return ('<p class="note"><b>Reported and adjusted.</b> '
-            + "; ".join(esc(r.get("display") or r["name"]) + " " + fgrowth(r["latest_growth"], r["unit"])
+            + "; ".join(esc(r.get("display") or r["name"]) + " " + fgrowth(r.get("growth_printed", r["latest_growth"]), r["unit"])
                         + " y/y, " + esc(r["adjusted_twin"]["display"]) + " "
                         + esc(r["adjusted_twin"]["growth_display"]) for r in pairs) + ".</p>")
 
@@ -1668,12 +1669,12 @@ def rank_table(rows, caption):
     body = "".join(
         "<tr>"
         '<td class="name">' + esc(r.get("display") or r["name"]) + flag_tags(r, with_grade=True) + "</td>"
-        '<td class="num">' + flevel(r) + "</td>"
-        '<td class="num">' + (as_level(r, r.get("prior_year_value"))
+        '<td class="num">' + flevel(r, r.get("prior_year_value")) + "</td>"
+        '<td class="num">' + (as_level(r, r.get("prior_year_value"), r.get("display_value"))
                               if r.get("unit_status") != "conflicted" else "withheld") + "</td>"
-        '<td class="num">' + fgrowth(r["latest_growth"], r["unit"]) + "</td>"
+        '<td class="num">' + fgrowth(r.get("growth_printed", r["latest_growth"]), r["unit"]) + "</td>"
         '<td class="num">' + fgrowth(r["prev_growth"], r["unit"]) + "</td>"
-        '<td class="num">' + faccel(r["latest_accel"], r["unit"]) + "</td>"
+        '<td class="num">' + faccel(r.get("accel_printed", r["latest_accel"]), r["unit"]) + "</td>"
         '<td class="num"><span class="stk">' + esc(r["streak"]) + "Q</span>"
         + sparkline(r["accel_series"][-8:]) + "</td>"
         '<td class="' + imp_class(r.get("implication")) + '">' + esc(r.get("implication")) + "</td>"
@@ -1719,7 +1720,7 @@ def opposite_adjusted_note(rows):
         if at.get("level_word") and r.get("level_word") and at["level_word"] != r["level_word"] \
                 and at.get("growth_display"):
             bits.append(esc(r.get("display") or r["name"]) + " "
-                        + fgrowth(r["latest_growth"], r["unit"]) + " y/y; the adjusted line, "
+                        + fgrowth(r.get("growth_printed", r["latest_growth"]), r["unit"]) + " y/y; the adjusted line, "
                         + esc(at.get("display")) + ", " + esc(at["growth_display"]))
     return ('<p class="note"><b>Reported and adjusted move apart.</b> ' + "; ".join(bits[:2])
             + ".</p>") if bits else ""
@@ -1743,7 +1744,7 @@ def heatmap_table(p):
             + (';color:#fff' if c["bin"] in ("vneg", "vpos") else '') + '" title="' +
             esc(BIN_LABEL[c["bin"]]) + ", " + esc(funusual(c["z"])) + '">' +
             ((frate(c.get("growth"), 0) if r.get("kind") == "pre_growth"
-              else fgrowth(c.get("growth"), unit, 0)) if c.get("growth") is not None else "") +
+              else fgrowth(c.get("growth"), unit, 0)) if c.get("growth") is not None else "n/a") +
             "</td>" for c in r["cells"])
         rows.append('<tr><td class="name">' + esc(r.get("display") or r["name"])
                     + ('<span class="mf"> (rate)</span>' if r.get("kind") == "pre_growth" else "") +
@@ -1896,7 +1897,7 @@ def commentary_block(r, commentary, p):
             " &middot; verified management commentary</div></div>")
 
 
-def as_level(r, value):
+def as_level(r, value, ref=None):
     if value is None:
         return "n/a"
     return flevel({
@@ -1907,7 +1908,7 @@ def as_level(r, value):
         "unit_decimals": r.get("unit_decimals", 2),
         "unit_status": r.get("unit_status"),
         "currency": r.get("currency"),
-    })
+    }, ref)
 
 
 def forward_bar(r):
@@ -1920,11 +1921,11 @@ def forward_bar(r):
     if r.get("unit_status") == "conflicted":
         return ('<p class="fwd"><span class="k">next quarter</span>level withheld, unit '
                 'unresolved; ' + flat + ' y/y if unchanged from this quarter.</p>')
-    hold = (("%.2f%%" % fb["level_to_hold_growth"]) if unit == "bps"
+    hold = (fmt_pct_level(fb["level_to_hold_growth"]) if unit == "bps"
             else as_level(r, fb.get("level_to_hold_display",
                                     fb["level_to_hold_growth"])))
     return ('<p class="fwd"><span class="k">next quarter</span><b>' + hold
-            + '</b> keeps the y/y rate at ' + fgrowth(r.get("latest_growth"), unit)
+            + '</b> keeps the y/y rate at ' + fgrowth(r.get("growth_printed", r.get("latest_growth")), unit)
             + ' against ' + nb + '; flat q/q gives ' + flat + ' y/y.</p>')
 
 
@@ -1945,13 +1946,13 @@ def measure_strip(r):
         cur, prev, pq, ya, yq, dq, dy = _rate_parts(r)
         _rd = r.get("rate_decimals", 1)
         return S.join([K("latest") + "<b>" + rate_pair(r) + "</b>",
-                       K("vs last q") + faccel(dq, "pct"),
-                       K("vs year ago") + faccel(dy, "pct"),
+                       K("vs last q") + faccel(dq, "pct", max(r.get("rate_decimals", 1), 1)),
+                       K("vs year ago") + faccel(dy, "pct", max(r.get("rate_decimals", 1), 1)),
                        K("historical unusualness") + esc(funusual(r["z_display"]))])
     parts = [
-        K("y/y") + "<b>" + fgrowth(r["latest_growth"], r["unit"]) + "</b> ("
+        K("y/y") + "<b>" + fgrowth(r.get("growth_printed", r["latest_growth"]), r["unit"]) + "</b> ("
         + esc(prevq(r)) + ": " + fgrowth(r["prev_growth"], r["unit"]) + ")",
-        K("change in pace") + faccel(r["latest_accel"], r["unit"]),
+        K("change in pace") + faccel(r.get("accel_printed", r["latest_accel"]), r["unit"]),
         K("historical unusualness") + esc(funusual(r["z_display"])),
         K("streak") + esc(r["streak"]) + "Q " + esc(r["streak_dir"] if r.get("kind") != "ratio"
                                                     else direction_word(r).lower()),
@@ -2155,7 +2156,7 @@ def guide_display(row):
     if mid is None:
         return '<span title="' + esc(raw) + '">' + guide_text(raw) + "</span>"
     unit = row.get("unit", "pct")
-    shown = (("%.2f%%" % mid) if unit == "bps"
+    shown = (fmt_pct_level(mid) if unit == "bps"
              else flevel({"latest_value": mid, "unit": unit}))
     band = re.search(r"(\u00b1|\+/-)\s*([\d.]+\s*%?)", str(raw or ""))
     if band:
@@ -2475,9 +2476,9 @@ def guidance_block(p, prose, tables=True):
             if r.get("midpoint_change_bps") is not None:
                 _b = r["midpoint_change_bps"]
                 _b = math.floor(abs(_b) + 0.5) * (1 if _b >= 0 else -1)
-                out += " (%s%+d bps)" % (_mw, _b)
+                out += " (%s%s bps)" % (_mw, fmt_number(_b, 0, True))
             elif r.get("midpoint_change_pct") is not None:
-                out += " (%s%+.1f%%)" % (_mw, r["midpoint_change_pct"])
+                out += " (%s%s%%)" % (_mw, fmt_number(r["midpoint_change_pct"], 1, True))
 
             return esc(out)
         if _rel:
@@ -2694,9 +2695,9 @@ def context_table(p):
         "<tr>"
         '<td class="name">' + esc(r.get("display") or r["name"]) + flag_tags(r) + "</td>"
         '<td class="num">' + flevel(r) + "</td>"
-        '<td class="num">' + fgrowth(r["latest_growth"], r["unit"]) + "</td>"
+        '<td class="num">' + fgrowth(r.get("growth_printed", r["latest_growth"]), r["unit"]) + "</td>"
         '<td class="num">' + fgrowth(r["prev_growth"], r["unit"]) + "</td>"
-        '<td class="num">' + faccel(r["latest_accel"], r["unit"]) + "</td>"
+        '<td class="num">' + faccel(r.get("accel_printed", r["latest_accel"]), r["unit"]) + "</td>"
         "<td>" + esc(funusual(r["z_display"])) + "</td>"
         '<td title="' + esc(r.get("implication_reason") or "") + '">'
         + esc(r.get("implication")) + pace_tag(r) + "</td></tr>" for r in rows)
@@ -2800,7 +2801,7 @@ def quiet_line(p):
         return ""
     def _quiet_phrase(r):
         name = r.get("display") or r["name"]
-        val = fgrowth(r["latest_growth"], r["unit"])
+        val = fgrowth(r.get("growth_printed", r["latest_growth"]), r["unit"])
         if r.get("flow_rate_mode"):
             stock = r.get("flow_denominator_name") or "balance"
             stock = re.sub(r"\s*[-–(]?\s*(eop|end[- ]of[- ]period)\s*\)?\s*$",
@@ -2832,7 +2833,7 @@ def fmidpoint(g):
     if v is None:
         return ""
     if g.get("parsed_unit") == "bps":
-        return "%.2f%%" % v
+        return fmt_pct_level(v)
     return flevel({"latest_value": v, "unit": "pct"})
 
 
@@ -3195,9 +3196,9 @@ def revisions_block(g, rank=None):
 
     def _chg(r):
         if r.get("midpoint_change_bps") is not None:
-            return " (midpoint %+.0f bps)" % r["midpoint_change_bps"]
+            return " (midpoint %s bps)" % fmt_number(r["midpoint_change_bps"], 0, True)
         if r.get("midpoint_change_pct") is not None:
-            return " (midpoint %+.1f%%)" % r["midpoint_change_pct"]
+            return " (midpoint %s%%)" % fmt_number(r["midpoint_change_pct"], 1, True)
         return ""
     body = "".join(
         "<tr>"

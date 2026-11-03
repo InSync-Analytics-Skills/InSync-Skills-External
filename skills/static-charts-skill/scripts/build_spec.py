@@ -34,6 +34,7 @@ import argparse
 import json
 import os
 import sys
+import re
 from typing import Any, Dict, Iterable, List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -97,11 +98,15 @@ def clean_key(value: Any, strip: List[str]) -> str:
     return s
 
 
+_DATE_KEYS = ("DATE", "date", "QUARTERENDDATE", "quarter_end_date", "UPDATEDATE", "update_date")
+
+
 def ordered_periods(rows: Iterable[Dict[str, Any]], field: str,
                     explicit: Optional[List[str]], strip: List[str]) -> List[str]:
     if explicit:
         return [str(p) for p in explicit]
     seen: List[str] = []
+    when: Dict[str, str] = {}
     for r in rows:
         p = r.get(field)
         if p is None:
@@ -109,6 +114,11 @@ def ordered_periods(rows: Iterable[Dict[str, Any]], field: str,
         p = clean_key(p, strip)
         if p not in seen:
             seen.append(p)
+        d = p[:10] if re.match(r"\d{4}-\d{2}-\d{2}", p) else next((str(r[k])[:10] for k in _DATE_KEYS if r.get(k)), None)
+        if d and p not in when:
+            when[p] = d
+    if seen and all(p in when for p in seen):
+        seen.sort(key=lambda p: when[p])
     return seen
 
 

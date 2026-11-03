@@ -41,7 +41,7 @@ if HERE not in sys.path:
 from fmt import (JSError, type_error, G, jt, jor, nn, jstr, is_num, js_eq, js_gt, js_le,
                  need, set_items, JSSet, js_sort_strings, js_json_wf, UNDEF, JSFunc, pkey,
                  _locale_number, _proto_get, _PROTO, _IDX)
-from jscompat import js_keys, js_str, js_to_fixed, _js_read_json, _JSErr, _truthy
+from jscompat import js_keys, js_str, _js_read_json, _JSErr, _truthy
 
 RENDERER = os.path.join(HERE, 'render_packet.py')
 
@@ -512,38 +512,28 @@ def main():
     if ms is not UNDEF:
         has = isinstance(ms, str) and ms in MONEY_SCALE
         ok(has, "meta.money_scale is 'B' or 'M'" + (" ('" + ms + "')" if has else ', got: ' + js_json_wf(ms)))
-    else:
-        mx = 0
-        for r in it(jor(G(C, 'model'), [])):
-            if js_eq(G(jor(r, {}), 'fmt'), '$M'):
-                for _k, v in js_entries(jor(G(jor(r, {}), 'cells'), {})):
-                    if is_num(v) and abs(v) > mx:
-                        mx = abs(v)
-        if jt(mx) and mx < 1000:
-            note('meta.money_scale is absent, so every $M cell prints at $B scale, but the '
-                 + 'largest money level in the spine is ' + js_to_fixed(mx, 1) + 'M and would print as $'
-                 + js_to_fixed(to_f(mx) / 1000, 2) + 'B. Set money_scale to "M" for this issuer.')
 
-    ms = jor(meta('money_scale'), 'B')
-    isM = js_eq(ms, 'M')
-
-    def fmtM(v):
-        b = v if isM else to_f(v) / 1000
-        d = 1 if isM else 2
-        t = _locale_number(abs(b), d)
-        return ('(' if v < 0 else '') + '$' + t + ('M' if isM else 'B') + (')' if v < 0 else '')
+    def fmtM(v, top):
+        u, s = ('M', 1.0) if top < 1e3 else ('B', 1e3) if top < 1e6 else ('T', 1e6)
+        return ('\u2212' if v < 0 else '') + '$' + _locale_number(abs(to_f(v)) / s, 2) + u
 
     GRPS = ('model', 'segments', 'seg_ebit', 'kpis')
+    _h = meta('hist')
+    QK_P = (list(_h) if isinstance(_h, list) else []) + [meta('target')]
+    GK_P = QK_P + [meta('next_q'), meta('fy_prev'), meta('fy0'), meta('fy1')]
     hits = []
     for grp in GRPS:
         for row in it(jor(G(C, grp), [])):
             f = G(jor(row, {}), 'fmt')
             if jt(f) and not js_eq(G(row, 'fmt'), '$M'):
                 continue
-            cells = [(p_, v) for p_, v in js_entries(jor(G(jor(row, {}), 'cells'), {})) if is_num(v)]
+            keys = GK_P if grp == 'model' else QK_P
+            cells = [(p_, v) for p_, v in js_entries(jor(G(jor(row, {}), 'cells'), {}))
+                     if p_ in keys and is_num(v)]
+            top = max([abs(to_f(v)) for _p, v in cells] or [0])
             byText = {}
             for p_, v in cells:
-                byText.setdefault(fmtM(v), []).append((p_, v))
+                byText.setdefault(fmtM(v, top), []).append((p_, v))
             for t, group in byText.items():
                 for i in range(len(group)):
                     for j in range(i + 1, len(group)):
@@ -553,8 +543,8 @@ def main():
                             hits.append(jstr(G(row, 'name')) + ': ' + pa + '=' + js_str(va) + ' and ' + pb + '='
                                         + js_str(vb) + ' both print ' + t)
     ok(len(hits) == 0,
-       "money cells: no two values in one row print the same string at money_scale '" + jstr(ms)
-       + "'" + ((' (' + str(len(hits)) + ' collision(s)): ' + ' | '.join(hits[:4])
+"money cells: no two values in one row print the same string at the row's unit"
+       + ((' (' + str(len(hits)) + ' collision(s)): ' + ' | '.join(hits[:4])
                  + (' | ...' if len(hits) > 4 else '')) if hits else ''))
 
     pcthits = []
@@ -563,9 +553,10 @@ def main():
             if not js_eq(G(jor(row, {}), 'fmt'), '%'):
                 continue
             cells = [v for _p, v in js_entries(jor(G(jor(row, {}), 'cells'), {})) if is_num(v)]
+            d = 2 if max([abs(to_f(v)) for v in cells] or [0]) < 5 else 1
             byText = {}
             for v in cells:
-                byText.setdefault(_locale_number(v, 1), []).append(v)
+                byText.setdefault(_locale_number(v, d), []).append(v)
             worst = 0
             for group in byText.values():
                 for i in range(len(group)):
@@ -629,7 +620,7 @@ def main():
         ok(has, 'meta.reaction_basis is one of ' + ' / '.join(REACTION_BASIS)
            + (" ('" + rb + "')" if has else ', got: ' + js_json_wf(rb)))
 
-    NEGTILE = re.compile('^\\(' + _DOT + '*\\)\\Z|^[–-]|^[^0-9(]{0,3}[–-]' + _S + '*[0-9]')
+    NEGTILE = re.compile('^\\(' + _DOT + '*\\)\\Z|^[–−-]|^[^0-9(]{0,3}[–−-]' + _S + '*[0-9]')
 
     def negtile(t):
         return (jt(t) and isinstance(G(t, 'value'), str) and bool(NEGTILE.search(jtrim(G(t, 'value'))))

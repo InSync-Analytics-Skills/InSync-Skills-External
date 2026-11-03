@@ -3,7 +3,7 @@ name: revision-analysis
 description: "A revision analysis in Excel showing how estimates for a company's next quarter and current year have moved since the last results. It tracks 30 to 55 line items from the pre-results consensus to today, with a short summary of what the revisions mean and what to watch."
 metadata:
   argument-hint: TICKER
-  version: 2.5.0
+  version: 2.5.2
 ---
 
 # Consensus Revision Analysis Workbook
@@ -146,6 +146,8 @@ python scripts/prepare_revisions.py  <raw_dir>  <meta.json>  <contract.json>
 It prints a summary — sanity-check the counts (a large-cap typically yields 35–55 line items, 15–25 history dates) and the `Anchors (cut -> vintage)` line. An `Input error:` line names a `meta.json` field to fix; a stop naming a file means `raw/` holds something wrong (another company's rows, a half-year period): fix the folder, never the script.
 
 ## Step 7 — Write `narrative.json`
+
+Number format (house rule): text money `$250.00M` / `$1.41B` / `$2.10T`, per share `$1.24`, % and pp 1 decimal (2 on a rate row under 5%), bps whole, half-up, minus `−` before the symbol (`−$0.12`); quote a figure exactly as the sheet or panel prints it.
 
 Read `references/narrative-guide.md` now, every run, then read `contract.json` (`intel.phase.framing`, `intel.dataState` and `intel.thesisSpine` first) and write `narrative.json` to that guide. Every figure must come from `contract.json`. Never skip this file: without it the builder falls back to flat template sentences.
 

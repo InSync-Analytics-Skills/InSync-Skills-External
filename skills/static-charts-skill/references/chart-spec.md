@@ -79,7 +79,7 @@ and a warning says so. A value that is present but not a number (`"abc"`,
 infinity) is drawn as `n/a` and named in `warnings`.
 
 Compact formatting honours the magnitude the unit declares, so `20543` with
-`usd_mn` renders as `$20.5B`, not `$20.5K`. Once a tick carries its own magnitude
+`usd_mn` renders as `$20.54B`, not `$20.5K`. Once a tick carries its own magnitude
 suffix the axis title drops the unit's magnitude word — an axis never reads
 "US$ mn" above ticks that say "$30B".
 
@@ -97,6 +97,16 @@ count reads `0 · 200 · 800 · 1,000` because its peak does not warrant abbrevi
 at all. Zero never carries a suffix. Decimal places follow the same rule: one
 count for the whole axis, not widened for a single small tick.
 
+### Numbers on labels (house rule)
+
+Data labels and the Key Observation round **half-up** on the decimal text (2.675 →
+2.68), once. Money, per-share, multiples and K/M/B counts print 2 decimals; % and pp
+1; bps, days and plain counts whole. One K/M/B suffix per series, chosen from its
+largest value. Negatives use U+2212 before the symbol (`−$1.20B`); a label that rounds
+to zero prints without a sign, and a surprise that prints `0.0%` is drawn neutral
+("In line"). A gap between two figures printed in the same line is computed from
+the printed figures. Axis ticks keep their compact form (`$20B`, `1.5M`).
+
 ### A narrow-band series belongs on a line, not a bar
 
 Bars start at zero because bar length encodes magnitude, and truncating the
@@ -112,7 +122,7 @@ for quantities whose size is the point.
 |---|---|---|
 | `on_missing` | `gap` | `gap` (hole in the line, skipped bar, `n/a` mark) \| `zero` \| `interpolate` |
 | `data_labels` | `auto` | `auto` labels the primary series when it will fit |
-| `label_dp` | unit default | decimal places on data labels |
+| `label_dp` | house rule | decimal places on data labels (overrides the rule above) |
 | `compact_labels` | `true` | 12.4K / 3.1B style abbreviation |
 | `legend` | `auto` | `auto` shows a legend from two entries up; `false` never |
 | `footnote` | — | appended to the source line, or wrapped onto its own line above it when too long. A footnote is disclosure and is never shed to make room; the provenance line drops `prepared <date>` first |

@@ -722,7 +722,7 @@ def _convert_to_pdf(docx_path: str):
 def parse_disp(v):
     if v is None:
         return None
-    t = str(v).strip()
+    t = str(v).strip().replace("\u2212", "-")
     if t in ("", "N/A", "-", "--", "\u2014"):
         return None
     neg = bool(re.match(r"^\s*-", t) or re.match(r"^\s*[^\d\s+-]{1,8}\s*-\s*\d", t))
@@ -732,6 +732,22 @@ def parse_disp(v):
     x = float(m.group(1).replace(",", ""))
     x *= {"T": 1e12, "B": 1e9, "M": 1e6, "K": 1e3}.get((m.group(2) or "").upper(), 1)
     return -x if neg else x
+
+
+def disp_half(v):
+    t = str(v or "").replace(",", "").replace("%", "").replace("ppt", "").replace("bps", "")
+    m = re.search(r"\d+(?:\.(\d+))?\s*(T|B|M|K)?", t)
+    if not m:
+        return 0.0
+    return 0.5 * 10 ** -len(m.group(1) or "") * {"T": 1e12, "B": 1e9, "M": 1e6, "K": 1e3}.get((m.group(2) or "").upper(), 1.0)
+
+
+def small_base_disp(v):
+    t = str(v or "").strip()
+    x = parse_disp(t)
+    if x is None or t.endswith("%") or not re.search(r"[^\d\s.,+\-\u2212TBMK]", t):
+        return False
+    return abs(x) < (1e9 if re.search(r"\d\s*[TBMK]\s*$", t) else 1.0)
 
 
 LB_HINT = re.compile("|".join(run_math._LOWER_IS_BETTER_TERMS
@@ -773,7 +789,9 @@ def verdict_gate(computed):
             thr = run_math.PCT_BEAT_MISS_THRESHOLD_PPT
             raw = "Beat" if diff >= thr else ("Miss" if diff <= -thr else "In-Line")
         else:
-            dp = (a - e) / abs(e) * 100.0 if e else 0.0
+            dp = parse_disp(row.get("deltaPercent"))
+            if dp is None:
+                dp = (a - e) / abs(e) * 100.0 if e else 0.0
             thr = run_math.BEAT_MISS_THRESHOLD * 100
             raw = "Beat" if dp >= thr else ("Miss" if dp <= -thr else "In-Line")
         expected = raw if raw == "In-Line" else (
@@ -872,9 +890,9 @@ def main(input_path: str, narrative_path: str, output_docx: str,
             if (lt, period) in existing or val is None:
                 continue
             av = abs(float(val))
-            if av >= 1e9:   raw = f"$ {val/1e9:.4f}B"
-            elif av >= 1e6: raw = f"$ {val/1e6:.4f}M"
-            else:           raw = f"$ {val:.4f}"
+            if av >= 1e9:   raw = f"$ {run_math._r(val/1e9, 4)}B"
+            elif av >= 1e6: raw = f"$ {run_math._r(val/1e6, 4)}M"
+            else:           raw = f"$ {run_math._r(val, 4)}"
             rows.append({
                 "TICKER_ID": "", "UIC": "", "LTCODE": lt,
                 "LINEITEM": "", "FISCALPERIOD": period,
@@ -1100,7 +1118,10 @@ def main(input_path: str, narrative_path: str, output_docx: str,
         if None in (_a, _e, _d):
             continue
         _scale = max(abs(_a), abs(_e), 1.0)
-        if abs((_a - _e) - _d) > _scale * 1e-9 + 1e-6:
+        _tol = _scale * 1e-9 + 1e-6
+        if small_base_disp(_row.get("currentEstimate")):
+            _tol += sum(disp_half(_row.get(k)) for k in ("currentActual", "currentEstimate", "deltaAbsolute"))
+        if abs((_a - _e) - _d) > _tol:
             _recon.append(
                 f"{_row.get('name')}: {_row.get('currentActual')} - {_row.get('currentEstimate')} "
                 f"= {(_a - _e):,.4g} but deltaAbsolute renders {_row.get('deltaAbsolute')}"
@@ -1403,7 +1424,7 @@ def main(input_path: str, narrative_path: str, output_docx: str,
             "Do not read 'pages: null' as one page.")
     summary = {
         "status": "success",
-        "skill_version": "v11.3.0",
+        "skill_version": "v11.3.2",
         "renderer": "python" if _use_py else "node",
         "output_docx": os.path.abspath(output_docx),
         "output_pdf": pdf_path,

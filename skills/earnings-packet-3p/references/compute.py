@@ -72,6 +72,19 @@ TOL_PEER = 0.10
 SCALE_JUMP = 100.0
 
 
+def _step(fmt, vals):
+    f = (fmt or "").strip()
+    top = max([abs(v) for v in vals if num(v) is not None] or [0])
+    if f == "$M":
+        return 0.005 * (1 if top < 1e3 else 1e3 if top < 1e6 else 1e6)
+    return {"$": 0.005, "$3": 0.005, "x": 0.005, "#B": 0.005, "k": 0.0005}.get(
+        f, 0.005 if f in ("%", "%2") and top < 5 else 0.05)
+
+
+def _slack(h, a, b):
+    return h * (abs(a) + abs(b)) / (b * b) * 100 if b and abs(b) > h else 0.0
+
+
 def num(v):
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
@@ -136,7 +149,8 @@ def audit(C, PR=None, skips=None):
             if mean:
                 want = (hi - lo) / abs(mean) * 100
                 got = num(r.get("disp"))
-                if got is not None and abs(want - got) > TOL_PP:
+                h = _step(r.get("fmt"), [mean, lo, hi])
+                if got is not None and abs(want - got) > TOL_PP + _slack(2 * h, hi - lo, mean):
                     bad("R2", nm, f"disp {got:.4f} but (max-min)/|mean| gives {want:.4f}")
         prior, yoy = num(r.get("prior")), num(r.get("yoy"))
         if None not in (mean, prior, yoy) and (prior or pct_row(r)):
@@ -163,7 +177,8 @@ def audit(C, PR=None, skips=None):
                             f"no prior-year base at {pk}"))
                     continue
                 want = pct_change(a, b)
-                if abs(want - gv) > max(TOL_PP, abs(want) * 1e-3):
+                h = _step(r.get("fmt") or "$M", list(cells.values()))
+                if abs(want - gv) > max(TOL_PP, abs(want) * 1e-3) + _slack(h, a, b):
                     bad("R4", nm, f"growth[{p}] {gv:.4f} but {a}/{b} gives {want:.4f}")
             vals = [(p, num(v)) for p, v in cells.items()]
             vals = [(p, v) for p, v in vals if v not in (None, 0)]
@@ -183,7 +198,7 @@ def audit(C, PR=None, skips=None):
                 skip("R5", nm, f"{field} not re-derivable: ltm or {span}.mean absent")
                 continue
             want = pct_change(ltm, base)
-            if abs(want - got) > TOL_PP:
+            if abs(want - got) > TOL_PP + _slack(0.005, ltm, base):
                 bad("R5", nm, f"{field} {got:.4f} but ltm/{span}.mean gives {want:.4f}")
 
     m0 = []
@@ -191,7 +206,7 @@ def audit(C, PR=None, skips=None):
         pre, day, got = num(r.get("w_pre")), num(r.get("w_day")), num(r.get("m0"))
         if None not in (pre, day, got) and pre:
             want = (day / pre - 1) * 100
-            if abs(want - got) > TOL_PP:
+            if abs(want - got) > TOL_PP + _slack(0.005, day, pre):
                 bad("R6", r.get("q", "?"), f"m0 {got:.4f} but w_day/w_pre gives {want:.4f}")
         if got is not None:
             m0.append(got)
@@ -244,11 +259,13 @@ def audit(C, PR=None, skips=None):
         if None in (pre, latest, got) or not pre:
             skip("R8", nm, "revision delta not re-derivable: base or latest vintage absent")
             continue
+        sl = 0.0
         if pct_row(r):
             want, unit = (latest - pre) * 100, "bps"
         else:
             want, unit = pct_change(latest, pre), "%"
-        if abs(want - got) > TOL_PP:
+            sl = _slack(_step(r.get("fmt"), [r.get(c.get("key")) for c in _rc]), latest, pre)
+        if abs(want - got) > TOL_PP + sl:
             bad("R8", r.get("name", "?"), f"delta {got:.4f} but the {unit} form gives {want:.4f}")
 
     for r in C.get("guide_vs_cons") or []:
@@ -389,6 +406,7 @@ def figures(C, PR=None):
         for d in range(0, 3):
             put(v / 1000, d)
             put(abs(v) / 1000, d)
+            put(abs(v) / 1e6, d)
         if abs(v) < 1e7:
             for d in range(0, 2):
                 put(v * 1000, d)

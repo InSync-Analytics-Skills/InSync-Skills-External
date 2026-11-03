@@ -274,6 +274,19 @@ genuinely partial scan still carries its banner on page one. **Do not claim ever
 disclosed metric was scanned.** The tag listing is
 tag-only, the sweep is relevance-ranked, and neither is a certified inventory.
 
+## Number format (house rule, v4.59.1)
+
+Every printed figure is rounded once, half-up on its decimal text (Excel ROUND: 2.675 is
+2.68, 12.25 is 12.3), and a negative carries the U+2212 minus before the symbol
+("−$1.20B", "−1.2%", "−35 bps"); a figure that rounds to zero prints unsigned.
+Money is $M, $B or $T at two decimals, one unit per row (a year-ago level shares the
+latest level's unit); per-share and multiples two decimals; percentages and pp one
+decimal, two for a rate level (not a reported growth rate) whose largest reading is under 5%; bps whole. A growth rate
+printed beside both of its money levels (base of $1B or more) is computed from the two
+printed levels, and the printed pace change is the gap between the two printed growth
+rates. Scores, z-scores, the unusualness band, ranks and every threshold use the full
+values. Quoted guidance text is reproduced as given.
+
 ## When nothing inflected
 
 A monitor run across a coverage list will often find nothing material, and that is a result.

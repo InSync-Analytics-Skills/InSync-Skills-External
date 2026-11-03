@@ -8,6 +8,7 @@ series, and that computation is done here, in code, deterministically.
 from __future__ import annotations
 
 import math
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Iterable, List, Optional, Sequence
 
 from matplotlib.ticker import FuncFormatter
@@ -38,6 +39,10 @@ for _code, _pre in (("eur", "€"), ("gbp", "£"), ("jpy", "¥"), ("chf", "CHF "
     UNITS.setdefault(f"{_code}_bn", {"label": f"{_cc} bn", "div": 1.0, "dp": 1, "pre": _pre, "suf": "", "mag": 1e9, "base": _cc})
     UNITS.setdefault(f"{_code}_ps", {"label": f"{_cc} / share", "div": 1.0, "dp": 2, "pre": _pre, "suf": "", "mag": 1.0, "base": f"{_cc} / share"})
 del _code, _pre, _cc
+for _m in UNITS.values():
+    _m["ldp"] = 2 if (_m["pre"] or _m["suf"] == "x" or _m["mag"] > 1) else (
+        1 if _m["suf"] in ("%", "ppt") else _m["dp"])
+del _m
 NA_TEXT = "n/a"
 _SUFFIXES = ((1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K"))
 
@@ -46,15 +51,11 @@ def unit_meta(unit: Optional[str]) -> dict:
     return dict(UNITS.get(unit or "num", UNITS["num"]))
 
 
-def _compact_parts(x: float, m: dict):
-    mag = m.get("mag", 1.0)
-    a = abs(x) * mag
-    if a < m.get("cmin", 1e3):
+def _compact_parts(x: float, m: dict, dp: int = 2, peak: Optional[float] = None):
+    sc = axis_scale(abs(x) if peak is None else peak, m)
+    if sc is None:
         return None, ""
-    for cut, suf in _SUFFIXES:
-        if a >= cut:
-            return f"{a / cut:,.1f}", suf
-    return None, ""
+    return _group(abs(x) * m.get("mag", 1.0) / sc[0], dp), sc[1]
 
 
 def is_missing(v) -> bool:
@@ -134,46 +135,47 @@ def invalid_values(values: Iterable) -> List[str]:
 
 
 def _group(n: float, dp: int) -> str:
-    return f"{n:,.{dp}f}"
+    q = Decimal(repr(float(n))).quantize(Decimal(1).scaleb(-dp), rounding=ROUND_HALF_UP)
+    return f"{q:,.{dp}f}"
 
 
-def _auto_dp(v: float, dp: int, unit: Optional[str] = None,
-             for_axis: bool = False) -> int:
-    a = abs(v)
+def _sign(x: float, body: str, signed: bool) -> str:
+    if not any(c in "123456789" for c in body):
+        return ""
+    return "−" if x < 0 else ("+" if signed and x > 0 else "")
+
+
+def fmt_num(x: float, dp: int = 1, suf: str = "", signed: bool = True) -> str:
+    body = _group(abs(x), dp)
+    return f"{_sign(x, body, signed)}{body}{suf}"
+
+
+def _auto_dp(v: float, dp: int, unit: Optional[str] = None) -> int:
     if unit in ("num", "num_mn") and float(v).is_integer():
         return 0
-    if for_axis:
-        return dp
-    if dp is not None and dp >= 0:
-        if a and a < 1 and dp == 0:
-            return 2
-        if a and a < 10 and dp == 0:
-            return 1
     return dp
 
 
+def printed(v: Number, unit: Optional[str] = None, dp: Optional[int] = None) -> Number:
+    if v is None:
+        return None
+    m = unit_meta(unit)
+    d = _auto_dp(v, m["ldp"] if dp is None else dp, unit)
+    return math.copysign(float(_group(abs(v / m["div"]), d).replace(",", "")), v)
+
+
 def fmt_value(v: Number, unit: Optional[str] = None, dp: Optional[int] = None,
-              compact: bool = False, signed: bool = False) -> str:
+              compact: bool = False, signed: bool = False,
+              peak: Optional[float] = None) -> str:
     if v is None:
         return NA_TEXT
     m = unit_meta(unit)
-    d = m["dp"] if dp is None else dp
-    d = _auto_dp(v, d, unit)
+    d = _auto_dp(v, m["ldp"] if dp is None else dp, unit)
     x = v / m["div"]
-    if compact:
-        return _compact(x, m, signed, d)
-    sign = "+" if signed and x > 0 else ("−" if x < 0 else "")
-    body = _group(abs(x), d)
-    return f"{sign}{m['pre']}{body}{m['suf']}"
-
-
-def _compact(x: float, m: dict, signed: bool, dp: Optional[int] = None) -> str:
-    sign = "+" if signed and x > 0 else ("−" if x < 0 else "")
-    body, suf = _compact_parts(x, m)
-    if body is not None:
-        return f"{sign}{m['pre']}{body}{suf}{m['suf']}"
-    d = m["dp"] if dp is None else dp
-    return f"{sign}{m['pre']}{abs(x):,.{d}f}{m['suf']}"
+    body, suf = _compact_parts(x, m, peak=peak) if compact else (None, "")
+    if body is None:
+        body = _group(abs(x), d)
+    return f"{_sign(x, body, signed)}{m['pre']}{body}{suf}{m['suf']}"
 
 
 def axis_scale(peak: Optional[float], m: dict):
@@ -202,18 +204,18 @@ def axis_formatter(unit: Optional[str], compact: bool = True, dp: Optional[int] 
             if v == 0:
                 return f"{m['pre']}0"
             cut, suf = scale
-            t = f"{abs(v) * m.get('mag', 1.0) / cut:,.1f}".rstrip("0").rstrip(".")
+            t = _group(abs(v) * m.get("mag", 1.0) / cut, 1).rstrip("0").rstrip(".")
             return f"{'−' if v < 0 else ''}{m['pre']}{t}{suf}"
         if compact:
-            body, suf = _compact_parts(v, m)
+            body, suf = _compact_parts(v, m, dp=1)
             if body is not None:
                 s = body.rstrip("0").rstrip(".")
                 return f"{'−' if v < 0 else ''}{m['pre']}{s}{suf}"
         d = m["dp"] if dp is None else dp
-        d = _auto_dp(v, d, unit, for_axis=True)
+        d = _auto_dp(v, d, unit)
         if 0 < a < 1 and d == 0:
             d = 2
-        s = f"{abs(v):,.{d}f}"
+        s = _group(abs(v), d)
         neg = "−" if v < 0 and float(s.replace(",", "")) != 0 else ""
         return (f"{neg}{m['pre']}{s}{m['suf']}" if m["suf"] in ("%", "x")
                 else f"{neg}{m['pre']}{s}")

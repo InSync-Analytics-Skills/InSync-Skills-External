@@ -1,12 +1,12 @@
 ---
 name: earnings-wrap
-version: "7.13.1"
+version: "7.13.5"
 description: "An earnings wrap that tells the story of a quarter already reported: how the company did, what surprised, what drove it, how guidance and expectations moved, what management said and what matters now. Delivered as a three-page PDF. For a line-by-line grade use Earnings Review; for a quick first read use Earnings Flash."
 ---
 
 # Earnings Wrap
 
-**Version: 7.13.1**  ·  Requires `python3` + `weasyprint` (`pip install weasyprint`).
+**Version: 7.13.5**  ·  Requires `python3` + `weasyprint` (`pip install weasyprint`).
 
 This file is the complete operating manual for a normal build. Open a `references/` file only when a gate
 tells you to, or when a line here sends you there. `references/BUILD.md` holds the detail behind every rule
@@ -128,9 +128,9 @@ cheap related pulls and never bundle two discovery or semantic searches.
 5. `get_estimates` → (a) frozen-final pre-print consensus for the printed quarter covering EVERY ltcode that
    will appear in Section 4 — the PLAIN call, no `latest`, no window (see "Pre-print consensus"), PLUS the
    windowed cross-check of the same ltcodes, which is MANDATORY and is a STOP on disagreement; (b) pre-print
-   consensus for next quarter and the FY pair; (c) latest post-print forward consensus for the same items. A
-   CLOSED quarter's consensus freezes at the print; a FORWARD period keeps revising. Do not reason from one to
-   the other.
+   consensus for next quarter and the FY pair; (c) post-print forward consensus for the same items from the
+   HISTORY call, never the plain or `latest` call (see "Post-print consensus"). A CLOSED quarter's consensus
+   freezes at the print; a FORWARD period keeps revising. Do not reason from one to the other.
 6. `get_guidance` → the guide the company had given FOR the printed quarter (the bar), plus the NEW guide issued
    ON the call.
 7. `get_valuation` (NTM) and `get_market_data` → post-print price, the reaction-session move, the 52-week range.
@@ -316,10 +316,17 @@ the cutoff steps back a day. No readable stamp → step back a day and say so.
 **Repanel check.** Crossing the print thins the broker panel and jumps MIN/MAX. If the snapshot you
 picked shows either against the one before it, step back one and note it.
 
-**Post-print consensus** fills `Post-print [E]` and the revisions grid: use the latest available revision
-and never print its date (say pre-print or post-print). If consensus has not revised, say exactly that and frame the reset off the NEW guide.
-Never pass a stale pre-print number off as post-print, and never read "unrevised" as "the Street
-confirmed".
+**Post-print consensus** (`Post-print [E]`, `forwardTable`'s `Consensus [E]`, the revisions grid's `After [E]`) is a
+FORWARD period, where the plain and `latest` calls can return a 1-2 broker partial update around a print. Pull
+HISTORY: `get_estimates(ticker_id, ltcode, fiscal_period, latest={"enabled": false}, updatedate_start=<today-30d
+YYYY-MM-DD>, updatedate_end="today", limit="100")`, paged until `has_more` is false; a code+period with no rows
+is re-fetched once over 120 days. (The FactSet wrapper takes the flat `"latest_enabled": false`, which the
+standalone MCP rejects: if one form is rejected, retry with the other.) Paste the raw rows VERBATIM into
+`forwardConsensus.rows` and write each cell as `{"fwd": {"ltcode", "period"}, "u"}`: the renderer picks the row
+(newest row with at least 40% of the window's deepest panel, post-print from the day after the call date) and drops a
+line whose rows lack `BROKERCOUNT`/`UPDATEDATE`, naming it in a WARN for the chat summary, never on the page.
+Never print the date. A guided line under 40% post-print drops the whole Post-print [E] column.
+Never pass a stale pre-print number off as post-print, and never read "unrevised" as "the Street confirmed".
 
 ## Numbers: the house precision policy and the unit tokens
 
@@ -328,11 +335,10 @@ confirmed".
 (per share included), multiples, counts with a magnitude and bare `2d` numbers at 2 dp; percentages and pp
 deltas at 1 dp; a bare count `#` whole. The full table is in BUILD.md ("Rounding is Excel's").
 
-**Section 4 computes from the DISPLAYED figures**, so a printed surprise closes by subtraction against
-the two cells beside it (the rule earnings-flash-skill uses). A row keeps widening (money to 4dp, rates to 2dp)
-until its own surprise survives and its direction does not change; every widened row is named in the
-Section 4 caption. A metric Section 4 also prints takes its KPI-table and snapshot Y/Y at Section 4's
-precision; everything else computes from the raw figures.
+**Every printed change is computed from the DISPLAYED figures** (house rule, as in earnings-flash-skill): Section 4,
+snapshot, KPI-table and revisions deltas close against the two cells beside them; a base under 1bn (money) or 1.00 (per
+share) is computed from full values. Nothing widens; a rate row whose largest value is under 5% prints 2 dp; one unit per
+row by its largest value (under 1bn `$M`, then `$B`, `$T`); negatives print a true minus (`−$1.23B`, `−1.2%`).
 
 **The unit vocabulary.** Every row carries a `u`; the vocabulary with an example each is the `u`
 annotation in `config_skeleton.json`. An unrecognised token, or `#` on a fractional value, is a HARD

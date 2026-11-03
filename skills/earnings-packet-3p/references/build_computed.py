@@ -107,7 +107,7 @@ def num(v):
 
 
 def r4(x):
-    return round(x, 4)
+    return x
 
 
 def need(where, key, src):
@@ -129,68 +129,105 @@ class Refuse(Exception):
 def _fixed(x, d):
     q = decimal.Decimal(1).scaleb(-d)
     v = decimal.Decimal(repr(float(x))).quantize(q, rounding=decimal.ROUND_HALF_UP)
-    return "{:,.{d}f}".format(v, d=d)
+    return "{:,.{d}f}".format(abs(v) if v == 0 else v, d=d)
 
 
-MINUS = "–"
+MINUS = "−"
 
 
 def _signed(s):
     return (MINUS + s[1:]) if s.startswith("-") else s
 
 
-def fmt_value(v, f, ccy="$", money_scale="B"):
-    if v is None:
-        return MINUS
+_UNIT = {"M": 1.0, "B": 1e3, "T": 1e6}
+_DP = {"$": 2, "$3": 2, "%": 1, "%2": 2, "x": 2, "k": 3, "#B": 2}
+
+
+def row_fmt(f, vals):
+    xs = [abs(v) for v in vals if num(v) is not None]
+    top = max(xs) if xs else 0
     if f == "$M":
-        if money_scale == "M":
-            s = ccy + _signed(_fixed(v, 1)) + "M"
-            return "(" + s.replace("-", "").replace(MINUS, "") + ")" if v < 0 else s
-        b = v / 1000.0
-        s = ccy + _signed(_fixed(abs(b), 2)) + "B"
-        return "(" + s + ")" if v < 0 else s
-    if f == "$":
-        return ccy + _signed(_fixed(v, 2))
-    if f == "$3":
-        return ccy + _signed(_fixed(v, 3))
+        return "$M:" + ("M" if top < 1e3 else "B" if top < 1e6 else "T")
+    if f in ("%", "%2"):
+        return "%2" if top < 5 else "%"
+    return f
+
+
+def shown(v, f):
+    s = _UNIT[f[3:]] if f.startswith("$M:") else 1.0
+    q = decimal.Decimal(1).scaleb(-(2 if f.startswith("$M") else _DP.get(f, 1)))
+    return float(decimal.Decimal(repr(float(v) / s)).quantize(q, rounding=decimal.ROUND_HALF_UP)) * s
+
+
+def _small(base, f):
+    return (f.startswith("$M") and abs(base) < 1e3) or (f in ("$", "$3") and abs(base) < 1)
+
+
+def r1_change(cur, base, f):
+    if cur is None or base is None or not f or _small(base, f):
+        return pct_change(cur, base)
+    return pct_change(shown(cur, f), shown(base, f))
+
+
+def _money(v, ccy, u):
+    s = _signed(_fixed(v, 2))
+    return MINUS + ccy + s[1:] + u if s.startswith(MINUS) else ccy + s + u
+
+
+def fmt_value(v, f, ccy="$"):
+    if v is None:
+        return "–"
+    if f.startswith("$M"):
+        u = f[3:] or row_fmt("$M", [v])[3:]
+        return _money(v / _UNIT[u], ccy, u)
+    if f in ("$", "$3"):
+        return _money(v, ccy, "")
     if f == "%":
         return _signed(_fixed(v, 1)) + "%"
     if f == "%2":
         return _signed(_fixed(v, 2)) + "%"
     if f == "x":
-        return _signed(_fixed(v, 2 if abs(v) < 5 else 1)) + "x"
+        return _signed(_fixed(v, 2)) + "x"
     if f == "k":
         return _signed(_fixed(v * 1000, 0))
     if f == "#B":
-        return _signed(_fixed(v, 3)) + "B"
+        return _signed(_fixed(v, 2)) + "B"
     return _signed(_fixed(v, 1))
 
 
 def fmt_growth(v, is_pct=False):
     if v is None:
-        return MINUS
+        return "–"
     s = "+" if v >= 0 else MINUS
     a = abs(v)
     return s + (_fixed(a, 0) + " bps" if is_pct else _fixed(a, 1) + "%")
 
 
-def growth_of(cells, keys):
+def growth_of(cells, keys, f=None):
     out = {}
+    rf = row_fmt(f or "", [cells.get(k) for k in keys])
     for k in keys:
         pk = prior_year_key(k)
         a = num(cells.get(k))
         b = num(cells.get(pk)) if pk else None
-        g = pct_change(a, b)
+        g = r1_change(a, b, rf)
         out[k] = r4(g) if g is not None else None
     return out
 
 
-def pct_of(numer, denom, keys):
+def pct_of(numer, denom, keys, fn=None, fd=None):
     out = {}
     for k in keys:
         a, b = num(numer.get(k)), num(denom.get(k))
+        if a is not None and b and fn and fd and not _small(b, fd):
+            a, b = shown(a, fn), shown(b, fd)
         out[k] = r4(a / b * 100) if (a is not None and b) else None
     return out
+
+
+def seg_margin(c, rev, QK):
+    return pct_of(c, rev, QK, row_fmt("$M", [c.get(k) for k in QK]),
+                  row_fmt("$M", [rev.get(k) for k in QK]))
 
 
 def is_rate(fmt, name):
@@ -214,7 +251,7 @@ def build_reaction_rows(P, R):
             raise Refuse("reaction %s: needs a print-day close pair, either "
                          "`pre`/`day` (the closes) or `w_pre`/`w_day`" % row["q"])
         e = {"q": row["q"], "date": row["date"], "w_pre": pre, "w_day": day,
-             "m0": r4(pct_change(day, pre))}
+             "m0": r4(r1_change(day, pre, "$"))}
         derivable = all(num(m.get(k)) is not None for k in ("d1", "d5", "spre", "sday", "s5"))
         if derivable:
             d1, d5 = num(m["d1"]), num(m["d5"])
@@ -257,6 +294,43 @@ def _cy_labels(metrics, prepared):
     return out
 
 
+PEER_PRINT_DAYS = 10
+_MONTHS = {m: i for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug",
+                                       "sep", "oct", "nov", "dec"), 1)}
+
+
+def _as_date(v):
+    import datetime as _dt
+    t = str(v or "").strip()
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", t)
+    if m:
+        return _dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = re.match(r"^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$", t)
+    if m and m.group(1).lower() in _MONTHS:
+        return _dt.date(int(m.group(3)), _MONTHS[m.group(1).lower()], int(m.group(2)))
+    return None
+
+
+def _last_calls(raw, asof):
+    pc = raw.get("peer_call_dates")
+    pairs = []
+    if isinstance(pc, dict):
+        if isinstance(pc.get("data"), list):
+            pc = pc["data"]
+        else:
+            pairs = [(k, v) for k, v in pc.items()]
+    if isinstance(pc, list):
+        pairs = [(r.get("TICKER") or r.get("ticker"), r.get("CALL_DATE") or r.get("call_date"))
+                 for r in pc if isinstance(r, dict)]
+    out = {}
+    for t, d in pairs:
+        d = _as_date(d)
+        if t and d and (asof is None or d <= asof):
+            t = str(t).strip().upper()
+            out[t] = max(out.get(t, d), d)
+    return out
+
+
 def build_peers(plan, raw):
     P = plan.get("peers")
     if not P:
@@ -281,6 +355,14 @@ def build_peers(plan, raw):
                   if m.get("key")]
     derived_names = set(DERIVED_PEER) | {lead_vs}
 
+    import datetime as _dt
+    asof = _as_date((plan.get("meta") or {}).get("prepared")) or _dt.date.today()
+    calls = _last_calls(raw, asof)
+    notes = []
+    if "peer_call_dates" not in raw:
+        notes.append("no peer_call_dates in raw_mcp.json, so no peer was checked for a recent "
+                     "print; CY consensus cells were used as returned")
+
     rows = []
     for ident in (P.get("rows") or []):
         t = ident.get("t")
@@ -296,6 +378,19 @@ def build_peers(plan, raw):
                 "peers.%s: raw_mcp.json supplies %s, which this builder DERIVES. A ratio in "
                 "the raw file is a ratio somebody computed by hand. Remove it and supply the "
                 "levels it comes from." % (t, ", ".join(bad)))
+
+        last = calls.get(str(t).strip().upper())
+        if "peer_call_dates" in raw and last is None:
+            notes.append("peer %s: no call date returned, so its CY consensus cells were used "
+                         "as returned" % t)
+        elif last is not None and (asof - last).days <= PEER_PRINT_DAYS:
+            blanked = sorted(k for k in src if _CY_KEY.match(k) and src[k] is not None)
+            src = {k: (None if _CY_KEY.match(k) else v) for k, v in src.items()}
+            if blanked:
+                notes.append("peer %s reported on %s, within %d days of the packet date, so its "
+                             "CY consensus cells (%s) were left out: the calendarized call can "
+                             "be a one- or two-broker partial update then"
+                             % (t, last.isoformat(), PEER_PRINT_DAYS, ", ".join(blanked)))
 
         row = {"t": t, "name": ident.get("name") or t, "id": ident.get("id"),
                "lead": bool(ident.get("lead"))}
@@ -331,7 +426,6 @@ def build_peers(plan, raw):
 
     missing = sorted({k for k in referenced
                       if not any(r.get(k) is not None for r in rows)})
-    notes = []
     if missing:
         notes.append("peer metrics no row codes, pruned at render: " + ", ".join(missing))
 
@@ -384,6 +478,138 @@ def _normalise_periods(raw, meta):
     return sorted(restated), sorted(unresolved)
 
 
+def _load_forward_consensus():
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forward_consensus.py")
+    spec = importlib.util.spec_from_file_location("forward_consensus", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _forward_periods(meta):
+    tgt = str(meta.get("target") or "")
+    out = [meta.get("next_q"), meta.get("fy0"), meta.get("fy1")]
+    skip = set(meta.get("hist") or []) | {tgt}
+    return [p for p in out if p and p not in skip]
+
+
+_FWD_TEXT = re.compile(r"^\s*(-)?\s*([^\d\s.,+-]*)\s*(-)?\s*([\d,]*\.?\d+)\s*(bps|[TBMKk%x])?\s*$")
+_FWD_MAG = {"T": 1e12, "B": 1e9, "M": 1e6, "K": 1e3, "k": 1e3}
+
+
+def _forward_value(fc, row, fmt):
+    v = fc._field(row, "VALUE")
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    m = _FWD_TEXT.match(str(v or ""))
+    if not m:
+        return None
+    n = float(m.group(4).replace(",", ""))
+    if m.group(1) or m.group(3):
+        n = -n
+    suf = m.group(5) or ""
+    if suf in ("%", "x", "bps"):
+        return n
+    amt = n * _FWD_MAG.get(suf, 1.0)
+    f = str(fmt or "")
+    if f.endswith("T"):
+        return amt / 1e12
+    if f.endswith("B"):
+        return amt / 1e9
+    if f.endswith("M"):
+        return amt / 1e6
+    if f in ("k", "K", "#K", "$K"):
+        return amt / 1e3
+    return amt
+
+
+def _apply_forward_consensus(P, R, meta):
+    rows = R.get("forward_rows")
+    if not isinstance(rows, list):
+        return P, [], set()
+    fc = _load_forward_consensus()
+    fwd = _forward_periods(meta)
+    fmt_of = {}
+    for grp in ("segments", "seg_ebit"):
+        for r in P.get(grp, []):
+            fmt_of[str(r.get("code"))] = "$M"
+    if isinstance(P.get("corp"), dict):
+        fmt_of[str(P["corp"].get("code"))] = "$M"
+    for grp in ("model", "kpis"):
+        for r in P.get(grp, []):
+            fmt_of[str(r.get("code"))] = r.get("fmt")
+    clean = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row = dict(row)
+        for k in ("FISCALPERIOD", "fiscalperiod"):
+            if k in row and row[k] is not None:
+                row[k] = _R_PREFIX.sub("", str(row[k]))
+        clean.append(row)
+    picked, dropped = fc.pick_forward_consensus(clean)
+    picked = {k: v for k, v in picked.items() if k[1] in fwd}
+    dropped = [d for d in dropped if d[1] in fwd]
+    notes = list(fc.drop_notes(dropped))
+    dropped_keys = {(lt, per) for lt, per, _ in dropped}
+    for (lt, per), p in sorted(picked.items()):
+        usable = [r for r in clean
+                  if (str(fc._field(r, "LTCODE") or ""), fc._period(r)) == (lt, per)
+                  and fc._date(fc._field(r, "UPDATEDATE")) is not None
+                  and fc._brokers(fc._field(r, "BROKERCOUNT")) is not None]
+        newest = max(usable, key=lambda r: fc._date(fc._field(r, "UPDATEDATE")))
+        nd = fc._date(fc._field(newest, "UPDATEDATE")).isoformat()
+        if nd != p["asof"]:
+            notes.append("[forward consensus] %s %s: newest row (%s, %s broker(s)) is a partial "
+                         "update against a %d-broker panel; used %s (%d brokers)."
+                         % (lt, per, nd, fc._field(newest, "BROKERCOUNT"), p["full_panel"],
+                            p["asof"], p["brokers"]))
+    cells = R.get("cells")
+    if isinstance(cells, dict):
+        for code, series in cells.items():
+            if not isinstance(series, dict):
+                continue
+            for per in fwd:
+                key = (str(code), per)
+                if key in picked:
+                    v = _forward_value(fc, picked[key]["row"], fmt_of.get(str(code)))
+                    series[per] = v
+                    if v is None:
+                        dropped_keys.add(key)
+                        notes.append("[forward consensus dropped] %s %s: VALUE %r could not be "
+                                     "read, so the line item was removed."
+                                     % (key[0], key[1], fc._field(picked[key]["row"], "VALUE")))
+                elif series.get(per) is not None:
+                    series[per] = None
+                    if key not in dropped_keys:
+                        dropped_keys.add(key)
+                        notes.append("[forward consensus dropped] %s %s: no history row in the "
+                                     "window, so the line item was removed." % key)
+    guidance = R.get("guidance") if isinstance(R.get("guidance"), dict) else {}
+    keep = []
+    for g in P.get("guide_vs_cons", []):
+        code, tgt = g.get("code"), g.get("target")
+        if code and tgt in fwd and g.get("item") in guidance:
+            key = (str(code), tgt)
+            v = (_forward_value(fc, picked[key]["row"], g.get("fmt") or fmt_of.get(str(code)))
+                 if key in picked else None)
+            if v is not None:
+                guidance[g["item"]] = dict(guidance[g["item"]], cons=v)
+            else:
+                notes.append("[forward consensus dropped] guidance '%s' (%s %s): no usable "
+                             "consensus row, so the guided item was removed."
+                             % (g["item"], code, tgt))
+                dropped_keys.add(key)
+                continue
+        keep.append(g)
+    if "guide_vs_cons" in P:
+        P = dict(P, guide_vs_cons=keep)
+    return P, notes, dropped_keys
+
+
 def build(plan, raw):
     P, R = plan, raw
     _left = _placeholders_left(P)
@@ -393,6 +619,7 @@ def build(plan, raw):
                      "that row." % ", ".join(_left))
     meta = dict(P["meta"])
     _restated, _unresolved = _normalise_periods(R, meta)
+    P, _fwd_notes, _fwd_dropped = _apply_forward_consensus(P, R, meta)
     hist = meta["hist"]
     tgt, nxt = meta["target"], meta["next_q"]
     fyp, fy0, fy1 = meta["fy_prev"], meta["fy0"], meta["fy1"]
@@ -407,13 +634,14 @@ def build(plan, raw):
     cells_by_code = {}
 
     C["spine"] = [dict(s) for s in P["spine"]]
+    _fmt = {r["code"]: r["fmt"] for r in P["model"]}
     model = []
     for row in P["model"]:
         code = row["code"]
         cells = need("model " + code, code, R["cells"])
         cells_by_code[code] = cells
         m = {"code": code, "name": row["name"], "fmt": row["fmt"],
-             "cells": cells, "growth": growth_of(cells, GK)}
+             "cells": cells, "growth": growth_of(cells, GK, row["fmt"])}
         if row.get("rung"):
             m["rung"] = row["rung"]
         if row.get("neg_ok"):
@@ -425,8 +653,9 @@ def build(plan, raw):
             raise Refuse("margin %s: needs cells for %s over %s"
                          % (mg["code"], mg["of"], mg["on"]))
         keys = sorted(set(list(n_.keys()) + list(d_.keys())))
+        fn, fd = (row_fmt(_fmt.get(x), [cells_by_code[x].get(k) for k in GK]) for x in (mg["of"], mg["on"]))
         model.append({"code": mg["code"], "name": mg["name"], "fmt": "%",
-                      "cells": pct_of(n_, d_, keys),
+                      "cells": pct_of(n_, d_, keys, fn, fd),
                       "growth": {k: None for k in GK}})
     C["model"] = model
 
@@ -436,7 +665,7 @@ def build(plan, raw):
         c = need("segment " + row["code"], row["code"], R["cells"])
         seg_rev_cells[row["code"]] = c
         segments.append({"code": row["code"], "name": row["name"], "cells": c,
-                         "growth": growth_of(c, QK)})
+                         "growth": growth_of(c, QK, "$M")})
     totals = {}
     for k in QK:
         vals = [num(c.get(k)) for c in seg_rev_cells.values()]
@@ -449,8 +678,8 @@ def build(plan, raw):
         c = need("segment profit " + row["code"], row["code"], R["cells"])
         rev = seg_rev_cells.get(row.get("of", ""))
         e = {"code": row["code"], "name": row["name"], "cells": c,
-             "growth": growth_of(c, QK)}
-        e["margin"] = pct_of(c, rev, QK) if rev else {k: None for k in QK}
+             "growth": growth_of(c, QK, "$M")}
+        e["margin"] = seg_margin(c, rev, QK) if rev else {k: None for k in QK}
         seg_ebit.append(e)
     C["seg_ebit"] = seg_ebit
 
@@ -461,7 +690,7 @@ def build(plan, raw):
     for row in P.get("kpis", []):
         c = need("kpi " + row["code"], row["code"], R["cells"])
         kpis.append({"code": row["code"], "name": row["name"], "fmt": row["fmt"],
-                     "cells": c, "growth": growth_of(c, QK)})
+                     "cells": c, "growth": growth_of(c, QK, row["fmt"])})
     C["kpis"] = kpis
     C["kpi_growth_sub"] = list(P.get("kpi_growth_sub", []))
 
@@ -470,13 +699,18 @@ def build(plan, raw):
         d = need("dispersion " + row["code"], row["code"], R["dispersion"])
         mean, lo, hi = num(d.get("mean")), num(d.get("min")), num(d.get("max"))
         prior = num(d.get("prior"))
+        rf = row_fmt(row["fmt"], [mean, lo, hi])
+        if None not in (lo, hi, mean) and not _small(mean, rf):
+            lo_, hi_, mn_ = shown(lo, rf), shown(hi, rf), shown(mean, rf)
+        else:
+            lo_, hi_, mn_ = lo, hi, mean
         e = {"code": row["code"], "name": row["name"], "fmt": row["fmt"],
              "mean": mean, "min": lo, "max": hi,
-             "disp": r4((hi - lo) / abs(mean) * 100) if None not in (lo, hi, mean) and mean else None,
+             "disp": r4((hi_ - lo_) / abs(mn_) * 100) if None not in (lo, hi, mean) and mn_ else None,
              "n": d.get("n"), "upd": d.get("upd"), "prior": prior}
         if None not in (mean, prior):
             e["yoy"] = (r4((mean - prior) * 100) if is_rate(row["fmt"], row["name"])
-                        else (r4(pct_change(mean, prior)) if prior else None))
+                        else (r4(r1_change(mean, prior, rf)) if prior else None))
         else:
             e["yoy"] = None
         if row.get("neg_ok"):
@@ -499,14 +733,15 @@ def build(plan, raw):
         for c in rev_cols:
             e[c["key"]] = num(vals.get(c["key"]))
         a, b = e.get(base_key), e.get(latest_key)
+        rate = is_rate(row["fmt"], row["name"])
         if None not in (a, b):
-            d = ((b - a) * 100 if is_rate(row["fmt"], row["name"])
-                 else pct_change(b, a))
+            d = ((b - a) * 100 if rate
+                 else r1_change(b, a, row_fmt(row["fmt"], [e[c["key"]] for c in rev_cols])))
             e["delta"] = r4(d) if d is not None else None
         else:
             e["delta"] = None
         dv = e["delta"]
-        e["tag"] = ("Unchanged" if dv is None or abs(dv) <= 0.05
+        e["tag"] = ("Unchanged" if dv is None or _fixed(abs(dv), 0 if rate else 1) in ("0", "0.0")
                     else ("Raised" if dv > 0 else "Cut"))
         if row.get("neg_ok"):
             e["neg_ok"] = True
@@ -595,7 +830,7 @@ def build(plan, raw):
         for span, field in (("y1", "vs_1y_mean"), ("y3", "vs_3y_mean")):
             base = (e[span] or {}).get("mean")
             base = num(base)
-            e[field] = r4(pct_change(ltm, base)) if None not in (ltm, base) and base else None
+            e[field] = r4(r1_change(ltm, base, "x")) if None not in (ltm, base) and base else None
         val.append(e)
     C["valuation"] = val
     C["val_sector"] = P["val_sector"]
@@ -642,13 +877,26 @@ def build(plan, raw):
             if "value" in t:
                 tiles.append({"label": t["label"], "value": t["value"], "sign": t.get("sign")})
                 continue
+            if kind[0] in ("model", "growth") and len(kind) > 2 and (kind[1], kind[2]) in _fwd_dropped:
+                _fwd_notes.append("[forward consensus dropped] tile %r: its source %s was "
+                                  "dropped, so it prints n/a." % (t.get("label"), spec))
+                tiles.append({"label": t["label"], "value": "n/a", "sign": None})
+                continue
             raise Refuse("tile %r: `from` %s resolved to nothing and no fallback `value` "
                          "was given" % (t.get("label"), spec))
         f = t.get("fmt", "$M")
+        rv = [v]
+        if kind[0] == "model" and src:
+            rv = [src["cells"].get(k) for k in GK]
+        elif kind[0] == "dispersion" and src:
+            rv = [src.get("mean"), src.get("min"), src.get("max")]
+        elif kind[0] == "guidance" and src:
+            rv = [src.get("lo"), src.get("hi"), src.get("cons")]
         if f == "pct100":
             v, f = num(v) * 100 if num(v) is not None else v, "%"
+            rv = [v]
         txt = (fmt_growth(v, f == "bps") if f in ("growth", "bps")
-               else fmt_value(v, f, ccy, money_scale))
+               else fmt_value(v, row_fmt(f, rv), ccy))
         sign = t.get("sign")
         if sign == "auto":
             sign = 1 if num(v) is not None and v >= 0 else -1
@@ -663,6 +911,7 @@ def build(plan, raw):
     C["margin_basis"] = dict(P.get("margin_basis", {}))
     C["warnings"] = list(P.get("warnings", []))
     C["warnings"] += _tol_notes
+    C["warnings"] += _fwd_notes
     if _restated:
         C["warnings"].append(
             "Restated periods normalised at the builder: " + ", ".join(_restated)
@@ -754,7 +1003,7 @@ def explode(C):
         match = None
         if keys:
             for s in order:
-                pm = pct_of(row["cells"], s["cells"], keys)
+                pm = seg_margin(row["cells"], s["cells"], list(hist) + [meta["target"]])
                 if all(pm.get(k) == m.get(k) for k in keys):
                     match = s
                     break
@@ -1282,13 +1531,17 @@ def _infer_denominator(mg, plan, raw):
     of = raw["cells"].get(mg.get("of"))
     if not of or not tgt:
         return None
+    m_, fm = plan.get("meta") or {}, {r["code"]: r.get("fmt") or "" for r in plan.get("model", [])}
+    gk = list(m_.get("hist") or []) + [m_.get(x) for x in ("target", "next_q", "fy_prev", "fy0", "fy1")]
+    rf = lambda c, cl: row_fmt(fm.get(c, ""), [cl.get(k) for k in gk if k])
     for code, cells in raw["cells"].items():
         ok = 0
         for k, v in list(tgt.items())[:6]:
             a, b = num(of.get(k)), num(cells.get(k))
             if None in (a, b) or not b or v is None:
                 continue
-            if abs(a / b * 100 - v) < 1e-3:
+            p1 = pct_of({k: a}, {k: b}, [k], rf(mg.get("of"), of), rf(code, cells))[k]
+            if abs(a / b * 100 - v) < 1e-3 or abs(p1 - v) < 1e-3:
                 ok += 1
         if ok >= 3:
             return code

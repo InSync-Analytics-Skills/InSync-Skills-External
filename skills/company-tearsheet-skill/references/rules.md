@@ -29,8 +29,8 @@ The slot prints `n/a` **with the reason**, never a bare dash and never a number,
 | negative | `n/a` | a negative PEG is not a ratio anyone can read |
 | zero | `n/a` | no denominator |
 | positive, PEG above `PEG_MAX` (10x) | `n/a` | near zero growth the ratio is set by the denominator, not the valuation |
-| positive, PEG rounds below `PEG_MIN` (0.0x at one decimal) | `n/a` | at very high growth it collapses the same way |
-| positive, PEG between 0.1x and 10x | `1.0x` | quoted normally |
+| positive, PEG rounds below `PEG_MIN` (0.10x at two decimals) | `n/a` | at very high growth it collapses the same way |
+| positive, PEG between 0.10x and 10x | `1.00x` | quoted normally; P/E and growth as printed |
 
 **The bound is on the printed PEG, not on the growth rate**, because it is the number on the
 page that has to be defensible. Suppression is NOT a QC failure: compute suppresses on odd data
@@ -61,6 +61,14 @@ quote. `n/m` renders in body grey via the renderer's single `NEUTRAL_CELL` test,
 `check_render.py` (internal edition only) asserts. `GROWTH_MAX` (1,000%) bounds the extreme tail.
 
 
+### 7.10b Rounding (house rule)
+
+Half-up, once; zero prints unsigned, grey; negatives `−`. 2 dp: money, per-share, multiples,
+K/M/B counts; % 1 dp (2 on a rate row below 5%); bps whole; one money unit per row. Printed Y/Y,
+margins, the FY2 growth box (vs FY1; FY1 keeps YOY_GROWTH, its FY0 base is unprinted), premiums, PEG and Beat/Miss/In-line use the
+printed levels; bases under $1B or 1.00/share, and bps, use full values.
+
+
 ### 7.11 The target's row in `peers`
 Mark the target with `"is_target": true` and put the row **wherever you like**. Row order
 affects no figure: the peer table renders in the order you supply, the rank letters follow each
@@ -77,7 +85,7 @@ Each is applied automatically and reported in a warning when it fires. `SKILL.md
 | negative and loss-making multiples (per-basis bound, **P/E 1-200x**, `n/a` with the reason, no average across a sign change) |
 | choosing the peer basis from the data — P/E, then EV/EBITDA, then EV/Sales, then `P/B` last |
 | REITs: P/E and PEG suppressed everywhere, FFO-based rows, `P/FFO` leading the strip |
-| the PEG bound (`PEG_MAX` 10x, `PEG_MIN` 0.0x at one decimal, `n/a` with the reason, not a QC failure) |
+| the PEG bound (`PEG_MAX` 10x, `PEG_MIN` 0.10x at two decimals, `n/a` with the reason, not a QC failure) |
 | `n/m` where a Y/Y has no positive base, in body grey, with the direction in a warning (`GROWTH_MAX` 1,000% caps the tail) |
 | dropping a valuation slot whose value AND context are both the missing-data glyph |
 | filling optional slots last, in the declared order `P/B (NTM)` → `Div Yield` → `vs Peer Median`, and naming any that did not fit |

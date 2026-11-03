@@ -284,16 +284,24 @@
      "u": "$B"
     },
     {
-     "v": "<post-print consensus>",
+     "v": "<pre-print mark from guidanceConsensusProbe>",
+     "u": "$B"
+    },
+    {
+     "fwd": {
+      "ltcode": "<LTCODE>",
+      "period": "<FISCALPERIOD as in the history rows>"
+     },
      "u": "$B"
     }
    ]
   ],
-  "_cols_doc": "Pre-print [E] is the Street mark that stood when management guided \u2014 did the guide beat expectations. Post-print [E] is where the Street moved after \u2014 has it now passed the guide. Both are real and each answers a different question, so the table carries both."
+  "_cols_doc": "Pre-print [E] is the Street mark that stood when management guided \u2014 did the guide beat expectations. Post-print [E] is where the Street moved after \u2014 has it now passed the guide. Both are real and each answers a different question, so the table carries both.",
+  "_post_print_doc": "Post-print [E] is a FORWARD period: never type its figure. Write {\"fwd\": {\"ltcode\", \"period\"}, \"u\"} and paste the history rows into forwardConsensus; the renderer picks the row. Add \"abs\": true to show a line InSync stores as an outflow (capex) as positive spend, matching a guide entered as spend. A line with no post-print row holding at least 40% of the full panel, or no usable row, is left out: the whole Post-print [E] column is removed and the line is named in a WARN."
  },
  "guidanceTableCap": "<appended AFTER the basis sentence the renderer writes, so do NOT restate what Prior means: put only the source and any caveat here>",
- "_forwardTable_instead": "ONLY where get_guidance returned zero rows: delete guidanceTable and guidanceTableCap, and add forwardTable with head exactly [\"Forward Metric\",\"Consensus [E]\",\"Basis\"]. Exactly one of the two tables, never both.",
- "_revisions_optional": "Add `revisions` [{name, before, after, u}] plus `revisionsWindow` and `revisionsCap` where pre- and post-print consensus both exist. Where consensus has not revised, omit the grid only, say so in one line, and still keep guidanceTable. revisionsCap must say what the revision MEANS.",
+ "_forwardTable_instead": "ONLY where get_guidance returned zero rows: delete guidanceTable and guidanceTableCap, and add forwardTable with head exactly [\"Forward Metric\",\"Consensus [E]\",\"Basis\"]. Exactly one of the two tables, never both. Its Consensus [E] cells are forward cells {\"fwd\": {\"ltcode\", \"period\"}, \"u\"} picked from forwardConsensus.",
+ "_revisions_optional": "Add `revisions` [{name, before, after, u}] plus `revisionsWindow` and `revisionsCap` where pre- and post-print consensus both exist. `after` is a forward cell {\"fwd\": {\"ltcode\", \"period\"}} picked from forwardConsensus, never a typed figure; a row whose consensus has not revised since the print leaves the grid. Where consensus has not revised, omit the grid only, say so in one line, and still keep guidanceTable. revisionsCap must say what the revision MEANS.",
  "mgmt": [
   "**<Topic>.** Management <guided | said | reaffirmed | raised | expects | plans | cited> <the statement>",
   "**<Topic>.** <a statement or one short attributed quote, never a restated result>",
@@ -447,7 +455,7 @@
  },
  "guidanceConsensusProbe": {
   "asOf": "<the date of the last consensus snapshot BEFORE management guided>",
-  "postAsOf": "<the date of the post-print mark in the Post-print [E] column>",
+  "postAsOf": "<the date of the post-print mark in the Post-print [E] column; leave blank and the renderer sets it from the row it picked>",
   "window": "<the updatedate window you queried>",
   "probed": [
    {
@@ -465,6 +473,20 @@
    }
   ],
   "_why": "SEPARATE from consensusProbe, which covers Results rows (the CLOSED quarter) only. A closed quarter's consensus freezes at the print; a FORWARD period keeps revising, so the guided period needs its own pinned pull: get_estimates on the guided ltcodes with latest={enabled:false} and an updatedate window ending at the print, taking the LAST snapshot. Illustration: if $100B stood when management guided and $110B a week later, a $104B-$106B guide reads ABOVE the first and BELOW the second."
+ },
+ "forwardConsensus": {
+  "window": "<updatedate_start> to <updatedate_end> of the history pull",
+  "rows": [
+   {
+    "LTCODE": "<LTCODE>",
+    "FISCALPERIOD": "<period>",
+    "VALUE": "<as returned, e.g. $1.2345B>",
+    "BROKERCOUNT": 0,
+    "UPDATEDATE": "<YYYY-MM-DD>"
+   }
+  ],
+  "_why": "Post-print FORWARD consensus (Post-print [E], forwardTable Consensus [E], revisions After [E]). The plain and latest calls can return a 1-2 broker partial update around a print, so pull HISTORY: get_estimates with latest={\"enabled\": false}, updatedate_start=<today-30d YYYY-MM-DD>, updatedate_end=\"today\", limit=\"100\", paged until has_more is false; a code+period with no rows is re-fetched once over 120 days. The FactSet wrapper takes the flat \"latest_enabled\": false, which the standalone MCP rejects: if one form is rejected, retry with the other. Paste EVERY row verbatim; forward_consensus.py picks one per LTCODE and period (newest row with at least 40% of the window's deepest panel, post-print from the day after the call date). Internal: never rendered, and the home of BROKERCOUNT for these cells.",
+  "_postFrom_optional": "<YYYY-MM-DD: only to override the first post-print date the renderer works out from guidanceFreshness.releaseFile>"
  },
  "documentAttempts": [
   {
