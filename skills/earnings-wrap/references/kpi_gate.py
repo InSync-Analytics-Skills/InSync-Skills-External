@@ -19,8 +19,8 @@ Tiers:
 
 Usage:
   python kpi_gate.py --check-mcp "Primary KPI name" "name1;name2;..." [provenance]
-  python kpi_gate.py --pick-primary "name~tags;name~tags;..."
-  python kpi_gate.py --pick-secondary "name~tags;name~tags;..."
+  python kpi_gate.py --pick-primary "name~tags~value~unit;..."
+  python kpi_gate.py --pick-secondary "name~tags~value~unit;..."
   python kpi_gate.py --selftest-mcp
 """
 import re, sys
@@ -79,8 +79,23 @@ def pick_primary_kpi(entries):
             break
     best = max(range(len(pool)), key=lambda i: (len(tags(pool[i])), -i))
     e = pool[best]
+    tied = [x for x in pool if len(tags(x)) == len(tags(e))]
+    if len(tied) > 1 and all(x.get("value") is not None for x in tied) and len({x.get("unit") for x in tied}) == 1             and tied[0].get("unit"):
+        e = max(tied, key=lambda x: (abs(x["value"]), -pool.index(x)))
+        return (e["name"], "%s; tag count %d tied %d ways, won on latest-quarter size %s %s, MCP order index %d"
+                % (why, len(tags(e)), len(tied), e["value"], e["unit"], entries.index(e)))
     return (e["name"], "%s; won on tag count %d, MCP order index %d"
             % (why, len(tags(e)), entries.index(e)))
+
+def _entries(arg):
+    out = []
+    for p in arg.split(";"):
+        if not p.strip(): continue
+        f = p.split("~") + ["", "", ""]
+        try: v = float(f[2].replace(",", "")) if f[2].strip() else None
+        except ValueError: v = None
+        out.append({"name": f[0], "tags": f[1], "value": v, "unit": f[3].strip() or None})
+    return out
 
 def _norm(s):
     return re.sub(r"[^a-z0-9]", "", str(s).lower())
@@ -147,17 +162,15 @@ if __name__ == "__main__":
         sys.exit(2 if tier == "FAIL" else 0)
     if argv[:1] == ["--pick-primary"]:
         if len(argv) < 2:
-            print('usage: kpi_gate.py --pick-primary "<name~tags;name~tags;...>"'); sys.exit(1)
-        ents = [{"name": p.split("~")[0], "tags": (p.split("~")[1] if "~" in p else "")}
-                for p in argv[1].split(";") if p.strip()]
+            print('usage: kpi_gate.py --pick-primary "<name~tags~value~unit;...>"'); sys.exit(1)
+        ents = _entries(argv[1])
         nm, why = pick_primary_kpi(ents)
         print("PRIMARY KPI: %s\n     reason: %s" % (nm, why))
         sys.exit(0 if nm else 2)
     if argv[:1] == ["--pick-secondary"]:
         if len(argv) < 2:
-            print('usage: kpi_gate.py --pick-secondary "<name~tags;name~tags;...>"'); sys.exit(1)
-        ents = [{"name": p.split("~")[0], "tags": (p.split("~")[1] if "~" in p else "")}
-                for p in argv[1].split(";") if p.strip()]
+            print('usage: kpi_gate.py --pick-secondary "<name~tags~value~unit;...>"'); sys.exit(1)
+        ents = _entries(argv[1])
         nm, why = pick_secondary_kpi(ents)
         print("SECONDARY KPI: %s\n     reason: %s" % (nm, why))
         sys.exit(0 if nm else 2)
@@ -183,6 +196,6 @@ if __name__ == "__main__":
         print("\nRESULT:", "ladder gate behaves as specified" if not bad else "LADDER GATE REGRESSION")
         sys.exit(bad)
     print('usage: kpi_gate.py --check-mcp "<Primary KPI>" "<name1;name2;...>" [provenance]')
-    print('       kpi_gate.py --pick-primary "<name~tags;name~tags;...>"')
+    print('       kpi_gate.py --pick-primary "<name~tags~value~unit;...>"')
     print("       kpi_gate.py --selftest-mcp")
     sys.exit(1)

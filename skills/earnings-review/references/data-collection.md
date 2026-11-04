@@ -106,7 +106,8 @@ no paraphrase." Quote only text you can see; store each quote in `data.json → 
 Nine periods for every Y/Y metric (checked) · EPS and revenue consensus with counts · every scorecard code found or probed
 (checked) · KPI tagging saved (checked) · every shown guide verified (checked) · polarity declared for graded lines (checked) ·
 reaction dates match the timing (post-market: pre = release-day close, post = next session; pre-market: pre = prior close,
-post = release-day close; a non-trading date is moved with a warning) · prior-period adjusted EPS in InSync ties to this release's
+post = release-day close; a non-trading date is moved with a warning; a post date InSync has no close for yet leaves the reaction
+pending, and no price at all drops it, so neither stops the build) · prior-period adjusted EPS in InSync ties to this release's
 prior-period column · every FILL BY HAND item resolved or stated as a gap in Source.
 
 ## 9. Parameter values that cost time when wrong

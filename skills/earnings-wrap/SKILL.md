@@ -1,12 +1,12 @@
 ---
 name: earnings-wrap
-version: "7.13.5"
+version: "7.13.6"
 description: "An earnings wrap that tells the story of a quarter already reported: how the company did, what surprised, what drove it, how guidance and expectations moved, what management said and what matters now. Delivered as a three-page PDF. For a line-by-line grade use Earnings Review; for a quick first read use Earnings Flash."
 ---
 
 # Earnings Wrap
 
-**Version: 7.13.5**  ·  Requires `python3` + `weasyprint` (`pip install weasyprint`).
+**Version: 7.13.6**  ·  Requires `python3` + `weasyprint` (`pip install weasyprint`).
 
 This file is the complete operating manual for a normal build. Open a `references/` file only when a gate
 tells you to, or when a line here sends you there. `references/BUILD.md` holds the detail behind every rule
@@ -71,7 +71,8 @@ never blend two tiers into one universe.**
 
 1. **`mcp_top_kpi`** — `search_lineitem` with `queries='all'`, `filter='top_kpi'`. That list IS the universe.
    Pick the Primary KPI MECHANICALLY with `python references/kpi_gate.py --pick-primary
-   "name~tags;name~tags;..."` (MCP return order) and the second Key KPI with `--pick-secondary`. Never override
+   "name~tags~value~unit;..."` (MCP return order; value = the latest-quarter actual from `get_actuals`, unit as
+   returned, so a tag tie goes to the larger line) and the second Key KPI with `--pick-secondary`. Never override
    either.
 2. **`mcp_kpi_tier`** — zero rows: re-run `queries='all'` with NO filter, spanning every KPI tier.
 3. **`mcp_discovery`** — zero rows again: the ticker carries no KPI tagging. Get this sector's discovery

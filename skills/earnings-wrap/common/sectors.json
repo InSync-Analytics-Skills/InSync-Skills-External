@@ -1,5 +1,5 @@
 {
- "version": "7.13.5",
+ "version": "7.13.6",
  "note": "The sector spine, as data. Decisions 2 to 4 of Step 0 - primary margin metric, guidance variable, core debate - keyed on the insync_subindustry returned by search_tickerid. `match` holds the substrings the classification is tested against, longest-specific first; the first row that matches wins and `default` is the fallback. This file is the single source for every skill in the library, the same way common/brand.json is the single source for the masthead: a row added here reaches all of them. It is a FALLBACK, not the authority - get_guidance and get_actuals win where they answer.",
  "rows": [
   {

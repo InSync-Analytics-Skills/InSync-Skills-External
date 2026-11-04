@@ -17,7 +17,7 @@ import sys, os, json, base64, subprocess, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-VERSION = "7.13.5"
+VERSION = "7.13.6"
 
 BROKER_FLOOR = 1
 

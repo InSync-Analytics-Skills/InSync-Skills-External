@@ -313,6 +313,15 @@ def c_repeat():
             if g1 and g2 and len(g1 & g2) / len(g1 | g2) > 0.5: err(f"repeated fact: {s1} and {s2} items are near-duplicates")
 check("repeat", c_repeat)
 
+def c_reaction_prose():
+    st = ((cj.get("reaction") or {}).get("status")) or "ok"
+    if st == "ok": return
+    allow = {"reaction.index"} | ({"reaction.pre_price", "reaction.current_price", "reaction.since", "reaction.index_since", "reaction.vs_buyback"} if st == "pending" else set())
+    txt = json.dumps(pr, ensure_ascii=False)
+    used = sorted({k for k in re.findall(r"\{(reaction\.[^}|]+)(?:\|c)?\}", txt) if k not in allow})
+    if used: err(f"share-price reaction is {st} but the prose quotes {', '.join('{' + k + '}' for k in used)}: drop those sentences (the reaction table says it is {st})")
+check("reaction_prose", c_reaction_prose)
+
 def c_identity():
     sp = os.path.join(RAW, "insync_search_tickerid.json")
     if os.path.exists(sp):

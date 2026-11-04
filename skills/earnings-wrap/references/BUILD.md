@@ -1,4 +1,4 @@
-# Build guide — earnings wrap v7.13.5
+# Build guide — earnings wrap v7.13.6
 
 This file describes the shipped pipeline. The renderer carries its CSS inline; there is no
 separate HTML template or header spec to follow.

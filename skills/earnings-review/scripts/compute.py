@@ -211,27 +211,38 @@ def main():
 
     R = d["reaction"]; dates = R.get("dates") or []; ix = {dt: j for j, dt in enumerate(dates)}
     sym = R["symbol"]; idx = R.get("index", "SPY")
-    if not dates or sym not in (R.get("closes") or {}): envelope("compute", f"no price history for {sym} in raw/insync_prices.json")
+    status = "ok" if dates and sym in (R.get("closes") or {}) else "missing"
+    if status == "missing": WARN.append(f"REACTION NOT SHOWN: no price history for {sym} in raw/insync_prices.json")
     for key, side in (("pre_date", -1), ("post_date", 1), ("day2_date", 1)):
+        if status != "ok": break
         dtv = R.get(key)
         if dtv is None:
             if key == "day2_date": continue
             envelope("compute", f"reaction.{key} is not set: fill it from the release timing (data-collection §8) and rerun")
         if dtv not in ix:
             cand = [x for x in dates if (x < dtv if side < 0 else x > dtv)]
-            if not cand: envelope("compute", f"reaction.{key} {dtv} is outside the price history ({dates[0]}..{dates[-1]})")
+            if not cand:
+                if key == "pre_date": status = "missing"; WARN.append(f"REACTION NOT SHOWN: pre-print date {dtv} is before the price history ({dates[0]}..{dates[-1]})")
+                elif key == "post_date": status = "pending"; R["day2_date"] = None; WARN.append(f"REACTION PENDING: post-print close {dtv} is not in InSync yet (history ends {dates[-1]}); rerun once it is")
+                else: R["day2_date"] = None
+                continue
             new = cand[-1] if side < 0 else cand[0]; WARN.append(f"reaction.{key} {dtv} is not a trading day in the price file: using {new}"); R[key] = new
-    def close(s, dt): return (R["closes"].get(s) or [None] * len(dates))[ix[dt]]
+    def close(s, dt): return (R["closes"].get(s) or [None] * len(dates))[ix[dt]] if dt in ix else None
+    if status == "ok" and close(sym, R["pre_date"]) is None: status = "missing"; WARN.append(f"REACTION NOT SHOWN: no {sym} close on the pre-print date {R['pre_date']}")
+    if status == "ok" and close(sym, R["post_date"]) is None: status = "pending"; WARN.append(f"REACTION PENDING: no {sym} close on the post-print date {R['post_date']}; rerun once it is in")
     def ret(s, a_, b_, pr_=False): return rpct(close(s, b_), close(s, a_), "usd2") if pr_ else pct(close(s, b_), close(s, a_))
-    rx = {"pre_price": close(sym, R["pre_date"]), "post_price": close(sym, R["post_date"]), "current_price": close(sym, R["asof_date"]) if R.get("asof_date") in ix else None,
-          "chg": ret(sym, R["pre_date"], R["post_date"], True), "index_chg": ret(idx, R["pre_date"], R["post_date"]) if idx in R["closes"] else None,
-          "day2": ret(sym, R["post_date"], R["day2_date"]) if R.get("day2_date") else None,
-          "index_day2": ret(idx, R["post_date"], R["day2_date"]) if R.get("day2_date") and idx in R["closes"] else None,
-          "since": ret(sym, R["pre_date"], R["asof_date"], True) if R.get("asof_date") in ix else None, "index_since": ret(idx, R["pre_date"], R["asof_date"]) if R.get("asof_date") in ix and idx in R["closes"] else None,
-          "peers": {p: ret(p, R["pre_date"], R["post_date"]) for p in R.get("peers", [])},
-          "peers_day2": {p: ret(p, R["post_date"], R["day2_date"]) for p in R.get("peers", [])} if R.get("day2_date") else {}}
+    ok_, has_pre = status == "ok", status != "missing"
+    asof_ok = has_pre and R.get("asof_date") in ix
+    rx = {"status": status, "pre_price": close(sym, R["pre_date"]) if has_pre else None, "post_price": close(sym, R["post_date"]) if ok_ else None,
+          "current_price": close(sym, R["asof_date"]) if asof_ok else None,
+          "chg": ret(sym, R["pre_date"], R["post_date"], True) if ok_ else None, "index_chg": ret(idx, R["pre_date"], R["post_date"]) if ok_ and idx in R["closes"] else None,
+          "day2": ret(sym, R["post_date"], R["day2_date"]) if ok_ and R.get("day2_date") else None,
+          "index_day2": ret(idx, R["post_date"], R["day2_date"]) if ok_ and R.get("day2_date") and idx in R["closes"] else None,
+          "since": ret(sym, R["pre_date"], R["asof_date"], True) if asof_ok else None, "index_since": ret(idx, R["pre_date"], R["asof_date"]) if asof_ok and idx in R["closes"] else None,
+          "peers": {p: ret(p, R["pre_date"], R["post_date"]) for p in R.get("peers", [])} if ok_ else {},
+          "peers_day2": {p: ret(p, R["post_date"], R["day2_date"]) for p in R.get("peers", [])} if ok_ and R.get("day2_date") else {}}
     vols = R.get("volumes", {}).get(sym)
-    if vols:
+    if vols and ok_:
         pre_idx = ix[R["pre_date"]]; base_v = [x for x in vols[max(0, pre_idx - 5):pre_idx] if x]; avg = sum(base_v) / len(base_v) if base_v else None
         pv = vols[ix[R["post_date"]]]; dv2 = vols[ix[R["day2_date"]]] if R.get("day2_date") else None
         rx["vol_reaction_x"] = None if (not avg or pv is None) else pv / avg
@@ -239,8 +250,9 @@ def main():
     if R.get("buyback_avg_price") and rx["current_price"]: rx["price_vs_buyback"] = pct(rx["current_price"], R["buyback_avg_price"])
     out["reaction"] = rx
     fp = lambda x: "—" if x is None else f"{PS}{q(x, 2):,.2f}"
-    T.update({"reaction.pre_price": fp(rx["pre_price"]), "reaction.post_price": fp(rx["post_price"]), "reaction.current_price": fp(rx["current_price"]),
-              "reaction.chg": pcn(rx["chg"]), "reaction.index_chg": pcn(rx["index_chg"]), "reaction.day2": pcn(rx["day2"]), "reaction.index_day2": pcn(rx["index_day2"]),
+    pend = lambda t: "pending" if status == "pending" else t
+    T.update({"reaction.pre_price": fp(rx["pre_price"]), "reaction.post_price": pend(fp(rx["post_price"])), "reaction.current_price": fp(rx["current_price"]),
+              "reaction.status": status, "reaction.chg": pend(pcn(rx["chg"])), "reaction.index_chg": pcn(rx["index_chg"]), "reaction.day2": pcn(rx["day2"]), "reaction.index_day2": pcn(rx["index_day2"]),
               "reaction.since": pcn(rx["since"]), "reaction.index_since": pcn(rx["index_since"]),
               "reaction.vol_reaction_x": "—" if rx.get("vol_reaction_x") is None else f"{q(rx['vol_reaction_x'], 2)}", "reaction.vol_day2_x": "—" if rx.get("vol_day2_x") is None else f"{q(rx['vol_day2_x'], 2)}",
               "reaction.vs_buyback": "—" if rx.get("price_vs_buyback") is None else f"{q(abs(rx['price_vs_buyback']), 1)}", "reaction.index": idx})

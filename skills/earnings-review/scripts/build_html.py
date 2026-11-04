@@ -129,12 +129,15 @@ parts.append(f'''<table class="mast"><tr>
 </tr></table><div class="orule"></div>''')
 
 parts.append('<div class="sub dark">Share Price Reaction and Valuation</div>')
-R = d["reaction"]
-parts.append(table(["Earnings release date", "Earnings call date", "Pre-earnings price", "Post-earnings price", "Price change", "Market cap", "EV", "P/E (NTM)", "EV/EBITDA (NTM)"],
-    [[esc(f"{T['f.release_display']}") if "f.release_display" in T else esc(rel_disp()), esc(T.get("f.call_display", CALL["display"])),
-      T["reaction.pre_price"], T["reaction.post_price"], sgn(T["reaction.chg"]) + f" (index {esc(T['reaction.index_chg'])})",
-      T["val.mcap"], T["val.ev"], T["val.pe_ntm"], T["val.ev_ebitda_ntm"]]],
-    [14, 11, 10, 10, 13, 10, 9, 11, 12], aligns=["l"] + ["r"] * 8, keep=True))
+R = d["reaction"]; RST = T.get("reaction.status", "ok")
+_rh = ["Earnings release date", "Earnings call date", "Pre-earnings price", "Post-earnings price", "Price change", "Market cap", "EV", "P/E (NTM)", "EV/EBITDA (NTM)"]
+_rr = [esc(f"{T['f.release_display']}") if "f.release_display" in T else esc(rel_disp()), esc(T.get("f.call_display", CALL["display"])),
+       T["reaction.pre_price"], T["reaction.post_price"], esc("pending") if RST == "pending" else sgn(T["reaction.chg"]) + f" (index {esc(T['reaction.index_chg'])})",
+       T["val.mcap"], T["val.ev"], T["val.pe_ntm"], T["val.ev_ebitda_ntm"]]
+_rw = [14, 11, 10, 10, 13, 10, 9, 11, 12]
+if RST == "missing":
+    _rh, _rr, _rw = [x for i, x in enumerate(_rh) if i not in (2, 3, 4)], [x for i, x in enumerate(_rr) if i not in (2, 3, 4)], [16, 14, 16, 14, 14, 13, 13]
+parts.append(table(_rh, [_rr], _rw, aligns=["l"] + ["r"] * (len(_rh) - 1), keep=True))
 VH = c.get("valuation_history") or {}
 VLAB = {"pe": ("P/E (adj.)", "val.pe_ntm"), "ev_ebitda": ("EV/EBITDA (adj.)", "val.ev_ebitda_ntm"), "pb": ("P/B", "val.pb"), "pe_gaap": ("P/E (reported)*", None),
         "ev_ebitda_gaap": ("EV/EBITDA (reported)*", None), "ev_sales": ("EV/Sales", None)}
@@ -275,6 +278,8 @@ if _bc: ovs += " Not graded because InSync's pre-print consensus is on a differe
 _rc = CO.get("reporting_currency", "USD"); _pc = (d.get("reaction") or {}).get("price_currency") or _rc
 if _rc != "USD" or _pc != _rc: ovs += f" Figures in {esc(_rc)}" + (f"; share prices in {esc(_pc)}." if _pc != _rc else ".")
 if (c.get("valuation_check") or {}).get("ok") is False: ovs += " InSync's valuation for this issuer failed a price and EPS consistency check; market cap, EV and multiples are not shown."
+if T.get("reaction.status") == "pending": ovs += " Share-price reaction pending: the post-earnings close is not in InSync yet; rerun once it is to fill it in."
+if T.get("reaction.status") == "missing": ovs += " Share-price reaction not shown: price data not available in InSync."
 if (d.get("reaction") or {}).get("price_source"): ovs += " Share prices are InSync adjusted closes (dividend and split adjusted); no volume."
 if (d.get("provenance") or {}).get("confirm_stale"): ovs += f" Reviewed although a later period has reported: {esc(d['provenance']['confirm_stale'])}."
 if NGD: ovs += " Not graded although InSync carries a consensus: " + "; ".join(f"{esc(_lab(k))} ({esc(v)})" for k, v in NGD.items() if k in M) + "."
