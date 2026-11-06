@@ -1,13 +1,13 @@
 ---
 name: earnings-packet-3p
-version: 7.12.8
+version: 7.12.9
 description: "A dense three-page earnings packet for a portfolio manager to read before a company reports. It covers the key debate, guidance against consensus, financials, analyst spread, KPIs, estimate revisions, valuation, peers, typical results-day reaction, and risks and catalysts, in Word and PDF. For a longer, more detailed preview use Earnings Preview."
 argument-hint: TICKER [target quarter e.g. 3Q26] [--peers "PEER1,PEER2,PEER3"]
 ---
 
 # Earnings Packet, three pages, Path B pipeline
 
-**Version: 7.12.8**  ·  Requires: `python3` (standard library for the build; no Node, no npm),
+**Version: 7.12.9**  ·  Requires: `python3` (standard library for the build; no Node, no npm),
 plus `pymupdf` + `pdfplumber` for the PDF checks. `self_check.py` probes for them, so a missing one
 is a named failure at
 Step 7, not a silent skip.
@@ -25,7 +25,7 @@ run, same version number:
 ```
 
 `<SKILL VERSION>` is the full three-part version in this file's frontmatter, so this build
-writes `... Earnings Packet v7.12.8.docx`. Not a build counter, not the major number alone.
+writes `... Earnings Packet v7.12.9.docx`. Not a build counter, not the major number alone.
 
 **Three pages is the specification, not a target.** Ten sections, every one present. If the
 build runs to four, compress by structure: transpose a table, merge two tables, fold a
@@ -584,7 +584,7 @@ The renderer enforces all of it; full detail in `references/house-format.md` and
 text column 10,800 dxa**; Calibri for body and tables, Times New Roman for section headings
 AND the masthead; **tables carry horizontal rules only**, no vertical gridlines and no outer
 box; **house rounding rule** (`references/house-format.md`): money $M/$B/$T with ONE unit per row by its
-largest value, money, per-share and multiples at two decimals, percentages at one (two on a rate row under 5%),
+largest value (peer-table cells each by their own), money, per-share and multiples at two decimals, percentages at one (two on a rate row under 5%),
 `−` (U+2212) for negatives, a printed change worked from the printed levels; **every figure rounded HALF-UP ONCE**
 (`fmt.py` and `build_computed.py::_fixed` must stay in step); verbatim guidance quoted
 as published and never re-rounded; every label carries its unit where the values are

@@ -115,7 +115,7 @@ must know while authoring:
   find a table by them, so `validate_rules_style.py` re-derives those three from the
   horizontal rules.
 - **The house rounding rule** (v7.12.5, `house-format.md`): money in $M / $B / $T with ONE
-  unit per row, picked by the row's largest value (`fmt.rowfmt`), two decimals; per-share and
+  unit per row, picked by the row's largest value (`fmt.rowfmt`; peer-table cells each by their own), two decimals; per-share and
   multiples two decimals; percentages one decimal, two on a rate row under 5%; U+2212 for a
   negative; half-up once. `meta.money_scale` is still validated but no longer moves a cell.
   Verbatim guidance text is quoted as published and never re-rounded.

@@ -1,6 +1,6 @@
 # Earnings Packet
 
-*Version 7.12.8*
+*Version 7.12.9*
 ## What this skill does
 
 A dense **three-page** buy-side pre-earnings packet (.docx + .pdf) for any public
@@ -12,7 +12,7 @@ Standalone, and read in a single pass.
 ## How to use it
 
 Write `<V>` as the FULL three-part version from the SKILL.md frontmatter, so this build
-names its files `... Earnings Packet v7.12.8.docx`. Mixed spellings across runs of one
+names its files `... Earnings Packet v7.12.9.docx`. Mixed spellings across runs of one
 version make a folder of packets impossible to sort.
 
 ```

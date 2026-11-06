@@ -77,7 +77,7 @@ negative, a red positive, or a black negative.
 
 | Type | Rule |
 |---|---|
-| Money | **$M / $B / $T by size, ONE unit per row** (the row's largest value picks it), two decimals: `$187.32B`, `$950.10M`. Negatives lead with U+2212 **and** are red: `−$14.20B`. |
+| Money | **$M / $B / $T by size, ONE unit per row** (the row's largest value picks it; in the peer table, where a row compares different companies, each cell picks its own), two decimals: `$187.32B`, `$950.10M`. Negatives lead with U+2212 **and** are red: `−$14.20B`. |
 | Per share | `$0.74`, two decimals (a `'$3'` row prints two as well) |
 | Percentages | **one decimal**: `25.3%`; a rate row whose largest value is under 5% prints two: `3.42%` (`'%2'` is the same rule) |
 | Change in a percentage | **basis points**: `+18 bps`. A margin's Y/Y is a spread, not a percent of a percent. |

@@ -1343,6 +1343,8 @@ def main():
                     f = PF.get(G(m, 'fmt')) if isinstance(G(m, 'fmt'), str) else None
                     if f is None:
                         raise type_error('PF[m.fmt] is not a function')
+                    if G(m, 'fmt') == 'money' and is_num(v):
+                        u = rowfmt([to_num(v)], '$M')
                     return f(v, u)
                 metric(G(m, 'label'), fn, {'b': jt(G(m, 'lead'))})
 
